@@ -8,8 +8,8 @@
 const char* WIFI_SSID = "Phong Tro Tang 3.2";
 const char* WIFI_PASS = "99999999";
 
-const char* BOT_TOKEN = "8001886516:AAFIYz1nlvTyMuBe8Vly1FQ1AFWHrgp8ouw";
-const char* CHAT_ID   = "5599360909"; // user id (chat riêng) hoặc group id (âm)
+const char* BOT_TOKEN = "";
+const char* CHAT_ID   = ""; // user id (chat riêng) hoặc group id (âm)
 // ===================================
 
 // GPS: cấu hình UART2 (GPIO16 RX2, GPIO17 TX2)
