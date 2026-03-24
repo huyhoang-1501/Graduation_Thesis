@@ -34,3 +34,6 @@ Thêm file header sau: Setup_ST7796_ESP32_4inch_SPI_I2C_CTP.h
 #include <Setup_ST7796_ESP32_4inch_SPI_I2C_CTP.h>
 ```
 ---
+ ## Cài thư viện 
+ - TFT_eSPI.
+ - lvgl (copy file lv_conf_external.h thành lv_conf.h ra ngoài library của arduino để chạy).
