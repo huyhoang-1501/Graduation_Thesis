@@ -126,12 +126,12 @@ static void btn_event_cb(lv_event_t *e) {
 }
 
 static lv_obj_t* make_btn(lv_obj_t *parent, const char *label) {
-  // Màu theo theme y tế
-  lv_color_t primary   = lv_color_make(0, 140, 200);     // xanh y tế
-  lv_color_t dark      = lv_color_make(10, 60, 90);      // chữ xanh đậm
-  lv_color_t card      = lv_color_white();               // nền trắng
-  lv_color_t pressedBg = lv_color_make(210, 245, 255);   // xanh nhạt pressed
-  lv_color_t border    = lv_color_make(200, 235, 250);   // viền nhạt
+  // Theme y tế
+  lv_color_t primary   = lv_color_make(0, 140, 200);
+  lv_color_t dark      = lv_color_make(10, 60, 90);
+  lv_color_t card      = lv_color_white();
+  lv_color_t pressedBg = lv_color_make(210, 245, 255);
+  lv_color_t border    = lv_color_make(200, 235, 250);
 
   lv_obj_t *btn = lv_btn_create(parent);
   lv_obj_set_style_radius(btn, 18, 0);
@@ -153,8 +153,12 @@ static lv_obj_t* make_btn(lv_obj_t *parent, const char *label) {
   lv_obj_center(lab);
   lv_obj_set_style_text_color(lab, dark, 0);
 
-  // font: ưu tiên to
-#if LV_FONT_MONTSERRAT_20
+  // font to hơn cho dễ bấm
+#if LV_FONT_MONTSERRAT_24
+  lv_obj_set_style_text_font(lab, &lv_font_montserrat_24, 0);
+#elif LV_FONT_MONTSERRAT_22
+  lv_obj_set_style_text_font(lab, &lv_font_montserrat_22, 0);
+#elif LV_FONT_MONTSERRAT_20
   lv_obj_set_style_text_font(lab, &lv_font_montserrat_20, 0);
 #elif LV_FONT_MONTSERRAT_18
   lv_obj_set_style_text_font(lab, &lv_font_montserrat_18, 0);
@@ -165,24 +169,24 @@ static lv_obj_t* make_btn(lv_obj_t *parent, const char *label) {
   lv_obj_add_event_cb(btn, btn_event_cb, LV_EVENT_CLICKED, (void*)label);
   return btn;
 }
+
 static void create_ui_keypad() {
-  lv_color_t bg      = lv_color_make(245, 252, 255);   // nền trắng xanh nhạt
-  lv_color_t primary = lv_color_make(0, 140, 200);     // xanh y tế
-  lv_color_t dark    = lv_color_make(10, 60, 90);      // chữ xanh đậm
-  lv_color_t card    = lv_color_white();               // thẻ trắng
+  lv_color_t bg      = lv_color_make(245, 252, 255);
+  lv_color_t primary = lv_color_make(0, 140, 200);
+  lv_color_t dark    = lv_color_make(10, 60, 90);
+  lv_color_t card    = lv_color_white();
 
   lv_obj_t *scr = lv_scr_act();
   lv_obj_set_style_bg_color(scr, bg, 0);
   lv_obj_set_style_pad_all(scr, 12, 0);
 
-  // ===== Display (textarea) =====
+  // Textarea hiển thị
   ta_number = lv_textarea_create(scr);
-  lv_obj_set_size(ta_number, 460, 80);
+  lv_obj_set_size(ta_number, 460, 78);
   lv_obj_align(ta_number, LV_ALIGN_TOP_MID, 0, 0);
   lv_textarea_set_one_line(ta_number, true);
   lv_textarea_set_placeholder_text(ta_number, "Nhap so...");
 
-  // style "card" giống status bar Main GUI
   lv_obj_set_style_bg_color(ta_number, card, 0);
   lv_obj_set_style_text_color(ta_number, dark, 0);
   lv_obj_set_style_border_width(ta_number, 2, 0);
@@ -192,7 +196,6 @@ static void create_ui_keypad() {
   lv_obj_set_style_shadow_width(ta_number, 0, 0);
   lv_obj_set_style_pad_left(ta_number, 16, 0);
   lv_obj_set_style_pad_top(ta_number, 14, 0);
-  lv_textarea_set_text_selection(ta_number, true);
 
 #if LV_FONT_MONTSERRAT_28
   lv_obj_set_style_text_font(ta_number, &lv_font_montserrat_28, 0);
@@ -204,15 +207,15 @@ static void create_ui_keypad() {
   lv_obj_set_style_text_font(ta_number, &lv_font_montserrat_14, 0);
 #endif
 
-  // ===== Container grid 4x4 =====
+  // Grid keypad
   lv_obj_t *cont = lv_obj_create(scr);
-  lv_obj_set_size(cont, 460, 210);
+  lv_obj_set_size(cont, 460, 232);
   lv_obj_align(cont, LV_ALIGN_BOTTOM_MID, 0, 0);
   lv_obj_set_style_bg_opa(cont, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(cont, 0, 0);
   lv_obj_set_style_pad_all(cont, 0, 0);
-  lv_obj_set_style_pad_row(cont, 12, 0);
-  lv_obj_set_style_pad_column(cont, 12, 0);
+  lv_obj_set_style_pad_row(cont, 8, 0);
+  lv_obj_set_style_pad_column(cont, 8, 0);
 
   static lv_coord_t col[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
   static lv_coord_t row[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
@@ -237,10 +240,9 @@ static void create_ui_keypad() {
   lv_obj_set_grid_cell(make_btn(cont, "0"),   LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_STRETCH, 3, 1);
   lv_obj_set_grid_cell(make_btn(cont, "CLR"), LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 3, 1);
 
-  // ===== Cột chức năng: DEL 2 hàng + SAVE 2 hàng =====
+  // Function column
   lv_obj_t *bdel = make_btn(cont, "DEL");
   lv_obj_set_grid_cell(bdel, LV_GRID_ALIGN_STRETCH, 3, 1, LV_GRID_ALIGN_STRETCH, 0, 2);
-  // đỏ nhạt + viền đỏ
   lv_obj_set_style_bg_color(bdel, lv_color_make(255, 235, 235), 0);
   lv_obj_set_style_bg_color(bdel, lv_color_make(255, 210, 210), LV_STATE_PRESSED);
   lv_obj_set_style_border_color(bdel, lv_color_make(220, 40, 40), 0);
@@ -248,7 +250,6 @@ static void create_ui_keypad() {
 
   lv_obj_t *bsave = make_btn(cont, "SAVE");
   lv_obj_set_grid_cell(bsave, LV_GRID_ALIGN_STRETCH, 3, 1, LV_GRID_ALIGN_STRETCH, 2, 2);
-  // xanh nhạt + viền xanh
   lv_obj_set_style_bg_color(bsave, lv_color_make(230, 250, 255), 0);
   lv_obj_set_style_bg_color(bsave, lv_color_make(200, 240, 255), LV_STATE_PRESSED);
   lv_obj_set_style_border_color(bsave, primary, 0);
@@ -301,5 +302,5 @@ void setup() {
 
 void loop() {
   lv_timer_handler();
-  delay(1);   // nhạy hơn
+  delay(1);
 }
