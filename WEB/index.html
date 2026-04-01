@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Health Monitoring - Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Firebase v8 -->
+  <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-auth.js"></script>
+
+  <!-- Font + Icon -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ========== LOGIN SCREEN ========== -->
+  <div id="login-section">
+    <div class="login-container">
+      <div class="login-header">
+        <img src="image/logo_spkt.png" alt="HCMUTE Logo">
+        <h1>HCMUTE</h1>
+        <p>Đại học Công nghệ Kỹ thuật TP.HCM</p>
+      </div>
+
+      <div class="login-box">
+        <div class="login-title">
+          <h2>ĐĂNG NHẬP</h2>
+        </div>
+
+        <!-- FORM LOGIN: EMAIL + GOOGLE -->
+        <form id="login-form">
+          <div class="input-group-login">
+            <label>Email</label>
+            <input type="email" id="email-login" placeholder="Nhập email của bạn" autocomplete="off">
+          </div>
+          <div class="input-group-login">
+            <label>Mật khẩu</label>
+            <input type="password" id="password-login" placeholder="Nhập mật khẩu" minlength="6" autocomplete="new-password">
+          </div>
+
+          <button type="button" id="email-signin-btn" class="btn-login" style="background:#2c3e50; margin-bottom:15px;">
+            Đăng nhập bằng Email
+          </button>
+
+          <div style="text-align:center; margin:20px 0; color:#777; font-weight:bold;">HOẶC</div>
+
+          <button type="submit" class="btn-login" style="background:#4285F4;">
+            <i class="fab fa-google" style="margin-right:12px;"></i>
+            Đăng nhập bằng Google
+          </button>
+
+          <p style="margin-top:25px; font-size:15px; color:#555;">
+            Chưa có tài khoản? 
+            <a href="#" id="show-register" style="color:#4285F4; font-weight:bold; text-decoration:underline;">Đăng ký ngay</a>
+          </p>
+
+          <!-- FIX required khi bấm Google -->
+          <div style="display:none;">
+            <input type="text" name="fakeuser">
+            <input type="password" name="fakepass">
+          </div>
+        </form>
+
+        <!-- ĐĂNG KÝ (ẩn mặc định) -->
+        <div id="register-form" style="display:none; margin-top:30px;">
+          <h3 style="color:#2c3e50; margin-bottom:20px;">TẠO TÀI KHOẢN MỚI</h3>
+          <div class="input-group-login">
+            <label>Email</label>
+            <input type="email" id="email-register" placeholder="Nhập email" required autocomplete="off">
+          </div>
+          <div class="input-group-login">
+            <label>Mật khẩu (tối thiểu 6 ký tự)</label>
+            <input type="password" id="password-register" placeholder="Tạo mật khẩu" required minlength="6" autocomplete="new-password">
+          </div>
+          <button type="button" id="register-btn" class="btn-login" style="background:#27ae60;">
+            Đăng ký ngay
+          </button>
+          <p style="margin-top:15px; font-size:14px; color:#555;">
+            Đã có tài khoản? 
+            <a href="#" id="show-login" style="color:#4285F4; font-weight:bold;">Quay lại đăng nhập</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== DASHBOARD: SAU KHI LOGIN ========== -->
+  <div id="app" class="hidden">
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <img src="image/logo_spkt.png" class="topbar-logo" alt="">
+        <span class="topbar-title">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ KỸ THUẬT TP.HCM</span>
+      </div>
+      <div class="topbar-right">
+        <span id="current-user-email" class="user-email"></span>
+        <button class="icon-btn" title="Đăng xuất" onclick="logout()">
+          <i class="fas fa-sign-out-alt"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-logo">HCM-UTE</div>
+          <div class="sidebar-user">
+            <div id="sidebar-user-name">Người dùng</div>
+            <div id="sidebar-user-role">Caregiver</div>
+          </div>
+        </div>
+
+        <nav class="sidebar-menu">
+          <div class="sidebar-section-title">TRANG CHÍNH</div>
+          <button class="sidebar-item active" data-page="overview">
+            <i class="fas fa-chart-line"></i> Tổng quan
+          </button>
+          <button class="sidebar-item" data-page="history">
+            <i class="fas fa-history"></i> Lịch sử
+          </button>
+          <button class="sidebar-item" data-page="alerts">
+            <i class="fas fa-bell"></i> Cảnh báo
+          </button>
+          <button class="sidebar-item" data-page="patients">
+            <i class="fas fa-users"></i> Thiết bị / Bệnh nhân
+          </button>
+
+          <div class="sidebar-section-title">TÀI KHOẢN</div>
+          <button class="sidebar-item" data-page="settings">
+            <i class="fas fa-cog"></i> Cài đặt
+          </button>
+        </nav>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <main class="main">
+        <!-- TAB TITLE GIỐNG CỔNG THÔNG TIN -->
+        <div class="tab-header">
+          <button class="tab-btn active" data-page="overview">TỔNG QUAN</button>
+          <button class="tab-btn" data-page="personal">THÔNG TIN CÁ NHÂN</button>
+        </div>
+
+        <!-- THANH TÌM KIẾM / ACTION BAR (tùy bạn dùng) -->
+        <div class="search-bar">
+          <input type="text" placeholder="Tìm kiếm ...">
+          <button class="btn-primary"><i class="fas fa-search"></i></button>
+        </div>
+
+        <!-- CÁC PAGE NỘI DUNG (bạn sẽ code tiếp) -->
+        <section id="page-overview" class="page active">
+          <!-- TODO: Nhúng dashboard health (card HR/BP, map, chart mini...) -->
+          <div class="placeholder-box">
+            Đây là khu vực <b>Tổng quan</b>. Bạn nhét giao diện giám sát sức khỏe vào đây.
+          </div>
+        </section>
+
+        <section id="page-history" class="page">
+          <div class="placeholder-box">
+            Trang <b>Lịch sử</b>: filter ngày, Chart.js lớn, bảng dữ liệu,...
+          </div>
+        </section>
+
+        <section id="page-alerts" class="page">
+          <div class="placeholder-box">
+            Trang <b>Cảnh báo</b>: danh sách alert, severity, ack, click nhảy sang lịch sử.
+          </div>
+        </section>
+
+        <section id="page-patients" class="page">
+          <div class="placeholder-box">
+            Trang <b>Thiết bị / Bệnh nhân</b>: danh sách người được theo dõi, trạng thái online/offline.
+          </div>
+        </section>
+
+        <section id="page-settings" class="page">
+          <div class="placeholder-box">
+            Trang <b>Cài đặt</b>: ngưỡng cảnh báo, thông tin tài khoản,...
+          </div>
+        </section>
+
+        <section id="page-personal" class="page">
+          <div class="placeholder-box">
+            Tab <b>Thông tin cá nhân</b> giống cổng trường: hiển thị info user, mail, role,...
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

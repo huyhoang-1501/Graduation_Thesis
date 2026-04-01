@@ -60,30 +60,80 @@ static bool ft6336u_read_touch(uint16_t &x, uint16_t &y, bool &touched) {
 RTC_DS3231 rtc;
 static bool rtc_ok = false;
 
+// ================= MAX17043 (Battery gauge) =================
+#define MAX17043_ADDR 0x32
+#define VCELL_REG   0x02
+#define SOC_REG     0x04
+#define MODE_REG    0x06
+
+static bool max17043_ok = false;
+
+static bool i2c_device_present(uint8_t addr) {
+  Wire.beginTransmission(addr);
+  return (Wire.endTransmission() == 0);
+}
+
+static void max17043_reset() {
+  Wire.beginTransmission(MAX17043_ADDR);
+  Wire.write(MODE_REG);
+  Wire.write(0x54);
+  Wire.write(0x00);
+  Wire.endTransmission();
+}
+
+static void max17043_quickStart() {
+  Wire.beginTransmission(MAX17043_ADDR);
+  Wire.write(MODE_REG);
+  Wire.write(0x40);
+  Wire.write(0x00);
+  Wire.endTransmission();
+}
+
+// trả về mV
+static float max17043_readVoltage_mV() {
+  Wire.beginTransmission(MAX17043_ADDR);
+  Wire.write(VCELL_REG);
+  Wire.endTransmission();
+
+  if (Wire.requestFrom(MAX17043_ADDR, (uint8_t)2) != 2) return NAN;
+
+  uint16_t value = (Wire.read() << 8) | Wire.read();
+  return (value >> 4) * 1.25f; // mỗi bit = 1.25mV
+}
+
+// trả về %
+static float max17043_readSOC_percent() {
+  Wire.beginTransmission(MAX17043_ADDR);
+  Wire.write(SOC_REG);
+  Wire.endTransmission();
+
+  if (Wire.requestFrom(MAX17043_ADDR, (uint8_t)2) != 2) return NAN;
+
+  uint16_t value = (Wire.read() << 8) | Wire.read();
+  float percent = value >> 8;
+  percent += (value & 0xFF) / 256.0f;
+  return percent;
+}
+
 // ================= POWER SAVE / BACKLIGHT =================
 static const uint32_t IDLE_OFF_MS = 30000; // 30s không chạm -> tắt backlight
 
-// Debounce cho "tap completed"
-static const uint32_t TAP_MIN_MS = 35;   // nhấn < 35ms coi như nhiễu
-static const uint32_t TAP_MAX_MS = 450;  // nhấn > 450ms coi như long-press, không tính tap
+static const uint32_t TAP_MIN_MS = 35;
+static const uint32_t TAP_MAX_MS = 450;
 
-// Cooldown sau khi vừa bật màn (tránh nhiễu touch PR/REL)
 static uint32_t g_wake_cooldown_until_ms = 0;
-static const uint32_t WAKE_COOLDOWN_MS = 400; // 0.4s
+static const uint32_t WAKE_COOLDOWN_MS = 400;
 
 static bool     g_screen_on = true;
 static uint32_t g_last_activity_ms = 0;
 
-static void note_activity() {
-  g_last_activity_ms = millis();
-}
+static void note_activity() { g_last_activity_ms = millis(); }
 
 static void backlight_set(bool on) {
   g_screen_on = on;
   digitalWrite(TFT_BL, on ? HIGH : LOW);
 
   if (on) {
-    // vừa wake: tránh nhiễu touch + reset idle timer ngay
     g_wake_cooldown_until_ms = millis() + WAKE_COOLDOWN_MS;
     note_activity();
   }
@@ -96,23 +146,19 @@ static void power_save_task() {
   }
 }
 
-// Chỉ gọi khi đã xác nhận 1 tap hợp lệ (nhấn->nhả, duration hợp lệ)
 static void handle_valid_tap() {
   uint32_t now = millis();
 
-  // Nếu đang trong cooldown sau khi bật màn thì chỉ note_activity cho chắc
   if (now < g_wake_cooldown_until_ms) {
     note_activity();
     return;
   }
 
   if (g_screen_on) {
-    // màn đang bật: coi là activity
     note_activity();
     return;
   }
 
-  // màn đang tắt: 1 tap là bật
   backlight_set(true);
 }
 
@@ -133,7 +179,6 @@ static void my_touch_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
   if (!ok) touched = false;
 
   if (touched) {
-    // mapping giống Keypad_Touch của bạn
     uint16_t x_map = y;
     uint16_t y_map = (SCREEN_HEIGHT - 1) - x;
 
@@ -147,7 +192,6 @@ static void my_touch_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
     data->point.y = y_map;
     data->state   = LV_INDEV_STATE_PR;
 
-    // Màn đang bật: hễ chạm là reset idle liền (không cần đợi nhả)
     if (g_screen_on) note_activity();
 
     if (!was_touched) {
@@ -157,7 +201,6 @@ static void my_touch_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
     return;
   }
 
-  // touched == false => REL
   data->state = LV_INDEV_STATE_REL;
   data->point.x = last_x_map;
   data->point.y = last_y_map;
@@ -165,7 +208,6 @@ static void my_touch_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
   if (was_touched) {
     uint32_t dur = millis() - touch_down_ms;
 
-    // chỉ tính "tap" nếu duration hợp lệ
     if (dur >= TAP_MIN_MS && dur <= TAP_MAX_MS) {
       handle_valid_tap();
     }
@@ -229,9 +271,9 @@ static lv_obj_t *btn_guest  = nullptr;
 static lv_obj_t *btn_user   = nullptr;
 
 // Update status bar
-static void ui_set_status(const char *time_str) {
+static void ui_set_status(const char *time_str, const char *batt_str) {
   if (label_time) lv_label_set_text(label_time, time_str);
-  if (label_batt) lv_label_set_text(label_batt, "--%");
+  if (label_batt) lv_label_set_text(label_batt, batt_str);
 }
 
 // Create GUI (Medical theme)
@@ -279,7 +321,7 @@ static void create_main_gui() {
   lv_obj_set_style_text_font(label_hcmute, pick_font_18_or_14(), 0);
   lv_obj_center(label_hcmute);
 
-  // Battery placeholder
+  // Battery
   label_batt = lv_label_create(status);
   lv_label_set_text(label_batt, "--%");
   lv_obj_set_style_text_color(label_batt, dark, 0);
@@ -333,7 +375,7 @@ static void create_main_gui() {
   btn_user = lv_btn_create(cont_btn);
   lv_obj_set_grid_cell(btn_user, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
   lv_obj_set_style_radius(btn_user, 18, 0);
-  lv_obj_set_style_bg_color(btn_user, primary, 0);
+  lv_obj_set_style_bg_color(btn_user, lv_color_make(0, 140, 200), 0);
   lv_obj_set_style_bg_color(btn_user, lv_color_make(0, 175, 235), LV_STATE_PRESSED);
   lv_obj_set_style_border_width(btn_user, 0, 0);
   lv_obj_set_style_shadow_width(btn_user, 0, 0);
@@ -344,7 +386,7 @@ static void create_main_gui() {
   lv_obj_set_style_text_color(lu, lv_color_white(), 0);
   lv_obj_set_style_text_font(lu, pick_font_20_or_14(), 0);
 
-  ui_set_status("--:--  --/--/----");
+  ui_set_status("--:--  --/--/----", "--%");
 }
 
 // ================= format time =================
@@ -368,13 +410,23 @@ void setup() {
 
   tft.fillScreen(TFT_BLACK);
 
-  // I2C
+  // I2C (chung cho Touch + RTC + MAX17043)
   Wire.begin(I2C_SDA, I2C_SCL);
   Wire.setClock(400000);
 
   // RTC init
   rtc_ok = rtc.begin();
   Serial.println(rtc_ok ? "DS3231 OK" : "DS3231 not found");
+
+  // MAX17043 init
+  max17043_ok = i2c_device_present(MAX17043_ADDR);
+  Serial.println(max17043_ok ? "MAX17043 OK" : "MAX17043 not found");
+  if (max17043_ok) {
+    max17043_reset();
+    delay(250);
+    max17043_quickStart();
+    delay(125);
+  }
 
   // LVGL init
   lv_init();
@@ -412,8 +464,6 @@ void setup() {
 
 void loop() {
   lv_timer_handler();
-
-  // giữ polling nhanh để wake chắc chắn
   delay(5);
 
   power_save_task();
@@ -423,6 +473,7 @@ void loop() {
   if (millis() - last >= 1000) {
     last = millis();
 
+    // time string
     char tbuf[32];
     if (rtc_ok) {
       DateTime now = rtc.now();
@@ -431,6 +482,25 @@ void loop() {
       snprintf(tbuf, sizeof(tbuf), "--:--  --/--/----");
     }
 
-    ui_set_status(tbuf);
+    // battery string
+    char bbuf[16];
+    if (max17043_ok) {
+      float soc = max17043_readSOC_percent();
+      if (isnan(soc)) {
+        snprintf(bbuf, sizeof(bbuf), "--%%");
+      } else {
+        int pct = (int)lroundf(soc);
+        if (pct < 0) pct = 0;
+        if (pct > 100) pct = 100;
+        snprintf(bbuf, sizeof(bbuf), "%d%%", pct);
+      }
+    } else {
+      snprintf(bbuf, sizeof(bbuf), "--%%");
+    }
+
+    ui_set_status(tbuf, bbuf);
+
+    // optional debug
+    // if (max17043_ok) Serial.printf("Battery: %s\n", bbuf);
   }
 }
