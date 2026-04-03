@@ -1,18 +1,18 @@
 // ========== CONFIG FIREBASE AUTH ==========
-// Giữ đúng config bạn đang dùng
 const firebaseConfigAuth = {
-  apiKey: "AIzaSyDH4COmuxxveRdD9zQXGJ29vHLR8SJuK78",
-  authDomain: "project2-98ad4.firebaseapp.com",
-  projectId: "project2-98ad4",
-  storageBucket: "project2-98ad4.firebasestorage.app",
-  messagingSenderId: "807037680757",
-  appId: "1:807037680757:web:0b2444f98b6de11cde8c3c",
-  measurementId: "G-PJYML82PZW"
+  apiKey: "AIzaSyBu0jPAKMiMOw_ZL61ta7vE8CFbozb4f8g",
+  authDomain: "graduation-thesis-3a3df.firebaseapp.com",
+  databaseURL: "https://graduation-thesis-3a3df-default-rtdb.firebaseio.com",
+  projectId: "graduation-thesis-3a3df",
+  storageBucket: "graduation-thesis-3a3df.firebasestorage.app",
+  messagingSenderId: "394222704990",
+  appId: "1:394222704990:web:a1931dca2d24a0e21557cf",
+  measurementId: "G-TKZJQCK7Z2"
 };
 
 const appAuth = firebase.initializeApp(firebaseConfigAuth, "authApp");
 const auth = appAuth.auth();
-auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
 
 const googleProvider = new firebase.auth.GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
@@ -64,10 +64,13 @@ document.getElementById("email-signin-btn")?.addEventListener("click", () => {
 // ========== GOOGLE SIGN IN ==========
 document.getElementById("login-form")?.addEventListener("submit", function(e) {
   e.preventDefault();
-  const btn = document.querySelector("#login-form .btn-login:last-of-type");
-  const old = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang mở Google...`;
+
+  const googleBtn = document.getElementById("google-signin-btn");
+  const oldHtml   = googleBtn.innerHTML;
+
+  googleBtn.disabled = true;
+  googleBtn.innerHTML =
+    `<i class="fas fa-spinner fa-spin"></i> Đang mở Google...`;
 
   auth.signInWithPopup(googleProvider)
     .then(() => {
@@ -75,9 +78,12 @@ document.getElementById("login-form")?.addEventListener("submit", function(e) {
       showApp();
     })
     .catch(err => {
-      btn.disabled = false;
-      btn.innerHTML = old;
-      alert("Lỗi Google login: " + err.message);
+      console.error("Google login error:", err);
+      googleBtn.disabled = false;
+      googleBtn.innerHTML = oldHtml;
+      if (err.code !== 'auth/popup-closed-by-user') {
+        alert("Lỗi Google login: " + err.message);
+      }
     });
 });
 
@@ -93,12 +99,15 @@ auth.onAuthStateChanged(user => {
 function showApp(user) {
   const app = document.getElementById("app");
   app.classList.remove("hidden");
+const email = user?.email || auth.currentUser?.email || "";
+const nameFromEmail = email ? email.split("@")[0] : "";
 
-  const email = user?.email || auth.currentUser?.email || "";
-  document.getElementById("current-user-email").textContent = email;
-  document.getElementById("sidebar-user-name").textContent = email || "Người dùng";
+document.getElementById("current-user-email").textContent = email;
+document.getElementById("sidebar-user-name").textContent =
+  nameFromEmail || "Người dùng";
 
   initSidebarNavigation();
+  initOverview();
 }
 
 // ========== LOGOUT ==========
@@ -107,13 +116,17 @@ function logout() {
     document.getElementById("app").classList.add("hidden");
     document.getElementById("login-section").style.display = "flex";
 
-    // clear input
     const emailLogin = document.getElementById('email-login');
-    const passLogin = document.getElementById('password-login');
+    const passLogin  = document.getElementById('password-login');
     if (emailLogin) emailLogin.value = '';
-    if (passLogin) passLogin.value = '';
+    if (passLogin)  passLogin.value  = '';
 
-    console.log("Đăng xuất thành công");
+    const googleBtn = document.getElementById("google-signin-btn");
+    if (googleBtn) {
+      googleBtn.disabled = false;
+      googleBtn.innerHTML =
+        `<i class="fab fa-google" style="margin-right:12px;"></i> Đăng nhập bằng Google`;
+    }
   }).catch(err => alert("Lỗi đăng xuất: " + err.message));
 }
 
@@ -127,9 +140,7 @@ function initSidebarNavigation() {
     btn.addEventListener("click", () => {
       sideItems.forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-
-      const page = btn.dataset.page;
-      showPage(page);
+      showPage(btn.dataset.page);
     });
   });
 
@@ -137,9 +148,7 @@ function initSidebarNavigation() {
     btn.addEventListener("click", () => {
       tabBtns.forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-
-      const page = btn.dataset.page;
-      showPage(page);
+      showPage(btn.dataset.page);
     });
   });
 
@@ -147,5 +156,94 @@ function initSidebarNavigation() {
     pages.forEach(p => p.classList.remove("active"));
     const target = document.getElementById("page-" + pageName);
     if (target) target.classList.add("active");
+  }
+}
+
+// ========== OVERVIEW: CHART + MAP ==========
+let miniChart;
+let leafletMap;
+let leafletMarker;
+
+function initOverview() {
+  initMiniChart();
+  initMap();
+  mockUpdateOverview();
+}
+
+function initMiniChart() {
+  const ctx = document.getElementById("miniChart")?.getContext("2d");
+  if (!ctx) return;
+
+  miniChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: [],
+      datasets: [{
+        label: "Heart Rate (bpm)",
+        data: [],
+        borderColor: "#ef4444",
+        backgroundColor: "rgba(239,68,68,0.15)",
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: { display: false },
+        y: { beginAtZero: false }
+      }
+    }
+  });
+}
+
+function initMap() {
+  const mapDiv = document.getElementById("map");
+  if (!mapDiv) return;
+
+  leafletMap = L.map(mapDiv).setView([10.85, 106.77], 15);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(leafletMap);
+
+  leafletMarker = L.marker([10.85, 106.77]).addTo(leafletMap);
+}
+
+function mockUpdateOverview() {
+  document.getElementById("ov-hr-value").textContent    = "78 bpm";
+  document.getElementById("ov-bp-value").textContent    = "120 / 80 mmHg";
+  document.getElementById("ov-spo2-value").textContent  = "97 %";
+
+  document.getElementById("ov-hr-status").textContent   = "Trạng thái: Bình thường";
+  document.getElementById("ov-bp-status").textContent   = "Trạng thái: Bình thường";
+  document.getElementById("ov-spo2-status").textContent = "Trạng thái: Bình thường";
+
+  const badge = document.getElementById("ov-device-badge");
+  badge.textContent = "ONLINE";
+  badge.classList.remove("badge-offline","badge-stale");
+  badge.classList.add("badge-online");
+
+  document.getElementById("ov-lastseen").textContent  = "Cách đây 1 phút";
+  document.getElementById("ov-battery").textContent   = "85 %";
+  document.getElementById("ov-network").textContent   = "WiFi";
+  document.getElementById("ov-freshness").textContent = "Dữ liệu mới";
+
+  if (miniChart) {
+    const labels = [];
+    const data   = [];
+    for (let i = 0; i < 12; i++) {
+      labels.push("");
+      data.push(70 + Math.round(Math.random() * 10));
+    }
+    miniChart.data.labels = labels;
+    miniChart.data.datasets[0].data = data;
+    miniChart.update();
+  }
+
+  if (leafletMap && leafletMarker) {
+    const lat = 10.85, lng = 106.77;
+    leafletMarker.setLatLng([lat, lng]);
+    leafletMap.setView([lat, lng], 15);
   }
 }

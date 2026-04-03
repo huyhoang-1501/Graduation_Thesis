@@ -1,27 +1,18 @@
-
-/* ========== RESET CƠ BẢN ========== */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* ========== RESET ========== */
+* { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: Arial, Helvetica, sans-serif;
   background: #f2f4f8;
 }
 
-/* ========== LOGIN SCREEN ========== */
+/* ========== LOGIN ========== */
 #login-section {
   position: fixed;
   inset: 0;
-  /* DÙNG ẢNH NỀN */
   background-image: url('image/SPKT.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-
-  /* (Nếu muốn phủ thêm lớp màu xanh nhạt, có thể mix thêm overlay, nhưng tạm bỏ để thấy rõ ảnh) */
-
   display: flex;
   justify-content: center;
   align-items: center;
@@ -49,10 +40,7 @@ body {
   font-weight: bold;
   margin: 6px 0;
 }
-.login-header p {
-  color: #555;
-  font-size: 14px;
-}
+.login-header p { color: #555; font-size: 14px; }
 .login-title h2 {
   color: #006a9b;
   font-size: 24px;
@@ -119,41 +107,18 @@ body {
   justify-content: space-between;
   padding: 0 20px;
 }
-.topbar-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.topbar-logo {
-  width: 40px;
-  height: 40px;
-}
-.topbar-title {
-  font-size: 18px;
-  font-weight: bold;
-}
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.user-email {
-  font-size: 14px;
-  opacity: .9;
-}
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-logo { width: 50px; height: 50px; }
+.topbar-title { font-size: 18px; font-weight: bold; }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.user-email { font-size: 14px; opacity: .9; }
 .icon-btn {
-  background: transparent;
-  border: none;
-  color: #fff;
-  font-size: 18px;
-  cursor: pointer;
+  background: transparent; border: none; color:#fff;
+  font-size:18px; cursor:pointer;
 }
 
 /* CONTENT LAYOUT */
-.layout {
-  display: flex;
-  min-height: calc(100vh - 60px);
-}
+.layout { display: flex; min-height: calc(100vh - 60px); }
 
 /* SIDEBAR */
 .sidebar {
@@ -170,106 +135,118 @@ body {
   border-bottom: 1px solid rgba(255,255,255,0.2);
   margin-bottom: 10px;
 }
-.sidebar-logo {
-  font-weight: bold;
-  font-size: 20px;
+.sidebar-logo { font-weight: bold; font-size: 20px; }
+.sidebar-user div:first-child { font-weight: bold; }
+.sidebar-user {
+  max-width: 180px;
+  white-space: normal;     /* cho phép xuống dòng */
+  word-break: break-all;   /* bẻ từ nếu email dài */
 }
-.sidebar-user div:first-child {
-  font-weight: bold;
-}
-.sidebar-user div:last-child {
-  font-size: 13px;
-  opacity: .9;
-}
-
 .sidebar-section-title {
   margin: 15px 10px 5px;
   font-size: 11px;
   text-transform: uppercase;
   opacity: .7;
 }
-
-.sidebar-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
+.sidebar-menu { display:flex; flex-direction:column; gap:5px; }
 .sidebar-item {
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: none;
-  color: #fff;
-  padding: 8px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
+  width:100%; text-align:left; background:transparent; border:none;
+  color:#fff; padding:8px 10px; border-radius:4px; cursor:pointer;
+  font-size:14px;
 }
-.sidebar-item i {
-  width: 20px;
-}
+.sidebar-item i { width:20px; }
 .sidebar-item:hover,
-.sidebar-item.active {
-  background: rgba(255,255,255,0.15);
-}
+.sidebar-item.active { background:rgba(255,255,255,0.15); }
 
 /* MAIN CONTENT */
 .main {
-  flex: 1;
-  background: #f2f4f8;
-  padding: 15px 20px 25px;
+  flex:1;
+  background:#f2f4f8;
+  padding:15px 20px 25px;
 }
 
 .tab-header {
-  display: flex;
-  gap: 5px;
-  border-bottom: 2px solid #d0d4dd;
-  margin-bottom: 10px;
+  display:flex; gap:5px;
+  border-bottom:2px solid #d0d4dd;
+  margin-bottom:10px;
 }
 .tab-btn {
-  background: transparent;
-  border: none;
-  padding: 10px 18px;
-  cursor: pointer;
-  font-weight: bold;
-  font-size: 14px;
-  color: #555;
-  border-bottom: 3px solid transparent;
+  background:transparent; border:none;
+  padding:10px 18px; cursor:pointer;
+  font-weight:bold; font-size:14px;
+  color:#555; border-bottom:3px solid transparent;
 }
-.tab-btn.active {
-  color: #00548a;
-  border-color: #00548a;
-}
+.tab-btn.active { color:#00548a; border-color:#00548a; }
 
 .search-bar {
-  display: flex;
-  margin: 12px 0 15px;
-  gap: 8px;
+  display:flex; margin:12px 0 15px; gap:8px;
 }
 .search-bar input {
-  flex: 1;
-  padding: 8px 10px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
+  flex:1; padding:8px 10px;
+  border-radius:4px; border:1px solid #ccc;
 }
 .btn-primary {
-  background: #00548a;
-  border: none;
-  color: #fff;
-  padding: 8px 14px;
-  border-radius: 4px;
-  cursor: pointer;
+  background:#00548a; border:none; color:#fff;
+  padding:8px 14px; border-radius:4px; cursor:pointer;
 }
 
-/* PAGE CONTENT */
-.page { display: none; }
-.page.active { display: block; }
+/* PAGES */
+.page { display:none; }
+.page.active { display:block; }
 
 .placeholder-box {
-  background: #fff;
-  border-radius: 4px;
-  padding: 20px;
-  border: 1px solid #d0d4dd;
-  color: #333;
-  font-size: 14px;
+  background:#fff; border-radius:4px;
+  padding:20px; border:1px solid #d0d4dd;
+  color:#333; font-size:14px;
 }
+
+/* ========== OVERVIEW ========== */
+.overview-container { display:flex; flex-direction:column; gap:16px; }
+.overview-row { display:flex; gap:16px; }
+.overview-row-2col > .panel { flex:1; }
+
+.stat-card {
+  flex:1; background:#fff; border-radius:6px;
+  padding:12px 16px; border:1px solid #dde1eb;
+  box-shadow:0 1px 3px rgba(0,0,0,0.03);
+}
+.stat-title {
+  font-size:13px; text-transform:uppercase;
+  color:#6b7280; margin-bottom:6px;
+}
+.stat-title i { margin-right:4px; }
+.stat-value {
+  font-size:24px; font-weight:bold; color:#111827;
+}
+.stat-sub {
+  font-size:12px; color:#6b7280; margin-top:4px;
+}
+
+.device-card {
+  flex:1; background:#fff; border-radius:6px;
+  padding:12px 16px; border:1px solid #dde1eb;
+}
+.device-header {
+  display:flex; justify-content:space-between;
+  margin-bottom:8px; font-weight:bold;
+}
+.device-body div { font-size:13px; margin-bottom:4px; }
+
+.badge {
+  padding:2px 8px; border-radius:999px;
+  font-size:11px; color:#fff;
+}
+.badge-online { background:#16a34a; }
+.badge-offline { background:#dc2626; }
+.badge-stale { background:#f59e0b; }
+
+.panel {
+  background:#fff; border-radius:6px;
+  border:1px solid #dde1eb;
+  display:flex; flex-direction:column;
+}
+.panel-header {
+  padding:10px 14px; border-bottom:1px solid #e5e7eb;
+  font-weight:bold; font-size:14px;
+}
+.panel-body { padding:10px 12px; }

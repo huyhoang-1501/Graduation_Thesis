@@ -3,14 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <title>Smart Health Monitoring - Portal</title>
+  <link rel="icon" href="image/logo.png" type="image/png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Firebase v8 -->
   <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-auth.js"></script>
 
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <!-- Font + Icon -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
   <link rel="stylesheet" href="style.css">
 </head>
@@ -21,8 +31,8 @@
     <div class="login-container">
       <div class="login-header">
         <img src="image/logo_spkt.png" alt="HCMUTE Logo">
-        <h1>HCMUTE</h1>
-        <p>Đại học Công nghệ Kỹ thuật TP.HCM</p>
+        <h1>HCM-UTE</h1>
+        <p>Trường Đại học Công nghệ Kỹ thuật TP.HCM</p>
       </div>
 
       <div class="login-box">
@@ -34,27 +44,38 @@
         <form id="login-form">
           <div class="input-group-login">
             <label>Email</label>
-            <input type="email" id="email-login" placeholder="Nhập email của bạn" autocomplete="off">
+            <input type="email" id="email-login"
+                   placeholder="Nhập email của bạn" autocomplete="off">
           </div>
           <div class="input-group-login">
             <label>Mật khẩu</label>
-            <input type="password" id="password-login" placeholder="Nhập mật khẩu" minlength="6" autocomplete="new-password">
+            <input type="password" id="password-login"
+                   placeholder="Nhập mật khẩu" minlength="6"
+                   autocomplete="new-password">
           </div>
 
-          <button type="button" id="email-signin-btn" class="btn-login" style="background:#2c3e50; margin-bottom:15px;">
+          <button type="button" id="email-signin-btn"
+                  class="btn-login"
+                  style="background:#2c3e50; margin-bottom:15px;">
             Đăng nhập bằng Email
           </button>
 
-          <div style="text-align:center; margin:20px 0; color:#777; font-weight:bold;">HOẶC</div>
+          <div style="text-align:center; margin:20px 0; color:#777; font-weight:bold;">
+            HOẶC
+          </div>
 
-          <button type="submit" class="btn-login" style="background:#4285F4;">
+          <button type="submit" class="btn-login" id="google-signin-btn"
+                  style="background:#4285F4;">
             <i class="fab fa-google" style="margin-right:12px;"></i>
             Đăng nhập bằng Google
           </button>
 
           <p style="margin-top:25px; font-size:15px; color:#555;">
-            Chưa có tài khoản? 
-            <a href="#" id="show-register" style="color:#4285F4; font-weight:bold; text-decoration:underline;">Đăng ký ngay</a>
+            Chưa có tài khoản?
+            <a href="#" id="show-register"
+               style="color:#4285F4; font-weight:bold; text-decoration:underline;">
+              Đăng ký ngay
+            </a>
           </p>
 
           <!-- FIX required khi bấm Google -->
@@ -69,18 +90,25 @@
           <h3 style="color:#2c3e50; margin-bottom:20px;">TẠO TÀI KHOẢN MỚI</h3>
           <div class="input-group-login">
             <label>Email</label>
-            <input type="email" id="email-register" placeholder="Nhập email" required autocomplete="off">
+            <input type="email" id="email-register" placeholder="Nhập email"
+                   required autocomplete="off">
           </div>
           <div class="input-group-login">
             <label>Mật khẩu (tối thiểu 6 ký tự)</label>
-            <input type="password" id="password-register" placeholder="Tạo mật khẩu" required minlength="6" autocomplete="new-password">
+            <input type="password" id="password-register"
+                   placeholder="Tạo mật khẩu" required minlength="6"
+                   autocomplete="new-password">
           </div>
-          <button type="button" id="register-btn" class="btn-login" style="background:#27ae60;">
+          <button type="button" id="register-btn" class="btn-login"
+                  style="background:#27ae60;">
             Đăng ký ngay
           </button>
           <p style="margin-top:15px; font-size:14px; color:#555;">
-            Đã có tài khoản? 
-            <a href="#" id="show-login" style="color:#4285F4; font-weight:bold;">Quay lại đăng nhập</a>
+            Đã có tài khoản?
+            <a href="#" id="show-login"
+               style="color:#4285F4; font-weight:bold;">
+              Quay lại đăng nhập
+            </a>
           </p>
         </div>
       </div>
@@ -138,54 +166,96 @@
 
       <!-- MAIN CONTENT -->
       <main class="main">
-        <!-- TAB TITLE GIỐNG CỔNG THÔNG TIN -->
+        <!-- TAB TITLE -->
         <div class="tab-header">
           <button class="tab-btn active" data-page="overview">TỔNG QUAN</button>
           <button class="tab-btn" data-page="personal">THÔNG TIN CÁ NHÂN</button>
         </div>
 
-        <!-- THANH TÌM KIẾM / ACTION BAR (tùy bạn dùng) -->
+        <!-- THANH TÌM KIẾM -->
         <div class="search-bar">
           <input type="text" placeholder="Tìm kiếm ...">
           <button class="btn-primary"><i class="fas fa-search"></i></button>
         </div>
 
-        <!-- CÁC PAGE NỘI DUNG (bạn sẽ code tiếp) -->
+        <!-- OVERVIEW -->
         <section id="page-overview" class="page active">
-          <!-- TODO: Nhúng dashboard health (card HR/BP, map, chart mini...) -->
-          <div class="placeholder-box">
-            Đây là khu vực <b>Tổng quan</b>. Bạn nhét giao diện giám sát sức khỏe vào đây.
+          <div class="overview-container">
+            <div class="overview-row">
+              <div class="stat-card">
+                <div class="stat-title">
+                  <i class="fas fa-heartbeat"></i> Nhịp tim
+                </div>
+                <div class="stat-value" id="ov-hr-value">-- bpm</div>
+                <div class="stat-sub" id="ov-hr-status">Trạng thái: --</div>
+              </div>
+
+              <div class="stat-card">
+                <div class="stat-title">
+                  <i class="fas fa-tint"></i> Huyết áp
+                </div>
+                <div class="stat-value" id="ov-bp-value">-- / -- mmHg</div>
+                <div class="stat-sub" id="ov-bp-status">Trạng thái: --</div>
+              </div>
+
+              <div class="stat-card">
+                <div class="stat-title">
+                  <i class="fas fa-lungs"></i> SpO₂
+                </div>
+                <div class="stat-value" id="ov-spo2-value">-- %</div>
+                <div class="stat-sub" id="ov-spo2-status">Trạng thái: --</div>
+              </div>
+            </div>
+
+            <div class="overview-row">
+              <div class="device-card">
+                <div class="device-header">
+                  <span>Trạng thái thiết bị</span>
+                  <span id="ov-device-badge"
+                        class="badge badge-offline">OFFLINE</span>
+                </div>
+                <div class="device-body">
+                  <div>Last seen: <span id="ov-lastseen">--</span></div>
+                  <div>Pin: <span id="ov-battery">-- %</span></div>
+                  <div>Network: <span id="ov-network">--</span></div>
+                  <div>Data freshness: <span id="ov-freshness">--</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="overview-row overview-row-2col">
+              <div class="panel">
+                <div class="panel-header">Biểu đồ 1 giờ gần nhất</div>
+                <div class="panel-body">
+                  <canvas id="miniChart"></canvas>
+                </div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-header">Vị trí gần nhất</div>
+                <div class="panel-body">
+                  <div id="map" style="width:100%; height:260px;"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
+        <!-- OTHER PAGES (chưa làm) -->
         <section id="page-history" class="page">
-          <div class="placeholder-box">
-            Trang <b>Lịch sử</b>: filter ngày, Chart.js lớn, bảng dữ liệu,...
-          </div>
+          <div class="placeholder-box">Trang <b>Lịch sử</b>...</div>
         </section>
-
         <section id="page-alerts" class="page">
-          <div class="placeholder-box">
-            Trang <b>Cảnh báo</b>: danh sách alert, severity, ack, click nhảy sang lịch sử.
-          </div>
+          <div class="placeholder-box">Trang <b>Cảnh báo</b>...</div>
         </section>
-
         <section id="page-patients" class="page">
-          <div class="placeholder-box">
-            Trang <b>Thiết bị / Bệnh nhân</b>: danh sách người được theo dõi, trạng thái online/offline.
-          </div>
+          <div class="placeholder-box">Trang <b>Thiết bị / Bệnh nhân</b>...</div>
         </section>
-
         <section id="page-settings" class="page">
-          <div class="placeholder-box">
-            Trang <b>Cài đặt</b>: ngưỡng cảnh báo, thông tin tài khoản,...
-          </div>
+          <div class="placeholder-box">Trang <b>Cài đặt</b>...</div>
         </section>
-
         <section id="page-personal" class="page">
-          <div class="placeholder-box">
-            Tab <b>Thông tin cá nhân</b> giống cổng trường: hiển thị info user, mail, role,...
-          </div>
+          <div class="placeholder-box">Trang <b>Thông tin cá nhân</b>...</div>
         </section>
       </main>
     </div>
