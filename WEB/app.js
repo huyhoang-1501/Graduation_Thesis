@@ -39,9 +39,7 @@ document.getElementById("register-btn")?.addEventListener("click", () => {
 
   auth.createUserWithEmailAndPassword(email, pass)
     .then(() => {
-      alert("Đăng ký thành công!");
-      document.getElementById("login-section").style.display = "none";
-      showApp();
+      alert("Đăng ký thành công! Hãy đăng nhập lại.");
     })
     .catch(err => alert("Lỗi đăng ký: " + err.message));
 });
@@ -54,10 +52,6 @@ document.getElementById("email-signin-btn")?.addEventListener("click", () => {
   if (!email || !pass) return alert("Vui lòng nhập email và mật khẩu!");
 
   auth.signInWithEmailAndPassword(email, pass)
-    .then(() => {
-      document.getElementById("login-section").style.display = "none";
-      showApp();
-    })
     .catch(err => alert("Sai email hoặc mật khẩu!"));
 });
 
@@ -73,10 +67,6 @@ document.getElementById("login-form")?.addEventListener("submit", function(e) {
     `<i class="fas fa-spinner fa-spin"></i> Đang mở Google...`;
 
   auth.signInWithPopup(googleProvider)
-    .then(() => {
-      document.getElementById("login-section").style.display = "none";
-      showApp();
-    })
     .catch(err => {
       console.error("Google login error:", err);
       googleBtn.disabled = false;
@@ -88,10 +78,21 @@ document.getElementById("login-form")?.addEventListener("submit", function(e) {
 });
 
 // ========== ON AUTH STATE CHANGED ==========
+const loginSection = document.getElementById("login-section");
+const appRoot = document.getElementById("app");
+
 auth.onAuthStateChanged(user => {
   if (user) {
-    document.getElementById("login-section").style.display = "none";
+    // Đã đăng nhập
+    loginSection.classList.remove("show-flex");
+    loginSection.classList.add("hidden");
+    appRoot.classList.remove("hidden");
     showApp(user);
+  } else {
+    // Chưa đăng nhập
+    appRoot.classList.add("hidden");
+    loginSection.classList.add("show-flex");
+    loginSection.classList.remove("hidden");
   }
 });
 
@@ -99,12 +100,13 @@ auth.onAuthStateChanged(user => {
 function showApp(user) {
   const app = document.getElementById("app");
   app.classList.remove("hidden");
-const email = user?.email || auth.currentUser?.email || "";
-const nameFromEmail = email ? email.split("@")[0] : "";
 
-document.getElementById("current-user-email").textContent = email;
-document.getElementById("sidebar-user-name").textContent =
-  nameFromEmail || "Người dùng";
+  const email = user?.email || auth.currentUser?.email || "";
+  const nameFromEmail = email ? email.split("@")[0] : "";
+
+  document.getElementById("current-user-email").textContent = email;
+  document.getElementById("sidebar-user-name").textContent =
+    nameFromEmail || "Người d��ng";
 
   initSidebarNavigation();
   initOverview();
@@ -112,22 +114,21 @@ document.getElementById("sidebar-user-name").textContent =
 
 // ========== LOGOUT ==========
 function logout() {
-  auth.signOut().then(() => {
-    document.getElementById("app").classList.add("hidden");
-    document.getElementById("login-section").style.display = "flex";
+  auth.signOut()
+    .then(() => {
+      const emailLogin = document.getElementById('email-login');
+      const passLogin  = document.getElementById('password-login');
+      if (emailLogin) emailLogin.value = '';
+      if (passLogin)  passLogin.value  = '';
 
-    const emailLogin = document.getElementById('email-login');
-    const passLogin  = document.getElementById('password-login');
-    if (emailLogin) emailLogin.value = '';
-    if (passLogin)  passLogin.value  = '';
-
-    const googleBtn = document.getElementById("google-signin-btn");
-    if (googleBtn) {
-      googleBtn.disabled = false;
-      googleBtn.innerHTML =
-        `<i class="fab fa-google" style="margin-right:12px;"></i> Đăng nhập bằng Google`;
-    }
-  }).catch(err => alert("Lỗi đăng xuất: " + err.message));
+      const googleBtn = document.getElementById("google-signin-btn");
+      if (googleBtn) {
+        googleBtn.disabled = false;
+        googleBtn.innerHTML =
+          `<i class="fab fa-google" style="margin-right:12px;"></i> Đăng nhập bằng Google`;
+      }
+    })
+    .catch(err => alert("Lỗi đăng xuất: " + err.message));
 }
 
 // ========== SIDEBAR & TAB SWITCH ==========
@@ -246,4 +247,148 @@ function mockUpdateOverview() {
     leafletMarker.setLatLng([lat, lng]);
     leafletMap.setView([lat, lng], 15);
   }
+}
+// ========== MOCK DATA & UI FOR OTHER PAGES ==========
+
+function initOtherPages() {
+  renderMockHistory();
+  renderMockAlerts();
+  renderMockPatients();
+  fillPersonalInfo();
+}
+
+function renderMockHistory() {
+  const tbody = document.getElementById("history-table-body");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  const mockRows = [
+    { time: "21:30:15", hr: 78, sys: 120, dia: 80, spo2: 97 },
+    { time: "21:31:10", hr: 80, sys: 122, dia: 82, spo2: 96 },
+    { time: "21:32:05", hr: 76, sys: 118, dia: 78, spo2: 98 }
+  ];
+
+  mockRows.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.time}</td>
+      <td>${r.hr}</td>
+      <td>${r.sys}</td>
+      <td>${r.dia}</td>
+      <td>${r.spo2}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // History chart demo (1 series HR)
+  const ctx = document.getElementById("historyChart")?.getContext("2d");
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: mockRows.map(r => r.time),
+      datasets: [{
+        label: "Heart Rate (bpm)",
+        data: mockRows.map(r => r.hr),
+        borderColor: "#3b82f6",
+        backgroundColor: "rgba(59,130,246,0.2)",
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: false }
+      }
+    }
+  });
+}
+
+function renderMockAlerts() {
+  const container = document.getElementById("alerts-list");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const mocks = [
+    {
+      type: "HR_HIGH",
+      severity: "danger",
+      message: "HR high: 110 bpm",
+      time: "2026-04-01 21:32:10",
+      status: "unacked"
+    },
+    {
+      type: "DEVICE_OFFLINE",
+      severity: "warning",
+      message: "Device offline > 5 minutes",
+      time: "2026-04-01 20:05:00",
+      status: "acked"
+    }
+  ];
+
+  mocks.forEach(a => {
+    const div = document.createElement("div");
+    div.className = "alert-item";
+    const iconClass = a.severity === "danger"
+      ? "fa-triangle-exclamation" : "fa-circle-exclamation";
+    const badgeClass = a.severity === "danger" ? "badge-offline" : "badge-stale";
+    const statusText = a.status === "unacked" ? "Chưa xem" : "Đã xem";
+
+    div.innerHTML = `
+      <div class="alert-main">
+        <div class="alert-icon">
+          <i class="fas ${iconClass}"></i>
+        </div>
+        <div class="alert-content">
+          <div><span class="badge ${badgeClass}">${a.severity.toUpperCase()}</span></div>
+          <div>${a.message}</div>
+          <div>Time: ${a.time}</div>
+          <div>Type: ${a.type}</div>
+          <div>Status: ${statusText}</div>
+        </div>
+      </div>
+      <div class="alert-actions">
+        <button class="btn-ghost">View in History</button>
+        <button class="btn-ghost">Mark as Ack</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function renderMockPatients() {
+  const container = document.getElementById("patients-list");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const mocks = [
+    { name: "Nguyễn Văn A", age: 72, sex: "Nam", deviceId: "DEV001", status: "online" },
+    { name: "Trần Thị B", age: 68, sex: "Nữ", deviceId: "DEV002", status: "offline" }
+  ];
+
+  mocks.forEach(p => {
+    const row = document.createElement("div");
+    row.className = "patient-row";
+    const statusBadge = p.status === "online" ? "badge-online" : "badge-offline";
+
+    row.innerHTML = `
+      <div class="patient-info">
+        <div><strong>${p.name}</strong> (${p.age}, ${p.sex})</div>
+        <div>DeviceId: ${p.deviceId}</div>
+        <div>Trạng thái: <span class="badge ${statusBadge}">${p.status.toUpperCase()}</span></div>
+      </div>
+      <div class="patient-actions">
+        <button class="btn-ghost">View Overview</button>
+        <button class="btn-ghost">Edit</button>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function fillPersonalInfo() {
+  const email = auth.currentUser?.email || "";
+  const el = document.getElementById("pi-email");
+  if (el) el.textContent = email;
 }

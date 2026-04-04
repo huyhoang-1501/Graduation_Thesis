@@ -178,9 +178,18 @@
           <button class="btn-primary"><i class="fas fa-search"></i></button>
         </div>
 
-        <!-- OVERVIEW -->
+        <!-- ========== OVERVIEW ========== -->
         <section id="page-overview" class="page active">
+          <div class="overview-header">
+            <h2>Overview - <span id="ov-patient-name">Patient A</span></h2>
+            <select id="ov-patient-select">
+              <option>Patient A</option>
+              <option>Patient B</option>
+            </select>
+          </div>
+
           <div class="overview-container">
+            <!-- Row 1: cards -->
             <div class="overview-row">
               <div class="stat-card">
                 <div class="stat-title">
@@ -207,6 +216,7 @@
               </div>
             </div>
 
+            <!-- Row 2: device status -->
             <div class="overview-row">
               <div class="device-card">
                 <div class="device-header">
@@ -223,6 +233,7 @@
               </div>
             </div>
 
+            <!-- Row 3: mini chart + map -->
             <div class="overview-row overview-row-2col">
               <div class="panel">
                 <div class="panel-header">Biểu đồ 1 giờ gần nhất</div>
@@ -241,21 +252,170 @@
           </div>
         </section>
 
-        <!-- OTHER PAGES (chưa làm) -->
+        <!-- ========== HISTORY ========== -->
         <section id="page-history" class="page">
-          <div class="placeholder-box">Trang <b>Lịch sử</b>...</div>
+          <div class="page-header-row">
+            <h2>History - <span id="his-patient-name">Patient A</span></h2>
+            <select id="his-patient-select">
+              <option>Patient A</option>
+              <option>Patient B</option>
+            </select>
+          </div>
+
+          <div class="history-filters">
+            <div class="filter-group">
+              <label>Ngày / Khoảng thời gian</label>
+              <input type="date" id="his-date-from">
+              <span>đến</span>
+              <input type="date" id="his-date-to">
+            </div>
+
+            <div class="filter-group">
+              <label>Loại dữ liệu</label>
+              <select id="his-type">
+                <option value="hr">Heart Rate</option>
+                <option value="bp">Blood Pressure</option>
+                <option value="spo2">SpO₂</option>
+              </select>
+            </div>
+
+            <div class="filter-actions">
+              <button class="btn-primary" id="his-apply-btn">
+                <i class="fas fa-filter"></i> Lọc
+              </button>
+              <button class="btn-secondary" id="his-export-btn">
+                <i class="fas fa-file-export"></i> Export CSV
+              </button>
+            </div>
+          </div>
+
+          <div class="history-layout">
+            <div class="panel panel-full">
+              <div class="panel-header">Biểu đồ dữ liệu</div>
+              <div class="panel-body">
+                <canvas id="historyChart"></canvas>
+              </div>
+            </div>
+
+            <div class="panel panel-full">
+              <div class="panel-header">Bảng dữ liệu</div>
+              <div class="panel-body">
+                <table class="table-history">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>HR</th>
+                      <th>BP Sys</th>
+                      <th>BP Dia</th>
+                      <th>SpO₂</th>
+                    </tr>
+                  </thead>
+                  <tbody id="history-table-body">
+                    <!-- JS render mock -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </section>
+
+        <!-- ========== ALERTS ========== -->
         <section id="page-alerts" class="page">
-          <div class="placeholder-box">Trang <b>Cảnh báo</b>...</div>
+          <div class="page-header-row">
+            <h2>Alerts - <span id="al-patient-name">Patient A</span></h2>
+            <select id="al-patient-select">
+              <option>Patient A</option>
+              <option>Patient B</option>
+            </select>
+          </div>
+
+          <div class="alerts-filters">
+            <div class="filter-group">
+              <label>Loại</label>
+              <select id="al-type">
+                <option value="all">Tất cả</option>
+                <option value="HR_HIGH">HR High</option>
+                <option value="BP_HIGH">BP High</option>
+                <option value="BP_LOW">BP Low</option>
+                <option value="DEVICE_OFFLINE">Device Offline</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Mức độ</label>
+              <select id="al-severity">
+                <option value="all">Tất cả</option>
+                <option value="warning">Warning</option>
+                <option value="danger">Danger</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Trạng thái</label>
+              <select id="al-status">
+                <option value="all">Tất cả</option>
+                <option value="unacked">Chưa xem</option>
+                <option value="acked">Đã xem</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="alerts-list" class="alerts-list">
+            <!-- JS render mock alerts -->
+          </div>
         </section>
+
+        <!-- ========== DEVICES / PATIENTS ========== -->
         <section id="page-patients" class="page">
-          <div class="placeholder-box">Trang <b>Thiết bị / Bệnh nhân</b>...</div>
+          <div class="page-header-row">
+            <h2>Devices / Patients</h2>
+            <button class="btn-primary" id="pt-add-btn">
+              <i class="fas fa-user-plus"></i> Add Patient
+            </button>
+          </div>
+
+          <div id="patients-list" class="patients-list">
+            <!-- JS render mock patients -->
+          </div>
         </section>
+
+        <!-- ========== SETTINGS ========== -->
         <section id="page-settings" class="page">
-          <div class="placeholder-box">Trang <b>Cài đặt</b>...</div>
+          <div class="page-header-row">
+            <h2>Cài đặt</h2>
+          </div>
+
+          <div class="placeholder-box">
+            <p>Ngưỡng cảnh báo (demo UI):</p>
+            <div class="settings-grid">
+              <div>
+                <label>HR min</label>
+                <input type="number" value="50">
+              </div>
+              <div>
+                <label>HR max</label>
+                <input type="number" value="100">
+              </div>
+              <div>
+                <label>BP Sys max</label>
+                <input type="number" value="140">
+              </div>
+              <div>
+                <label>BP Dia max</label>
+                <input type="number" value="90">
+              </div>
+            </div>
+          </div>
         </section>
+
+        <!-- ========== PERSONAL INFO ========== -->
         <section id="page-personal" class="page">
-          <div class="placeholder-box">Trang <b>Thông tin cá nhân</b>...</div>
+          <div class="page-header-row">
+            <h2>Thông tin cá nhân</h2>
+          </div>
+
+          <div class="placeholder-box">
+            <p>Email: <span id="pi-email"></span></p>
+            <p>Role: Caregiver</p>
+          </div>
         </section>
       </main>
     </div>

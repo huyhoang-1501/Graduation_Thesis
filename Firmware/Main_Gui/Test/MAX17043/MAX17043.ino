@@ -18,12 +18,15 @@ void setup() {
   Wire.begin(SDA_PIN, SCL_PIN);
   Wire.setClock(100000);
 
-  uint16_t v;
-  if (read16(0x00, v)) Serial.printf("STATUS  0x00: 0x%04X\n", v); else Serial.println("STATUS read fail");
-  if (read16(0x02, v)) Serial.printf("VCELL   0x02: 0x%04X\n", v); else Serial.println("VCELL read fail");
-  if (read16(0x04, v)) Serial.printf("SOC     0x04: 0x%04X\n", v); else Serial.println("SOC read fail");
-  if (read16(0x0C, v)) Serial.printf("CONFIG  0x0C: 0x%04X\n", v); else Serial.println("CONFIG read fail");
-  if (read16(0x08, v)) Serial.printf("VERSION 0x08: 0x%04X\n", v); else Serial.println("VERSION read fail");
+  Serial.println("Dump 16-bit regs at 0x32:");
+  for (uint8_t reg = 0x00; reg <= 0x1E; reg += 2) {
+    uint16_t v;
+    if (read16(reg, v)) {
+      Serial.printf("reg 0x%02X = 0x%04X\n", reg, v);
+    } else {
+      Serial.printf("reg 0x%02X = (read fail)\n", reg);
+    }
+  }
 }
 
 void loop() {}
