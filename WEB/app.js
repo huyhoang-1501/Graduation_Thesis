@@ -135,19 +135,10 @@ function logout() {
 function initSidebarNavigation() {
   const sideItems = document.querySelectorAll(".sidebar-item");
   const pages = document.querySelectorAll(".page");
-  const tabBtns = document.querySelectorAll(".tab-btn");
 
   sideItems.forEach(btn => {
     btn.addEventListener("click", () => {
       sideItems.forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      showPage(btn.dataset.page);
-    });
-  });
-
-  tabBtns.forEach(btn => {
-    btn.addEventListener("click", () => {
-      tabBtns.forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       showPage(btn.dataset.page);
     });
@@ -254,7 +245,7 @@ function initOtherPages() {
   renderMockHistory();
   renderMockAlerts();
   renderMockPatients();
-  fillPersonalInfo();
+ /* fillPersonalInfo();*/
 }
 
 function renderMockHistory() {
@@ -387,8 +378,8 @@ function renderMockPatients() {
   });
 }
 
-function fillPersonalInfo() {
+/*function fillPersonalInfo() {
   const email = auth.currentUser?.email || "";
   const el = document.getElementById("pi-email");
   if (el) el.textContent = email;
-}
+}*/
