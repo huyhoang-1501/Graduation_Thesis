@@ -308,7 +308,7 @@ static void create_main_gui() {
   // HCMUTE badge
   lv_obj_t *hcmute_box = lv_obj_create(status);
   lv_obj_set_size(hcmute_box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-  lv_obj_align(hcmute_box, LV_ALIGN_LEFT_MID, 0, 0);
+  lv_obj_align(hcmute_box, LV_ALIGN_LEFT_MID, -5, 0);
 
   lv_obj_set_style_bg_opa(hcmute_box, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(hcmute_box, 2, 0);
@@ -344,7 +344,7 @@ static void create_main_gui() {
   lv_label_set_text(label_time, "--:--  --/--/----");
   lv_obj_set_style_text_color(label_time, dark, 0);
   lv_obj_set_style_text_font(label_time, pick_font_14(), 0);
-  lv_obj_align(label_time, LV_ALIGN_RIGHT_MID, -78, 0);
+  lv_obj_align(label_time, LV_ALIGN_RIGHT_MID, -65, 0);
 
     // ===== FRAME CHỨA TEXT + ẢNH =====
   lv_obj_t *frame = lv_obj_create(scr);
@@ -363,14 +363,14 @@ static void create_main_gui() {
   // ICON MÀN HÌNH BÊN PHẢI TRONG FRAME
   lv_obj_t *img_monitor = lv_img_create(frame);
   lv_img_set_src(img_monitor, &monitoring_icon);
-  lv_obj_align(img_monitor, LV_ALIGN_RIGHT_MID, -5, 0);
+  lv_obj_align(img_monitor, LV_ALIGN_RIGHT_MID, -10, 0);
 
   // NHÓM TEXT "Health / Monitoring" BÊN TRÁI, ĐỐI DIỆN ẢNH
   lv_obj_t *text_cont = lv_obj_create(frame);
   lv_obj_set_size(text_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
   lv_obj_set_style_bg_opa(text_cont, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(text_cont, 0, 0);
-  lv_obj_align(text_cont, LV_ALIGN_LEFT_MID, 5, 0);
+  lv_obj_align(text_cont, LV_ALIGN_LEFT_MID, 10, 0);
 
   lv_obj_t *label_health = lv_label_create(text_cont);
   lv_label_set_text(label_health, "Health");
@@ -470,7 +470,7 @@ void setup() {
   rtc_ok = rtc.begin();
   Serial.println(rtc_ok ? "DS3231 OK" : "DS3231 not found");
   if (rtc_ok) {
-  rtc.adjust(DateTime(2026, 4, 7, 19, 43, 0));   
+  rtc.adjust(DateTime(2026, 4, 7, 21, 00, 0));   
 }
 
   // MAX17043 init
