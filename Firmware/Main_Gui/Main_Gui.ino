@@ -9,6 +9,9 @@
 
 #include "RTClib.h"
 
+#include "monitoring_icon.h"       // monitoring_icon
+#include "wifi_icon.h"  // wifi_icon
+
 // ================= DISPLAY =================
 static const uint16_t SCREEN_WIDTH  = 480;
 static const uint16_t SCREEN_HEIGHT = 320;
@@ -241,9 +244,9 @@ static void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t
 }
 
 // ================= Fonts fallback =================
-static const lv_font_t* pick_font_44_or_14() {
-#if defined(LV_FONT_MONTSERRAT_44) && (LV_FONT_MONTSERRAT_44 == 1)
-  return &lv_font_montserrat_44;
+static const lv_font_t* pick_font_40_or_14() {
+#if defined(LV_FONT_MONTSERRAT_40) && (LV_FONT_MONTSERRAT_40 == 1)
+  return &lv_font_montserrat_40;
 #else
   return &lv_font_montserrat_14;
 #endif
@@ -276,7 +279,7 @@ static void ui_set_status(const char *time_str, const char *batt_str) {
   if (label_batt) lv_label_set_text(label_batt, batt_str);
 }
 
-// Create GUI (Medical theme)
+// Create Main GUI 
 static void create_main_gui() {
   lv_obj_t *scr = lv_scr_act();
 
@@ -288,7 +291,7 @@ static void create_main_gui() {
   lv_obj_set_style_bg_color(scr, bg, 0);
   lv_obj_set_style_pad_all(scr, 12, 0);
 
-  // Status bar
+  // ===== STATUS BAR =====
   lv_obj_t *status = lv_obj_create(scr);
   lv_obj_set_size(status, lv_pct(100), 44);
   lv_obj_align(status, LV_ALIGN_TOP_MID, 0, 0);
@@ -328,6 +331,13 @@ static void create_main_gui() {
   lv_obj_set_style_text_font(label_batt, pick_font_18_or_14(), 0);
   lv_obj_align(label_batt, LV_ALIGN_RIGHT_MID, 0, 0);
 
+  // WiFi icon cạnh phần trăm pin (đổi màu đậm hơn bằng recolor)
+  lv_obj_t *img_wifi = lv_img_create(status);
+  lv_img_set_src(img_wifi, &wifi_icon);
+  lv_obj_align_to(img_wifi, label_batt, LV_ALIGN_OUT_LEFT_MID, -8, 0);
+  lv_obj_set_style_img_recolor_opa(img_wifi, LV_OPA_COVER, LV_PART_MAIN);
+  lv_obj_set_style_img_recolor(img_wifi, lv_color_black(), LV_PART_MAIN);
+
   // Time
   label_time = lv_label_create(status);
   lv_label_set_text(label_time, "--:--  --/--/----");
@@ -335,35 +345,71 @@ static void create_main_gui() {
   lv_obj_set_style_text_font(label_time, pick_font_14(), 0);
   lv_obj_align(label_time, LV_ALIGN_RIGHT_MID, -78, 0);
 
-  // Title
-  lv_obj_t *title = lv_label_create(scr);
-  lv_label_set_text(title, "Health Monitoring");
-  lv_obj_set_style_text_color(title, primary, 0);
-  lv_obj_set_style_text_font(title, pick_font_44_or_14(), 0);
-  lv_obj_align(title, LV_ALIGN_CENTER, 0, -30);
+    // ===== FRAME CHỨA TEXT + ẢNH =====
+  lv_obj_t *frame = lv_obj_create(scr);
+  // giữ cao 170, bạn có thể giảm nếu muốn gọn hơn (ví dụ 160)
+  lv_obj_set_size(frame, lv_pct(100), 160);
+  // KÉO FRAME LÊN CAO HƠN: giảm offset Y từ 80 -> 65
+  lv_obj_align(frame, LV_ALIGN_TOP_MID, 0, 50);
 
-  // Buttons container
+  lv_obj_set_style_bg_opa(frame, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(frame, 3, 0);
+  lv_obj_set_style_border_color(frame, primary, 0);
+  lv_obj_set_style_radius(frame, 20, 0);
+  lv_obj_set_style_pad_all(frame, 10, 0);
+
+  // ICON MÀN HÌNH BÊN PHẢI TRONG FRAME
+  lv_obj_t *img_monitor = lv_img_create(frame);
+  lv_img_set_src(img_monitor, &monitoring_icon);
+  lv_obj_align(img_monitor, LV_ALIGN_RIGHT_MID, -5, 0);
+
+  // NHÓM TEXT "Health / Monitoring" BÊN TRÁI, ĐỐI DIỆN ẢNH
+  lv_obj_t *text_cont = lv_obj_create(frame);
+  lv_obj_set_size(text_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_set_style_bg_opa(text_cont, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(text_cont, 0, 0);
+  lv_obj_align(text_cont, LV_ALIGN_LEFT_MID, 5, 0);
+
+  lv_obj_t *label_health = lv_label_create(text_cont);
+  lv_label_set_text(label_health, "Health");
+  lv_obj_set_style_text_color(label_health, primary, 0);
+  lv_obj_set_style_text_font(label_health, pick_font_40_or_14(), 0);
+  lv_obj_align(label_health, LV_ALIGN_TOP_LEFT, 0, 0);
+
+  lv_obj_t *label_monitor = lv_label_create(text_cont);
+  lv_label_set_text(label_monitor, "Monitoring");
+  lv_obj_set_style_text_color(label_monitor, primary, 0);
+  lv_obj_set_style_text_font(label_monitor, pick_font_40_or_14(), 0);
+  lv_obj_align_to(label_monitor, label_health, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 4);
+
+  // ===== CỤM NÚT Guest/User – NHỎ HƠN & THẤP HƠN =====
   lv_obj_t *cont_btn = lv_obj_create(scr);
-  lv_obj_set_size(cont_btn, lv_pct(100), 90);
-  lv_obj_align(cont_btn, LV_ALIGN_CENTER, 0, 90);
+  // giảm chiều cao container từ 90 -> 75 (nhỏ tổng thể)
+  lv_obj_set_size(cont_btn, lv_pct(100), 75);
+  // vẫn căn đáy, nhưng kéo xuống thêm chút (xa frame hơn)
+  lv_obj_align(cont_btn, LV_ALIGN_BOTTOM_MID, 0, -5);
   lv_obj_set_style_bg_opa(cont_btn, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(cont_btn, 0, 0);
   lv_obj_set_style_pad_all(cont_btn, 0, 0);
-  lv_obj_set_style_pad_column(cont_btn, 16, 0);
+  lv_obj_set_style_pad_column(cont_btn, 12, 0); // giảm khoảng cách giữa 2 nút
 
   static lv_coord_t col[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
   static lv_coord_t row[] = {LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
   lv_obj_set_grid_dsc_array(cont_btn, col, row);
 
-  // Guest
+  // Guest (nút nhỏ lại bằng cách giảm height và font)
   btn_guest = lv_btn_create(cont_btn);
-  lv_obj_set_grid_cell(btn_guest, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
-  lv_obj_set_style_radius(btn_guest, 18, 0);
+  lv_obj_set_grid_cell(btn_guest, LV_GRID_ALIGN_STRETCH, 0, 1,
+                       LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_style_radius(btn_guest, 16, 0);
   lv_obj_set_style_bg_color(btn_guest, card, 0);
   lv_obj_set_style_bg_color(btn_guest, lv_color_make(210, 245, 255), LV_STATE_PRESSED);
   lv_obj_set_style_border_width(btn_guest, 3, 0);
   lv_obj_set_style_border_color(btn_guest, primary, 0);
   lv_obj_set_style_shadow_width(btn_guest, 0, 0);
+  // chiều cao nút thấp hơn (nếu muốn nữa bạn có thể set size cụ thể)
+  lv_obj_set_style_pad_top(btn_guest, 6, 0);
+  lv_obj_set_style_pad_bottom(btn_guest, 6, 0);
 
   lv_obj_t *lg = lv_label_create(btn_guest);
   lv_label_set_text(lg, "Guest");
@@ -373,12 +419,15 @@ static void create_main_gui() {
 
   // User
   btn_user = lv_btn_create(cont_btn);
-  lv_obj_set_grid_cell(btn_user, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
-  lv_obj_set_style_radius(btn_user, 18, 0);
+  lv_obj_set_grid_cell(btn_user, LV_GRID_ALIGN_STRETCH, 1, 1,
+                       LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_style_radius(btn_user, 16, 0);
   lv_obj_set_style_bg_color(btn_user, lv_color_make(0, 140, 200), 0);
   lv_obj_set_style_bg_color(btn_user, lv_color_make(0, 175, 235), LV_STATE_PRESSED);
   lv_obj_set_style_border_width(btn_user, 0, 0);
   lv_obj_set_style_shadow_width(btn_user, 0, 0);
+  lv_obj_set_style_pad_top(btn_user, 6, 0);
+  lv_obj_set_style_pad_bottom(btn_user, 6, 0);
 
   lv_obj_t *lu = lv_label_create(btn_user);
   lv_label_set_text(lu, "User");
@@ -417,6 +466,9 @@ void setup() {
   // RTC init
   rtc_ok = rtc.begin();
   Serial.println(rtc_ok ? "DS3231 OK" : "DS3231 not found");
+  if (rtc_ok) {
+  rtc.adjust(DateTime(2026, 4, 7, 19, 43, 0));   
+}
 
   // MAX17043 init
   max17043_ok = i2c_device_present(MAX17043_ADDR);
@@ -499,8 +551,5 @@ void loop() {
     }
 
     ui_set_status(tbuf, bbuf);
-
-    // optional debug
-    // if (max17043_ok) Serial.printf("Battery: %s\n", bbuf);
   }
 }
