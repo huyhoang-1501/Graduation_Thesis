@@ -295,6 +295,7 @@ static void create_main_gui() {
   lv_obj_t *status = lv_obj_create(scr);
   lv_obj_set_size(status, lv_pct(100), 44);
   lv_obj_align(status, LV_ALIGN_TOP_MID, 0, 0);
+   lv_obj_clear_flag(status, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_set_style_bg_color(status, card, 0);
   lv_obj_set_style_radius(status, 14, 0);
@@ -357,6 +358,7 @@ static void create_main_gui() {
   lv_obj_set_style_border_color(frame, primary, 0);
   lv_obj_set_style_radius(frame, 20, 0);
   lv_obj_set_style_pad_all(frame, 10, 0);
+  lv_obj_clear_flag(frame, LV_OBJ_FLAG_SCROLLABLE);
 
   // ICON MÀN HÌNH BÊN PHẢI TRONG FRAME
   lv_obj_t *img_monitor = lv_img_create(frame);
@@ -391,7 +393,8 @@ static void create_main_gui() {
   lv_obj_set_style_bg_opa(cont_btn, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(cont_btn, 0, 0);
   lv_obj_set_style_pad_all(cont_btn, 0, 0);
-  lv_obj_set_style_pad_column(cont_btn, 12, 0); // giảm khoảng cách giữa 2 nút
+  lv_obj_set_style_pad_column(cont_btn, 12, 0); 
+  lv_obj_clear_flag(cont_btn, LV_OBJ_FLAG_SCROLLABLE);
 
   static lv_coord_t col[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
   static lv_coord_t row[] = {LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
