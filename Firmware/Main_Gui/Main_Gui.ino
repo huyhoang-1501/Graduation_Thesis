@@ -3,14 +3,22 @@
 #include <Wire.h>
 #include "esp_timer.h"
 
+// ===== NVS / Preferences để lưu dung lượng pin =====
+#include <Preferences.h>
+// ===== INA219 =====
+#include <Adafruit_INA219.h>
+
+// ===== LVGL =====
 #define LV_CONF_SKIP
 #include "lv_conf.h"
 #include <lvgl.h>
 
+// ===== RTC =====
 #include "RTClib.h"
 
+// ===== ICONS =====
 #include "monitoring_icon.h"       // monitoring_icon
-#include "wifi_icon.h"  // wifi_icon
+#include "wifi_icon.h"             // wifi_icon
 
 // ================= DISPLAY =================
 static const uint16_t SCREEN_WIDTH  = 480;
@@ -63,60 +71,33 @@ static bool ft6336u_read_touch(uint16_t &x, uint16_t &y, bool &touched) {
 RTC_DS3231 rtc;
 static bool rtc_ok = false;
 
-// ================= MAX17043 (Battery gauge) =================
-#define MAX17043_ADDR 0x32
-#define VCELL_REG   0x02
-#define SOC_REG     0x04
-#define MODE_REG    0x06
+// ================= INA219 + Battery SOH/SOC bằng tích phân =================
 
-static bool max17043_ok = false;
+// Dung lượng danh định của pin (mAh)
+const float BATTERY_CAPACITY_mAh = 3500.0f;
 
-static bool i2c_device_present(uint8_t addr) {
-  Wire.beginTransmission(addr);
-  return (Wire.endTransmission() == 0);
-}
+// INA219
+Adafruit_INA219 ina219;
 
-static void max17043_reset() {
-  Wire.beginTransmission(MAX17043_ADDR);
-  Wire.write(MODE_REG);
-  Wire.write(0x54);
-  Wire.write(0x00);
-  Wire.endTransmission();
-}
+// Dung lượng còn lại (mAh), sẽ đọc/lưu vào NVS
+float batteryRemaining_mAh = BATTERY_CAPACITY_mAh;
 
-static void max17043_quickStart() {
-  Wire.beginTransmission(MAX17043_ADDR);
-  Wire.write(MODE_REG);
-  Wire.write(0x40);
-  Wire.write(0x00);
-  Wire.endTransmission();
-}
+// Biến thời gian để tích phân dòng
+unsigned long lastMillis_batt = 0;
 
-// trả về mV
-static float max17043_readVoltage_mV() {
-  Wire.beginTransmission(MAX17043_ADDR);
-  Wire.write(VCELL_REG);
-  Wire.endTransmission();
+// Nếu wiring làm cho chiều dòng ngược, đổi true/false cho phù hợp
+// - Nếu XẢ → current_mA dương, SẠC → current_mA âm: để false
+// - Nếu ngược lại thì set true
+const bool INVERT_CURRENT = false;
 
-  if (Wire.requestFrom(MAX17043_ADDR, (uint8_t)2) != 2) return NAN;
+// NVS
+Preferences pref;
+const char *NVS_NAMESPACE = "battery";
+const char *NVS_KEY_QmAh  = "Q_mAh";
 
-  uint16_t value = (Wire.read() << 8) | Wire.read();
-  return (value >> 4) * 1.25f; // mỗi bit = 1.25mV
-}
-
-// trả về %
-static float max17043_readSOC_percent() {
-  Wire.beginTransmission(MAX17043_ADDR);
-  Wire.write(SOC_REG);
-  Wire.endTransmission();
-
-  if (Wire.requestFrom(MAX17043_ADDR, (uint8_t)2) != 2) return NAN;
-
-  uint16_t value = (Wire.read() << 8) | Wire.read();
-  float percent = value >> 8;
-  percent += (value & 0xFF) / 256.0f;
-  return percent;
-}
+// Thời gian giữa 2 lần save NVS (ms)
+const uint32_t NVS_SAVE_INTERVAL_MS = 10000; // 10 giây
+static uint32_t last_nvs_save_ms = 0;
 
 // ================= POWER SAVE / BACKLIGHT =================
 static const uint32_t IDLE_OFF_MS = 30000; // 30s không chạm -> tắt backlight
@@ -265,6 +246,13 @@ static const lv_font_t* pick_font_18_or_14() {
   return &lv_font_montserrat_14;
 #endif
 }
+static const lv_font_t* pick_font_16_or_14() {
+#if defined(LV_FONT_MONTSERRAT_16) && (LV_FONT_MONTSERRAT_16 == 1)
+  return &lv_font_montserrat_16;
+#else
+  return &lv_font_montserrat_14;
+#endif
+}
 static const lv_font_t* pick_font_14() { return &lv_font_montserrat_14; }
 
 // ================= MAIN GUI objects =================
@@ -295,7 +283,7 @@ static void create_main_gui() {
   lv_obj_t *status = lv_obj_create(scr);
   lv_obj_set_size(status, lv_pct(100), 44);
   lv_obj_align(status, LV_ALIGN_TOP_MID, 0, 0);
-   lv_obj_clear_flag(status, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_clear_flag(status, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_set_style_bg_color(status, card, 0);
   lv_obj_set_style_radius(status, 14, 0);
@@ -320,7 +308,7 @@ static void create_main_gui() {
   lv_obj_set_style_pad_bottom(hcmute_box, 5, 0);
 
   lv_obj_t *label_hcmute = lv_label_create(hcmute_box);
-  lv_label_set_text(label_hcmute, "HCMUTE");
+  lv_label_set_text(label_hcmute, "HCM-UTE");
   lv_obj_set_style_text_color(label_hcmute, primary, 0);
   lv_obj_set_style_text_font(label_hcmute, pick_font_18_or_14(), 0);
   lv_obj_center(label_hcmute);
@@ -329,28 +317,28 @@ static void create_main_gui() {
   label_batt = lv_label_create(status);
   lv_label_set_text(label_batt, "--%");
   lv_obj_set_style_text_color(label_batt, dark, 0);
-  lv_obj_set_style_text_font(label_batt, pick_font_18_or_14(), 0);
+  lv_obj_set_style_text_font(label_batt, pick_font_16_or_14(), 0);
   lv_obj_align(label_batt, LV_ALIGN_RIGHT_MID, 0, 0);
 
-  // WiFi icon cạnh phần trăm pin (đổi màu đậm hơn bằng recolor)
+  // WiFi icon cạnh phần trăm pin
   lv_obj_t *img_wifi = lv_img_create(status);
   lv_img_set_src(img_wifi, &wifi_icon);
-  lv_obj_align_to(img_wifi, label_batt, LV_ALIGN_OUT_LEFT_MID, -8, 0);
-  lv_obj_set_style_img_recolor_opa(img_wifi, LV_OPA_COVER, LV_PART_MAIN);
-  lv_obj_set_style_img_recolor(img_wifi, lv_color_black(), LV_PART_MAIN);
+  lv_obj_align_to(img_wifi, label_batt, LV_ALIGN_OUT_LEFT_MID, -20, 0);
+
+  lv_obj_set_style_img_recolor(img_wifi, lv_color_make(0,0,0), LV_PART_MAIN);
+  lv_obj_set_style_img_recolor_opa(img_wifi, 255, LV_PART_MAIN);
+  lv_obj_set_style_opa(img_wifi, 255, LV_PART_MAIN);
 
   // Time
   label_time = lv_label_create(status);
   lv_label_set_text(label_time, "--:--  --/--/----");
   lv_obj_set_style_text_color(label_time, dark, 0);
-  lv_obj_set_style_text_font(label_time, pick_font_14(), 0);
-  lv_obj_align(label_time, LV_ALIGN_RIGHT_MID, -65, 0);
+  lv_obj_set_style_text_font(label_time, pick_font_16_or_14(), 0);
+  lv_obj_align(label_time, LV_ALIGN_RIGHT_MID, -70, 0);
 
-    // ===== FRAME CHỨA TEXT + ẢNH =====
+  // ===== FRAME CHỨA TEXT + ẢNH =====
   lv_obj_t *frame = lv_obj_create(scr);
-  // giữ cao 170, bạn có thể giảm nếu muốn gọn hơn (ví dụ 160)
   lv_obj_set_size(frame, lv_pct(100), 160);
-  // KÉO FRAME LÊN CAO HƠN: giảm offset Y từ 80 -> 65
   lv_obj_align(frame, LV_ALIGN_TOP_MID, 0, 50);
 
   lv_obj_set_style_bg_opa(frame, LV_OPA_TRANSP, 0);
@@ -365,12 +353,12 @@ static void create_main_gui() {
   lv_img_set_src(img_monitor, &monitoring_icon);
   lv_obj_align(img_monitor, LV_ALIGN_RIGHT_MID, -10, 0);
 
-  // NHÓM TEXT "Health / Monitoring" BÊN TRÁI, ĐỐI DIỆN ẢNH
+  // NHÓM TEXT "Health / Monitoring" BÊN TRÁI
   lv_obj_t *text_cont = lv_obj_create(frame);
   lv_obj_set_size(text_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
   lv_obj_set_style_bg_opa(text_cont, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(text_cont, 0, 0);
-  lv_obj_align(text_cont, LV_ALIGN_LEFT_MID, 10, 0);
+  lv_obj_align(text_cont, LV_ALIGN_LEFT_MID, -10, 0);
 
   lv_obj_t *label_health = lv_label_create(text_cont);
   lv_label_set_text(label_health, "Health");
@@ -384,23 +372,21 @@ static void create_main_gui() {
   lv_obj_set_style_text_font(label_monitor, pick_font_40_or_14(), 0);
   lv_obj_align_to(label_monitor, label_health, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 4);
 
-  // ===== CỤM NÚT Guest/User – NHỎ HƠN & THẤP HƠN =====
+  // ===== CỤM NÚT Guest/User =====
   lv_obj_t *cont_btn = lv_obj_create(scr);
-  // giảm chiều cao container từ 90 -> 75 (nhỏ tổng thể)
   lv_obj_set_size(cont_btn, lv_pct(100), 75);
-  // vẫn căn đáy, nhưng kéo xuống thêm chút (xa frame hơn)
   lv_obj_align(cont_btn, LV_ALIGN_BOTTOM_MID, 0, -5);
   lv_obj_set_style_bg_opa(cont_btn, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(cont_btn, 0, 0);
   lv_obj_set_style_pad_all(cont_btn, 0, 0);
-  lv_obj_set_style_pad_column(cont_btn, 12, 0); 
+  lv_obj_set_style_pad_column(cont_btn, 12, 0);
   lv_obj_clear_flag(cont_btn, LV_OBJ_FLAG_SCROLLABLE);
 
   static lv_coord_t col[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
   static lv_coord_t row[] = {LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
   lv_obj_set_grid_dsc_array(cont_btn, col, row);
 
-  // Guest (nút nhỏ lại bằng cách giảm height và font)
+  // Guest
   btn_guest = lv_btn_create(cont_btn);
   lv_obj_set_grid_cell(btn_guest, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 0, 1);
@@ -410,7 +396,6 @@ static void create_main_gui() {
   lv_obj_set_style_border_width(btn_guest, 3, 0);
   lv_obj_set_style_border_color(btn_guest, primary, 0);
   lv_obj_set_style_shadow_width(btn_guest, 0, 0);
-  // chiều cao nút thấp hơn (nếu muốn nữa bạn có thể set size cụ thể)
   lv_obj_set_style_pad_top(btn_guest, 6, 0);
   lv_obj_set_style_pad_bottom(btn_guest, 6, 0);
 
@@ -448,9 +433,121 @@ static void format_datetime(char *out, size_t out_sz, const DateTime &now) {
            now.day(), now.month(), now.year());
 }
 
+static void update_battery_soc_from_ina219(char *out, size_t out_sz) {
+  // Nếu INA219 chưa khởi tạo được thì báo "--%"
+  static bool ina_ok_checked = false;
+  static bool ina_ok = false;
+  if (!ina_ok_checked) {
+    // Giả sử nếu begin() trong setup fail, ta in ra Serial nhưng vẫn chạy.
+    // Ở đây ta coi như nếu điện áp đọc được là NaN thì coi như fail.
+    float vtest = ina219.getBusVoltage_V();
+    ina_ok = !isnan(vtest);
+    ina_ok_checked = true;
+  }
+  if (!ina_ok) {
+    snprintf(out, out_sz, "--%%");
+    return;
+  }
+
+  // ===== Đọc thời gian và tính dt =====
+  unsigned long now = millis();
+  float dt_s = (now - lastMillis_batt) / 1000.0f;
+  if (dt_s <= 0.0f || dt_s > 10.0f) {
+    // Nếu dt_s bất thường (âm hoặc lớn hơn 10s), bỏ qua để tránh nhảy ác
+    dt_s = 1.0f;
+  }
+  lastMillis_batt = now;
+
+  // ===== Đọc INA219 =====
+  float busVoltage_V    = ina219.getBusVoltage_V();
+  float shuntVoltage_mV = ina219.getShuntVoltage_mV();
+  float current_mA_raw  = ina219.getCurrent_mA();
+
+  // Nếu bất kỳ cái nào là NaN thì bỏ, không update
+  if (isnan(busVoltage_V) || isnan(shuntVoltage_mV) || isnan(current_mA_raw)) {
+    snprintf(out, out_sz, "--%%");
+    return;
+  }
+
+  float current_mA = INVERT_CURRENT ? -current_mA_raw : current_mA_raw;
+
+  // ===== Tích phân dòng =====
+  float delta_mAh = current_mA * dt_s / 3600.0f;
+
+  if (!isnan(delta_mAh) && isfinite(delta_mAh)) {
+    batteryRemaining_mAh -= delta_mAh;
+  }
+
+  // Giới hạn Q trong [0, capacity]
+  if (!isfinite(batteryRemaining_mAh) || batteryRemaining_mAh < 0.0f) {
+    batteryRemaining_mAh = 0.0f;
+  }
+  if (batteryRemaining_mAh > BATTERY_CAPACITY_mAh) {
+    batteryRemaining_mAh = BATTERY_CAPACITY_mAh;
+  }
+
+  // ===== Tính % pin =====
+  float batPercent_f = 0.0f;
+
+  if (BATTERY_CAPACITY_mAh > 0.0f) {
+    batPercent_f = 100.0f * batteryRemaining_mAh / BATTERY_CAPACITY_mAh;
+  }
+
+  // Nếu NaN hoặc vô cực thì coi như 0%
+  if (!isfinite(batPercent_f)) {
+    batPercent_f = 0.0f;
+  }
+
+  if (batPercent_f < 0.0f)   batPercent_f = 0.0f;
+  if (batPercent_f > 100.0f) batPercent_f = 100.0f;
+
+  // Làm tròn
+  int batPercent = (int)(batPercent_f + 0.5f);
+  if (batPercent < 0)   batPercent = 0;
+  if (batPercent > 100) batPercent = 100;
+
+  // Debug
+  Serial.print("Q = ");
+  Serial.print(batteryRemaining_mAh, 1);
+  Serial.print(" mAh, SoC = ");
+  Serial.print(batPercent);
+  Serial.println(" %");
+
+  // Format chuỗi: "75%"
+  snprintf(out, out_sz, "%d%%", batPercent);
+}
+
+// ============ Lưu dung lượng vào NVS mỗi NVS_SAVE_INTERVAL_MS =============
+static void maybe_save_battery_to_nvs() {
+  uint32_t now = millis();
+  if (now - last_nvs_save_ms >= NVS_SAVE_INTERVAL_MS) {
+    last_nvs_save_ms = now;
+    pref.putFloat(NVS_KEY_QmAh, batteryRemaining_mAh);
+    Serial.print("NVS save Q_mAh = ");
+    Serial.println(batteryRemaining_mAh, 1);
+  }
+}
+
 // ================= SETUP / LOOP =================
 void setup() {
   Serial.begin(115200);
+
+  // NVS / Preferences
+    if (!pref.begin(NVS_NAMESPACE, false)) {
+    Serial.println("Failed to init NVS, using defaults");
+  } else {
+    float stored_Q = pref.getFloat(NVS_KEY_QmAh, BATTERY_CAPACITY_mAh);
+
+    if (!isfinite(stored_Q) ||
+        stored_Q < 0.0f ||
+        stored_Q > BATTERY_CAPACITY_mAh * 1.2f) {
+      stored_Q = BATTERY_CAPACITY_mAh;
+    }
+
+    batteryRemaining_mAh = stored_Q;
+    Serial.print("Loaded Q_mAh from NVS: ");
+    Serial.println(batteryRemaining_mAh, 1);
+  }
 
   // TFT init
   tft.init();
@@ -462,7 +559,7 @@ void setup() {
 
   tft.fillScreen(TFT_BLACK);
 
-  // I2C (chung cho Touch + RTC + MAX17043)
+  // I2C (chung cho Touch + RTC + INA219)
   Wire.begin(I2C_SDA, I2C_SCL);
   Wire.setClock(400000);
 
@@ -470,17 +567,17 @@ void setup() {
   rtc_ok = rtc.begin();
   Serial.println(rtc_ok ? "DS3231 OK" : "DS3231 not found");
   if (rtc_ok) {
-  rtc.adjust(DateTime(2026, 4, 7, 21, 00, 0));   
-}
+    // Chỉ adjust khi lần đầu cắm, sau đó comment lại để không reset thời gian mỗi lần
+    // rtc.adjust(DateTime(2026, 4, 7, 21, 0, 0));
+  }
 
-  // MAX17043 init
-  max17043_ok = i2c_device_present(MAX17043_ADDR);
-  Serial.println(max17043_ok ? "MAX17043 OK" : "MAX17043 not found");
-  if (max17043_ok) {
-    max17043_reset();
-    delay(250);
-    max17043_quickStart();
-    delay(125);
+  // INA219 init
+  if (!ina219.begin()) {
+    Serial.println("Khong tim thay INA219!");
+  } else {
+    // Calibration: 32V, 1A (tùy tải)
+    ina219.setCalibration_32V_1A();
+    lastMillis_batt = millis();
   }
 
   // LVGL init
@@ -523,7 +620,6 @@ void loop() {
 
   power_save_task();
 
-  // Update status mỗi 1 giây
   static uint32_t last = 0;
   if (millis() - last >= 1000) {
     last = millis();
@@ -539,20 +635,11 @@ void loop() {
 
     // battery string
     char bbuf[16];
-    if (max17043_ok) {
-      float soc = max17043_readSOC_percent();
-      if (isnan(soc)) {
-        snprintf(bbuf, sizeof(bbuf), "--%%");
-      } else {
-        int pct = (int)lroundf(soc);
-        if (pct < 0) pct = 0;
-        if (pct > 100) pct = 100;
-        snprintf(bbuf, sizeof(bbuf), "%d%%", pct);
-      }
-    } else {
-      snprintf(bbuf, sizeof(bbuf), "--%%");
-    }
+    update_battery_soc_from_ina219(bbuf, sizeof(bbuf));
 
     ui_set_status(tbuf, bbuf);
+
+    // Lưu NVS định kỳ
+    maybe_save_battery_to_nvs();
   }
 }

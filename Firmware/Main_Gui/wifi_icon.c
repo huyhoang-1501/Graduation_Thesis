@@ -1,4 +1,3 @@
-
 // wifi_icon.c
 #include "wifi_icon.h"
 #include <stdint.h>
