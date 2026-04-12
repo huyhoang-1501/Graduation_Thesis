@@ -15,7 +15,7 @@ const auth = appAuth.auth();
 auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
 
 const googleProvider = new firebase.auth.GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: 'select_account' });
+googleProvider.setCustomParameters({ prompt: "select_account" });
 
 // ========== TOGGLE LOGIN / REGISTER FORM ==========
 document.getElementById("show-register")?.addEventListener("click", e => {
@@ -23,6 +23,7 @@ document.getElementById("show-register")?.addEventListener("click", e => {
   document.getElementById("login-form").style.display = "none";
   document.getElementById("register-form").style.display = "block";
 });
+
 document.getElementById("show-login")?.addEventListener("click", e => {
   e.preventDefault();
   document.getElementById("register-form").style.display = "none";
@@ -32,7 +33,7 @@ document.getElementById("show-login")?.addEventListener("click", e => {
 // ========== REGISTER ==========
 document.getElementById("register-btn")?.addEventListener("click", () => {
   const email = document.getElementById("email-register").value.trim();
-  const pass  = document.getElementById("password-register").value;
+  const pass = document.getElementById("password-register").value;
 
   if (!email || !pass) return alert("Vui lòng nhập đầy đủ!");
   if (pass.length < 6) return alert("Mật khẩu phải ≥ 6 ký tự!");
@@ -40,6 +41,8 @@ document.getElementById("register-btn")?.addEventListener("click", () => {
   auth.createUserWithEmailAndPassword(email, pass)
     .then(() => {
       alert("Đăng ký thành công! Hãy đăng nhập lại.");
+      document.getElementById("register-form").style.display = "none";
+      document.getElementById("login-form").style.display = "block";
     })
     .catch(err => alert("Lỗi đăng ký: " + err.message));
 });
@@ -47,7 +50,7 @@ document.getElementById("register-btn")?.addEventListener("click", () => {
 // ========== EMAIL SIGN IN ==========
 document.getElementById("email-signin-btn")?.addEventListener("click", () => {
   const email = document.getElementById("email-login").value.trim();
-  const pass  = document.getElementById("password-login").value;
+  const pass = document.getElementById("password-login").value;
 
   if (!email || !pass) return alert("Vui lòng nhập email và mật khẩu!");
 
@@ -56,11 +59,11 @@ document.getElementById("email-signin-btn")?.addEventListener("click", () => {
 });
 
 // ========== GOOGLE SIGN IN ==========
-document.getElementById("login-form")?.addEventListener("submit", function(e) {
+document.getElementById("login-form")?.addEventListener("submit", function (e) {
   e.preventDefault();
 
   const googleBtn = document.getElementById("google-signin-btn");
-  const oldHtml   = googleBtn.innerHTML;
+  const oldHtml = googleBtn.innerHTML;
 
   googleBtn.disabled = true;
   googleBtn.innerHTML =
@@ -71,7 +74,7 @@ document.getElementById("login-form")?.addEventListener("submit", function(e) {
       console.error("Google login error:", err);
       googleBtn.disabled = false;
       googleBtn.innerHTML = oldHtml;
-      if (err.code !== 'auth/popup-closed-by-user') {
+      if (err.code !== "auth/popup-closed-by-user") {
         alert("Lỗi Google login: " + err.message);
       }
     });
@@ -106,20 +109,21 @@ function showApp(user) {
 
   document.getElementById("current-user-email").textContent = email;
   document.getElementById("sidebar-user-name").textContent =
-    nameFromEmail || "Người d��ng";
+    nameFromEmail || "Người dùng";
 
   initSidebarNavigation();
   initOverview();
+  initOtherPages();
 }
 
 // ========== LOGOUT ==========
 function logout() {
   auth.signOut()
     .then(() => {
-      const emailLogin = document.getElementById('email-login');
-      const passLogin  = document.getElementById('password-login');
-      if (emailLogin) emailLogin.value = '';
-      if (passLogin)  passLogin.value  = '';
+      const emailLogin = document.getElementById("email-login");
+      const passLogin = document.getElementById("password-login");
+      if (emailLogin) emailLogin.value = "";
+      if (passLogin) passLogin.value = "";
 
       const googleBtn = document.getElementById("google-signin-btn");
       if (googleBtn) {
@@ -135,12 +139,28 @@ function logout() {
 function initSidebarNavigation() {
   const sideItems = document.querySelectorAll(".sidebar-item");
   const pages = document.querySelectorAll(".page");
+  const tabTitle = document.getElementById("main-tab-title");
+
+  const titleMap = {
+    overview: "TỔNG QUAN",
+    history: "LỊCH SỬ",
+    alerts: "CẢNH BÁO",
+    patients: "THIẾT BỊ / BỆNH NHÂN",
+    settings: "CÀI ĐẶT"
+  };
 
   sideItems.forEach(btn => {
     btn.addEventListener("click", () => {
       sideItems.forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-      showPage(btn.dataset.page);
+
+      const pageName = btn.dataset.page;
+
+      showPage(pageName);
+
+      if (tabTitle && titleMap[pageName]) {
+        tabTitle.textContent = titleMap[pageName];
+      }
     });
   });
 
@@ -196,34 +216,45 @@ function initMap() {
   leafletMap = L.map(mapDiv).setView([10.85, 106.77], 15);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
-    attribution: '&copy; OpenStreetMap'
+    attribution: "&copy; OpenStreetMap"
   }).addTo(leafletMap);
 
   leafletMarker = L.marker([10.85, 106.77]).addTo(leafletMap);
 }
 
 function mockUpdateOverview() {
-  document.getElementById("ov-hr-value").textContent    = "78 bpm";
-  document.getElementById("ov-bp-value").textContent    = "120 / 80 mmHg";
-  document.getElementById("ov-spo2-value").textContent  = "97 %";
+  document.getElementById("ov-hr-value").textContent = "78 bpm";
+  document.getElementById("ov-bp-value").textContent = "120 / 80 mmHg";
+  document.getElementById("ov-spo2-value").textContent = "97 %";
 
-  document.getElementById("ov-hr-status").textContent   = "Trạng thái: Bình thường";
-  document.getElementById("ov-bp-status").textContent   = "Trạng thái: Bình thường";
+  document.getElementById("ov-hr-status").textContent = "Trạng thái: Bình thường";
+  document.getElementById("ov-bp-status").textContent = "Trạng thái: Bình thường";
   document.getElementById("ov-spo2-status").textContent = "Trạng thái: Bình thường";
 
   const badge = document.getElementById("ov-device-badge");
   badge.textContent = "ONLINE";
-  badge.classList.remove("badge-offline","badge-stale");
+  badge.classList.remove("badge-offline", "badge-stale");
   badge.classList.add("badge-online");
 
-  document.getElementById("ov-lastseen").textContent  = "Cách đây 1 phút";
-  document.getElementById("ov-battery").textContent   = "85 %";
-  document.getElementById("ov-network").textContent   = "WiFi";
+  document.getElementById("ov-lastseen").textContent = "Cách đây 1 phút";
+  document.getElementById("ov-battery").textContent = "85 %";
+  document.getElementById("ov-network").textContent = "WiFi";
   document.getElementById("ov-freshness").textContent = "Dữ liệu mới";
+
+  // Ô thông báo
+  const notifyCountEl = document.getElementById("ov-notify-count");
+  const notifyTextEl = document.getElementById("ov-notify-text");
+  if (notifyCountEl && notifyTextEl) {
+    const newAlerts = 2; // demo
+    notifyCountEl.textContent = newAlerts;
+    notifyTextEl.textContent = newAlerts > 0
+      ? "Có " + newAlerts + " cảnh báo chưa xem"
+      : "Không có cảnh báo mới";
+  }
 
   if (miniChart) {
     const labels = [];
-    const data   = [];
+    const data = [];
     for (let i = 0; i < 12; i++) {
       labels.push("");
       data.push(70 + Math.round(Math.random() * 10));
@@ -239,13 +270,12 @@ function mockUpdateOverview() {
     leafletMap.setView([lat, lng], 15);
   }
 }
-// ========== MOCK DATA & UI FOR OTHER PAGES ==========
 
+// ========== MOCK DATA & UI FOR OTHER PAGES ==========
 function initOtherPages() {
   renderMockHistory();
   renderMockAlerts();
   renderMockPatients();
- /* fillPersonalInfo();*/
 }
 
 function renderMockHistory() {
@@ -271,7 +301,6 @@ function renderMockHistory() {
     tbody.appendChild(tr);
   });
 
-  // History chart demo (1 series HR)
   const ctx = document.getElementById("historyChart")?.getContext("2d");
   if (!ctx) return;
   new Chart(ctx, {
@@ -377,9 +406,3 @@ function renderMockPatients() {
     container.appendChild(row);
   });
 }
-
-/*function fillPersonalInfo() {
-  const email = auth.currentUser?.email || "";
-  const el = document.getElementById("pi-email");
-  if (el) el.textContent = email;
-}*/

@@ -186,6 +186,24 @@ body {
   background:#00548a; border:none; color:#fff;
   padding:8px 14px; border-radius:4px; cursor:pointer;
 }
+.btn-secondary {
+  background:#6b7280;
+  border:none;
+  color:#fff;
+  padding:8px 12px;
+  border-radius:4px;
+  cursor:pointer;
+  font-size:13px;
+}
+.btn-ghost {
+  background:transparent;
+  border:1px solid #d1d5db;
+  padding:4px 8px;
+  border-radius:4px;
+  font-size:12px;
+  cursor:pointer;
+}
+
 /* PAGES */
 .page { display:none; }
 .page.active { display:block; }
@@ -246,6 +264,7 @@ body {
   font-weight:bold; font-size:14px;
 }
 .panel-body { padding:10px 12px; }
+
 /* HEADER TRONG CÁC PAGE */
 .page-header-row,
 .overview-header {
@@ -292,15 +311,6 @@ body {
 .filter-actions {
   display:flex;
   gap:8px;
-}
-.btn-secondary {
-  background:#6b7280;
-  border:none;
-  color:#fff;
-  padding:8px 12px;
-  border-radius:4px;
-  cursor:pointer;
-  font-size:13px;
 }
 
 /* HISTORY TABLE */
@@ -354,14 +364,6 @@ body {
   display:flex;
   flex-direction:column;
   gap:4px;
-}
-.btn-ghost {
-  background:transparent;
-  border:1px solid #d1d5db;
-  padding:4px 8px;
-  border-radius:4px;
-  font-size:12px;
-  cursor:pointer;
 }
 
 /* PATIENTS LIST */

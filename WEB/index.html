@@ -22,6 +22,7 @@
   <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
+  <!-- CSS chính -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -60,7 +61,7 @@
             Đăng nhập bằng Email
           </button>
 
-          <div style="text-align:center; margin:20px 0; color:#777; font-weight:bold;">
+          <div style="text-align:center; margin:15px 0; color:#777; font-weight:bold;">
             HOẶC
           </div>
 
@@ -167,9 +168,9 @@
       <!-- MAIN CONTENT -->
       <main class="main">
         <!-- TAB TITLE -->
-          <div class="tab-header single">
-              <h2>TỔNG QUAN</h2>
-          </div>
+        <div class="tab-header single">
+          <h2 id="main-tab-title">TỔNG QUAN</h2>
+        </div>
 
         <!-- ========== OVERVIEW ========== -->
         <section id="page-overview" class="page active">
@@ -206,6 +207,15 @@
                 </div>
                 <div class="stat-value" id="ov-spo2-value">-- %</div>
                 <div class="stat-sub" id="ov-spo2-status">Trạng thái: --</div>
+              </div>
+
+              <!-- Ô THÔNG BÁO -->
+              <div class="stat-card" id="ov-notify-card">
+                <div class="stat-title">
+                  <i class="fas fa-bell"></i> Thông báo
+                </div>
+                <div class="stat-value" id="ov-notify-count">0</div>
+                <div class="stat-sub" id="ov-notify-text">Không có cảnh báo mới</div>
               </div>
             </div>
 
@@ -398,21 +408,11 @@
             </div>
           </div>
         </section>
-
-        <!-- ========== PERSONAL INFO ========== -->
-          <div class="page-header-row">
-            <h2>Thông tin cá nhân</h2>
-          </div>
-
-          <div class="placeholder-box">
-            <p>Email: <span id="pi-email"></span></p>
-            <p>Role: Caregiver</p>
-          </div>
-        </section>
       </main>
     </div>
   </div>
 
+  <!-- JS chính -->
   <script src="app.js"></script>
 </body>
 </html>
