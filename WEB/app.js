@@ -406,3 +406,92 @@ function renderMockPatients() {
     container.appendChild(row);
   });
 }
+// ========== SETTINGS: THRESHOLDS + PHONE ==========
+document.addEventListener("DOMContentLoaded", () => {
+  // --- Ngưỡng cảnh báo ---
+  const thHrMin   = document.getElementById("th-hr-min");
+  const thHrMax   = document.getElementById("th-hr-max");
+  const thBpSys   = document.getElementById("th-bp-sys-max");
+  const thBpDia   = document.getElementById("th-bp-dia-max");
+  const thSaveBtn = document.getElementById("threshold-save-btn");
+  const thDelBtn  = document.getElementById("threshold-delete-btn");
+  const thStatus  = document.getElementById("threshold-status");
+
+  if (thHrMin && thHrMax && thBpSys && thBpDia && thSaveBtn && thDelBtn && thStatus) {
+    // Load ngưỡng từ localStorage
+    const savedThresholds = localStorage.getItem("alert_thresholds");
+    if (savedThresholds) {
+      try {
+        const th = JSON.parse(savedThresholds);
+        if (th.hrMin !== undefined) thHrMin.value = th.hrMin;
+        if (th.hrMax !== undefined) thHrMax.value = th.hrMax;
+        if (th.bpSysMax !== undefined) thBpSys.value = th.bpSysMax;
+        if (th.bpDiaMax !== undefined) thBpDia.value = th.bpDiaMax;
+        thStatus.textContent = "Đã tải ngưỡng cảnh báo đã lưu.";
+        thStatus.style.color = "#6b7280";
+      } catch (e) {
+        console.error("Parse thresholds error:", e);
+      }
+    }
+
+    // Lưu ngưỡng
+    thSaveBtn.addEventListener("click", () => {
+      const th = {
+        hrMin:   Number(thHrMin.value || 0),
+        hrMax:   Number(thHrMax.value || 0),
+        bpSysMax: Number(thBpSys.value || 0),
+        bpDiaMax: Number(thBpDia.value || 0)
+      };
+      localStorage.setItem("alert_thresholds", JSON.stringify(th));
+      thStatus.textContent = "Đã lưu ngưỡng cảnh báo.";
+      thStatus.style.color = "#16a34a";
+    });
+
+    // Xóa ngưỡng (reset về mặc định – bạn muốn set bao nhiêu thì sửa ở đây)
+    thDelBtn.addEventListener("click", () => {
+      localStorage.removeItem("alert_thresholds");
+      thHrMin.value = 50;
+      thHrMax.value = 100;
+      thBpSys.value = 140;
+      thBpDia.value = 90;
+      thStatus.textContent = "Đã xóa ngưỡng cảnh báo, khôi phục giá trị mặc định.";
+      thStatus.style.color = "#6b7280";
+    });
+  }
+
+  // --- Số điện thoại ---
+  const phoneInput = document.getElementById("alert-phone");
+  const phoneSaveBtn = document.getElementById("phone-save-btn");
+  const phoneDelBtn = document.getElementById("phone-delete-btn");
+  const phoneStatus = document.getElementById("phone-status");
+
+  if (phoneInput && phoneSaveBtn && phoneDelBtn && phoneStatus) {
+    const savedPhone = localStorage.getItem("alert_phone");
+    if (savedPhone) {
+      phoneInput.value = savedPhone;
+      phoneStatus.textContent = "Đã tải số điện thoại đã lưu.";
+      phoneStatus.style.color = "#6b7280";
+    }
+
+    phoneSaveBtn.addEventListener("click", () => {
+      const phone = phoneInput.value.trim();
+
+      if (!phone) {
+        phoneStatus.textContent = "Vui lòng nhập số điện thoại.";
+        phoneStatus.style.color = "#dc2626";
+        return;
+      }
+
+      localStorage.setItem("alert_phone", phone);
+      phoneStatus.textContent = "Đã lưu số điện thoại: " + phone;
+      phoneStatus.style.color = "#16a34a";
+    });
+
+    phoneDelBtn.addEventListener("click", () => {
+      localStorage.removeItem("alert_phone");
+      phoneInput.value = "";
+      phoneStatus.textContent = "Đã xóa số điện thoại lưu trữ.";
+      phoneStatus.style.color = "#6b7280";
+    });
+  }
+});
