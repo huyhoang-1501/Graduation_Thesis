@@ -1,4 +1,4 @@
-// ========== CONFIG FIREBASE AUTH ==========
+// ========== CONFIG FIREBASE (AUTH + REALTIME DB) ==========
 const firebaseConfigAuth = {
   apiKey: "AIzaSyBu0jPAKMiMOw_ZL61ta7vE8CFbozb4f8g",
   authDomain: "graduation-thesis-3a3df.firebaseapp.com",
@@ -10,7 +10,14 @@ const firebaseConfigAuth = {
   measurementId: "G-TKZJQCK7Z2"
 };
 
-const appAuth = firebase.initializeApp(firebaseConfigAuth, "authApp");
+// App default dùng cho Realtime Database
+const appCore = firebase.apps.find(a => a.name === "[DEFAULT]")
+  || firebase.initializeApp(firebaseConfigAuth);
+const db = appCore.database();
+
+// App riêng cho Auth (để sau này tách cấu hình nếu cần)
+const appAuth = firebase.apps.find(a => a.name === "authApp")
+  || firebase.initializeApp(firebaseConfigAuth, "authApp");
 const auth = appAuth.auth();
 auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
 
@@ -114,6 +121,9 @@ function showApp(user) {
   initSidebarNavigation();
   initOverview();
   initOtherPages();
+  initPatientSelectors();
+  initPatientsModule(); 
+  initSettingsModule();
 }
 
 // ========== LOGOUT ==========
@@ -179,7 +189,6 @@ let leafletMarker;
 function initOverview() {
   initMiniChart();
   initMap();
-  mockUpdateOverview();
 }
 
 function initMiniChart() {
@@ -271,11 +280,16 @@ function mockUpdateOverview() {
   }
 }
 
-// ========== MOCK DATA & UI FOR OTHER PAGES ==========
+// Helper cập nhật vị trí trên map theo data từ Realtime Database
+function updateMapLocation(lat, lng) {
+  if (!leafletMap || !leafletMarker) return;
+  leafletMarker.setLatLng([lat, lng]);
+  leafletMap.setView([lat, lng], 15);
+}
+
+// ========== HISTORY: (tạm thời) mock UI, có thể nâng cấp sau ==========
 function initOtherPages() {
   renderMockHistory();
-  renderMockAlerts();
-  renderMockPatients();
 }
 
 function renderMockHistory() {
@@ -325,29 +339,448 @@ function renderMockHistory() {
   });
 }
 
-function renderMockAlerts() {
+// ========== PATIENT SELECTORS (Overview / History / Alerts) ==========
+function initPatientSelectors() {
+  const ovSel  = document.getElementById("ov-patient-select");
+  const hisSel = document.getElementById("his-patient-select");
+  const alSel  = document.getElementById("al-patient-select");
+
+  function attachHandler(sel) {
+    if (!sel) return;
+    sel.addEventListener("change", () => {
+      const pid = sel.value;
+      if (!pid) return;
+
+      // Khi chọn bệnh nhân ở bất kỳ select nào, hiển thị Overview cho bệnh nhân đó
+      showOverviewForPatient(pid);
+
+      // Đồng bộ value 3 dropdown
+      [ovSel, hisSel, alSel].forEach(other => {
+        if (other && other !== sel) other.value = pid;
+      });
+    });
+  }
+
+  attachHandler(ovSel);
+  attachHandler(hisSel);
+  attachHandler(alSel);
+}
+
+function refreshPatientDropdowns(patientsData) {
+  const ovSel  = document.getElementById("ov-patient-select");
+  const hisSel = document.getElementById("his-patient-select");
+  const alSel  = document.getElementById("al-patient-select");
+
+  const sels = [ovSel, hisSel, alSel];
+  if (!sels.some(Boolean)) return;
+
+  sels.forEach(sel => {
+    if (!sel) return;
+
+    const current = sel.value; // cố gắng giữ lựa chọn hiện tại
+    sel.innerHTML = "";
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Chọn bệnh nhân...";
+    placeholder.disabled = true;
+    sel.appendChild(placeholder);
+
+    Object.keys(patientsData).forEach(pid => {
+      const p = patientsData[pid] || {};
+      const opt = document.createElement("option");
+      opt.value = pid;
+      opt.textContent = p.name || pid;
+      if (pid === current) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    // Nếu current rỗng hoặc không còn tồn tại thì để placeholder được chọn
+    if (!sel.value) {
+      placeholder.selected = true;
+    }
+  });
+}
+// ========== PATIENTS: CRUD cơ bản ==========
+let currentPatientId = null;        // patient đang được xem ở Overview/History/Alerts
+let patientsCache = {};             // lưu danh sách bệnh nhân để fill dropdown
+
+function  initPatientsModule() {
+  const listEl   = document.getElementById("patients-list");
+  const addBtn   = document.getElementById("pt-add-btn");
+  const nameEl   = document.getElementById("pt-name");
+  const ageEl    = document.getElementById("pt-age");
+  const sexEl    = document.getElementById("pt-sex");
+  const devEl    = document.getElementById("pt-device-id");
+  const statusEl = document.getElementById("pt-status");
+
+  if (!listEl) return;
+
+  const ref = db.ref("patients");
+
+  // Lắng nghe realtime danh sách patients
+  ref.on("value", snap => {
+    const data = snap.val() || {};
+    patientsCache = data;
+    listEl.innerHTML = "";
+
+    Object.keys(data).forEach(pid => {
+      const p = data[pid];
+      const row = document.createElement("div");
+      row.className = "patient-row";
+      const statusBadge = p.status === "online" ? "badge-online" : "badge-offline";
+
+      row.innerHTML = `
+        <div class="patient-info">
+          <div><strong>${p.name || "(chưa có tên)"}</strong> (${p.age || "?"}, ${p.sex || "?"})</div>
+          <div>DeviceId: ${p.deviceId || "-"}</div>
+          <div>patientId: <code>${pid}</code></div>
+          <div>Trạng thái: <span class="badge ${statusBadge}">${(p.status || "offline").toUpperCase()}</span></div>
+        </div>
+        <div class="patient-actions">
+          <button class="btn-ghost" data-pid="${pid}" data-action="view">View</button>
+          <button class="btn-ghost" data-pid="${pid}" data-action="delete">Delete</button>
+        </div>
+      `;
+      listEl.appendChild(row);
+    });
+
+    // Cập nhật các dropdown chọn bệnh nhân ở Overview/History/Alerts
+    refreshPatientDropdowns(patientsCache);
+  });
+
+  // Thêm patient: ghi vào /patients
+  addBtn?.addEventListener("click", () => {
+    const name = nameEl.value.trim();
+    const age  = ageEl.value.trim();
+    const sex  = sexEl.value;
+    const deviceId = devEl.value.trim();
+
+    if (!name || !age || !deviceId) {
+      statusEl.textContent = "Vui lòng nhập đầy đủ Tên, Tuổi và Mã thiết bị.";
+      statusEl.style.color = "#dc2626";
+      return;
+    }
+
+    // Dùng luôn deviceId làm patientId để ESP32 chỉ cần biết mỗi deviceId
+    const patientId = deviceId;
+
+    const patientData = {
+      name,
+      age,
+      sex,
+      deviceId,
+      status: "offline"   // mặc định, phần cứng cập nhật sau
+    };
+
+    const patientRef = ref.child(patientId);
+    patientRef.set(patientData)
+      .then(() => {
+        statusEl.textContent = "Đã thêm bệnh nhân, patientId (DeviceId): " + patientId;
+        statusEl.style.color = "#16a34a";
+        nameEl.value = "";
+        ageEl.value = "";
+        devEl.value = "";
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Lỗi thêm bệnh nhân: " + err.message);
+      });
+  });
+
+  // View / Delete
+  listEl.addEventListener("click", e => {
+    const btn = e.target.closest("button[data-pid]");
+    if (!btn) return;
+    const pid = btn.dataset.pid;
+    const action = btn.dataset.action;
+
+    if (action === "delete") {
+      if (!confirm("Xóa bệnh nhân này?")) return;
+      db.ref("patients/" + pid).remove();
+      // tùy bạn có muốn xóa measurements/alerts/settings của pid này không
+    }
+
+    if (action === "view") {
+      currentPatientId = pid;
+      showOverviewForPatient(pid);
+    }
+    if (window.loadThresholdsForCurrentPatient) {
+       window.loadThresholdsForCurrentPatient();
+    }
+  });
+}
+// ========== SETTINGS: thresholds theo từng patient + alert phone ==========
+function initSettingsModule() {
+  const thHrMin   = document.getElementById("th-hr-min");
+  const thHrMax   = document.getElementById("th-hr-max");
+  const thBpSys   = document.getElementById("th-bp-sys-max");
+  const thBpDia   = document.getElementById("th-bp-dia-max");
+  const thSaveBtn = document.getElementById("threshold-save-btn");
+  const thDelBtn  = document.getElementById("threshold-delete-btn");
+  const thStatus  = document.getElementById("threshold-status");
+
+  const phoneInput  = document.getElementById("alert-phone");
+  const phoneSaveBtn = document.getElementById("phone-save-btn");
+  const phoneDelBtn  = document.getElementById("phone-delete-btn");
+  const phoneStatus  = document.getElementById("phone-status");
+
+  if (!thHrMin || !thHrMax || !thBpSys || !thBpDia || !phoneInput) return;
+
+  // khi người dùng chuyển qua tab Cài đặt, ta nên load ngưỡng nếu đã chọn bệnh nhân
+  function loadThresholdsForCurrentPatient() {
+    if (!currentPatientId) {
+      thStatus.textContent = "Chưa chọn bệnh nhân. Vào tab 'Thiết bị / Bệnh nhân' → bấm View.";
+      thStatus.style.color = "#dc2626";
+      return;
+    }
+
+    db.ref("settings/" + currentPatientId + "/thresholds")
+      .once("value")
+      .then(snap => {
+        const th = snap.val() || {};
+        thHrMin.value = th.hrMin ?? "";
+        thHrMax.value = th.hrMax ?? "";
+        thBpSys.value = th.bpSysMax ?? "";
+        thBpDia.value = th.bsSysMin ?? ""; // field name theo schema: bsSysMin
+        thStatus.textContent = "Đã tải ngưỡng (nếu có) cho bệnh nhân " + currentPatientId;
+        thStatus.style.color = "#6b7280";
+      });
+  }
+
+  // Gọi lúc init
+  loadThresholdsForCurrentPatient();
+
+  // Lưu
+  thSaveBtn?.addEventListener("click", () => {
+    if (!currentPatientId) {
+      alert("Chưa chọn bệnh nhân. Vào tab 'Thiết bị / Bệnh nhân' → bấm View.");
+      return;
+    }
+
+    const th = {
+      hrMin:   thHrMin.value ? Number(thHrMin.value) : null,
+      hrMax:   thHrMax.value ? Number(thHrMax.value) : null,
+      bpSysMax: thBpSys.value ? Number(thBpSys.value) : null,
+      bsSysMin: thBpDia.value ? Number(thBpDia.value) : null
+    };
+
+    db.ref("settings/" + currentPatientId + "/thresholds")
+      .set(th)
+      .then(() => {
+        thStatus.textContent = "Đã lưu ngưỡng cho bệnh nhân " + currentPatientId;
+        thStatus.style.color = "#16a34a";
+      })
+      .catch(err => alert("Lỗi lưu ngưỡng: " + err.message));
+  });
+
+  // Xóa
+  thDelBtn?.addEventListener("click", () => {
+    if (!currentPatientId) {
+      alert("Chưa chọn bệnh nhân.");
+      return;
+    }
+    db.ref("settings/" + currentPatientId + "/thresholds")
+      .remove()
+      .then(() => {
+        thHrMin.value = "";
+        thHrMax.value = "";
+        thBpSys.value = "";
+        thBpDia.value = "";
+        thStatus.textContent = "Đã xóa ngưỡng cho bệnh nhân " + currentPatientId;
+        thStatus.style.color = "#6b7280";
+      })
+      .catch(err => alert("Lỗi xóa ngưỡng: " + err.message));
+  });
+
+  // để khi chọn patient khác (bấm View), có thể gọi lại loadThresholdsForCurrentPatient()
+  window.loadThresholdsForCurrentPatient = loadThresholdsForCurrentPatient;
+
+  // --- Số điện thoại theo từng bệnh nhân ---
+  function loadPhoneForCurrentPatient() {
+    if (!currentPatientId) {
+      phoneStatus.textContent = "Chưa chọn bệnh nhân. Vào tab 'Thiết bị / Bệnh nhân' → bấm View.";
+      phoneStatus.style.color = "#dc2626";
+      return;
+    }
+
+    db.ref("settings/" + currentPatientId + "/alertphone")
+      .once("value")
+      .then(snap => {
+        const phone = snap.val() || "";
+        phoneInput.value = phone;
+        phoneStatus.textContent = phone
+          ? "Đã tải số điện thoại cho bệnh nhân " + currentPatientId
+          : "Chưa có số điện thoại lưu cho bệnh nhân này.";
+        phoneStatus.style.color = "#6b7280";
+      });
+  }
+
+  // Lưu số điện thoại
+  phoneSaveBtn?.addEventListener("click", () => {
+    if (!currentPatientId) {
+      alert("Chưa chọn bệnh nhân. Vào tab 'Thiết bị / Bệnh nhân' → bấm View.");
+      return;
+    }
+    const phone = phoneInput.value.trim();
+    if (!phone) {
+      phoneStatus.textContent = "Vui lòng nhập số điện thoại.";
+      phoneStatus.style.color = "#dc2626";
+      return;
+    }
+
+    db.ref("settings/" + currentPatientId + "/alertphone")
+      .set(phone)
+      .then(() => {
+        phoneStatus.textContent = "Đã lưu số điện thoại cho bệnh nhân " + currentPatientId;
+        phoneStatus.style.color = "#16a34a";
+      })
+      .catch(err => alert("Lỗi lưu số điện thoại: " + err.message));
+  });
+
+  // Xóa số điện thoại
+  phoneDelBtn?.addEventListener("click", () => {
+    if (!currentPatientId) {
+      alert("Chưa chọn bệnh nhân.");
+      return;
+    }
+
+    db.ref("settings/" + currentPatientId + "/alertphone")
+      .remove()
+      .then(() => {
+        phoneInput.value = "";
+        phoneStatus.textContent = "Đã xóa số điện thoại cho bệnh nhân " + currentPatientId;
+        phoneStatus.style.color = "#6b7280";
+      })
+      .catch(err => alert("Lỗi xóa số điện thoại: " + err.message));
+  });
+
+  // cho phép module khác (Overview/Patients) gọi để reload khi đổi patient
+  window.loadPhoneForCurrentPatient = loadPhoneForCurrentPatient;
+
+  // Lần đầu init, nếu đã có currentPatientId thì load luôn
+  if (currentPatientId) {
+    loadThresholdsForCurrentPatient();
+    loadPhoneForCurrentPatient();
+  }
+}
+function showOverviewForPatient(patientId) {
+  currentPatientId = patientId;
+
+  // Đổi sidebar active sang Tổng quan
+  const sideItems = document.querySelectorAll(".sidebar-item");
+  sideItems.forEach(b => {
+    if (b.dataset.page === "overview") b.classList.add("active");
+    else b.classList.remove("active");
+  });
+
+  // Hiện page overview
+  const pages = document.querySelectorAll(".page");
+  pages.forEach(p => p.classList.remove("active"));
+  const target = document.getElementById("page-overview");
+  if (target) target.classList.add("active");
+
+  const tabTitle = document.getElementById("main-tab-title");
+  if (tabTitle) tabTitle.textContent = "TỔNG QUAN";
+
+  // 1) Load thông tin bệnh nhân
+  db.ref("patients/" + patientId).once("value").then(snap => {
+    const p = snap.val();
+    if (!p) return;
+    const nameSpan = document.getElementById("ov-patient-name");
+    const hisNameSpan = document.getElementById("his-patient-name");
+    const alNameSpan  = document.getElementById("al-patient-name");
+    if (nameSpan)    nameSpan.textContent    = p.name || patientId;
+    if (hisNameSpan) hisNameSpan.textContent = p.name || patientId;
+    if (alNameSpan)  alNameSpan.textContent  = p.name || patientId;
+  });
+
+  // 2) Đọc measurements hiện tại (1 record)
+  db.ref("measurements/" + patientId)
+    .once("value")
+    .then(snap => {
+      const m = snap.val();
+      if (!m) {
+        document.getElementById("ov-hr-value").textContent   = "-- bpm";
+        document.getElementById("ov-bp-value").textContent   = "-- / -- mmHg";
+        document.getElementById("ov-spo2-value").textContent = "-- %";
+        return;
+      }
+
+      document.getElementById("ov-hr-value").textContent   = (m.hr ?? "--") + " bpm";
+      document.getElementById("ov-bp-value").textContent   = (m.bpSys ?? "--") + " / " + (m.bpDia ?? "--") + " mmHg";
+      document.getElementById("ov-spo2-value").textContent = (m.spo2 ?? "--") + " %";
+
+      // cập nhật lastseen nếu bạn dùng timestamp
+      if (m.timestamp) {
+        document.getElementById("ov-lastseen").textContent =
+          new Date(m.timestamp).toLocaleString();
+      }
+
+      // location cho map
+      if (m.location && m.location.lat != null && m.location.lng != null) {
+        updateMapLocation(m.location.lat, m.location.lng);
+      }
+    });
+
+  // 3) Có thể load alerts lịch sử cho patient này (tab Alerts)
+  loadAlertsForPatient(patientId);
+
+  // 4) Load thresholds cho patient này (nếu đang ở tab Cài đặt)
+  if (window.loadThresholdsForCurrentPatient) {
+    window.loadThresholdsForCurrentPatient();
+  }
+  if (window.loadPhoneForCurrentPatient) {
+    window.loadPhoneForCurrentPatient();
+  }
+}
+// ========== ALERTS: realtime + filter + ack ==========
+let alertsRef = null;
+let currentAlertsData = {};
+
+function loadAlertsForPatient(patientId) {
   const container = document.getElementById("alerts-list");
   if (!container) return;
+
+  // Hủy listener cũ nếu có
+  if (alertsRef) {
+    alertsRef.off("value");
+  }
+
+  alertsRef = db.ref("alerts/" + patientId);
+  alertsRef.on("value", snap => {
+    currentAlertsData = snap.val() || {};
+    renderAlertsWithFilters();
+  });
+}
+
+function renderAlertsWithFilters() {
+  const container = document.getElementById("alerts-list");
+  if (!container) return;
+
+  const typeSel     = document.getElementById("al-type");
+  const severitySel = document.getElementById("al-severity");
+  const statusSel   = document.getElementById("al-status");
+
+  const typeFilter = typeSel?.value || "all";
+  const sevFilter  = severitySel?.value || "all";
+  const stFilter   = statusSel?.value || "all";
+
+  const keys = Object.keys(currentAlertsData);
   container.innerHTML = "";
 
-  const mocks = [
-    {
-      type: "HR_HIGH",
-      severity: "danger",
-      message: "HR high: 110 bpm",
-      time: "2026-04-01 21:32:10",
-      status: "unacked"
-    },
-    {
-      type: "DEVICE_OFFLINE",
-      severity: "warning",
-      message: "Device offline > 5 minutes",
-      time: "2026-04-01 20:05:00",
-      status: "acked"
-    }
-  ];
+  let unackedCount = 0;
 
-  mocks.forEach(a => {
+  keys.forEach(alertId => {
+    const a = currentAlertsData[alertId];
+    if (!a) return;
+
+    if (typeFilter !== "all" && a.type !== typeFilter) return;
+    if (sevFilter !== "all" && a.severity !== sevFilter) return;
+    if (stFilter !== "all" && a.status !== stFilter) return;
+
+    if (a.status === "unacked") unackedCount++;
+
     const div = document.createElement("div");
     div.className = "alert-item";
     const iconClass = a.severity === "danger"
@@ -361,137 +794,63 @@ function renderMockAlerts() {
           <i class="fas ${iconClass}"></i>
         </div>
         <div class="alert-content">
-          <div><span class="badge ${badgeClass}">${a.severity.toUpperCase()}</span></div>
-          <div>${a.message}</div>
-          <div>Time: ${a.time}</div>
-          <div>Type: ${a.type}</div>
+          <div><span class="badge ${badgeClass}">${(a.severity || "").toUpperCase()}</span></div>
+          <div>${a.message || ""}</div>
+          <div>Time: ${a.time || ""}</div>
+          <div>Type: ${a.type || ""}</div>
           <div>Status: ${statusText}</div>
         </div>
       </div>
       <div class="alert-actions">
-        <button class="btn-ghost">View in History</button>
-        <button class="btn-ghost">Mark as Ack</button>
+        <button class="btn-ghost" data-alert-id="${alertId}" data-action="view-history">View in History</button>
+        <button class="btn-ghost" data-alert-id="${alertId}" data-action="ack">Mark as Ack</button>
       </div>
     `;
     container.appendChild(div);
   });
+
+  // Cập nhật ô thông báo ở Overview
+  const notifyCountEl = document.getElementById("ov-notify-count");
+  const notifyTextEl  = document.getElementById("ov-notify-text");
+  if (notifyCountEl && notifyTextEl) {
+    notifyCountEl.textContent = unackedCount;
+    notifyTextEl.textContent = unackedCount > 0
+      ? "Có " + unackedCount + " cảnh báo chưa xem"
+      : "Không có cảnh báo mới";
+  }
 }
 
-function renderMockPatients() {
-  const container = document.getElementById("patients-list");
-  if (!container) return;
-  container.innerHTML = "";
+// Lắng nghe thay đổi filter
+document.getElementById("al-type")?.addEventListener("change", renderAlertsWithFilters);
+document.getElementById("al-severity")?.addEventListener("change", renderAlertsWithFilters);
+document.getElementById("al-status")?.addEventListener("change", renderAlertsWithFilters);
 
-  const mocks = [
-    { name: "Nguyễn Văn A", age: 72, sex: "Nam", deviceId: "DEV001", status: "online" },
-    { name: "Trần Thị B", age: 68, sex: "Nữ", deviceId: "DEV002", status: "offline" }
-  ];
+// Click actions trong danh sách alerts
+document.getElementById("alerts-list")?.addEventListener("click", e => {
+  const btn = e.target.closest("button[data-alert-id]");
+  if (!btn || !currentPatientId) return;
+  const alertId = btn.dataset.alertId;
+  const action  = btn.dataset.action;
 
-  mocks.forEach(p => {
-    const row = document.createElement("div");
-    row.className = "patient-row";
-    const statusBadge = p.status === "online" ? "badge-online" : "badge-offline";
-
-    row.innerHTML = `
-      <div class="patient-info">
-        <div><strong>${p.name}</strong> (${p.age}, ${p.sex})</div>
-        <div>DeviceId: ${p.deviceId}</div>
-        <div>Trạng thái: <span class="badge ${statusBadge}">${p.status.toUpperCase()}</span></div>
-      </div>
-      <div class="patient-actions">
-        <button class="btn-ghost">View Overview</button>
-        <button class="btn-ghost">Edit</button>
-      </div>
-    `;
-    container.appendChild(row);
-  });
-}
-// ========== SETTINGS: THRESHOLDS + PHONE ==========
-document.addEventListener("DOMContentLoaded", () => {
-  // --- Ngưỡng cảnh báo ---
-  const thHrMin   = document.getElementById("th-hr-min");
-  const thHrMax   = document.getElementById("th-hr-max");
-  const thBpSys   = document.getElementById("th-bp-sys-max");
-  const thBpDia   = document.getElementById("th-bp-dia-max");
-  const thSaveBtn = document.getElementById("threshold-save-btn");
-  const thDelBtn  = document.getElementById("threshold-delete-btn");
-  const thStatus  = document.getElementById("threshold-status");
-
-  if (thHrMin && thHrMax && thBpSys && thBpDia && thSaveBtn && thDelBtn && thStatus) {
-    // Load ngưỡng từ localStorage
-    const savedThresholds = localStorage.getItem("alert_thresholds");
-    if (savedThresholds) {
-      try {
-        const th = JSON.parse(savedThresholds);
-        if (th.hrMin !== undefined) thHrMin.value = th.hrMin;
-        if (th.hrMax !== undefined) thHrMax.value = th.hrMax;
-        if (th.bpSysMax !== undefined) thBpSys.value = th.bpSysMax;
-        if (th.bpDiaMax !== undefined) thBpDia.value = th.bpDiaMax;
-        thStatus.textContent = "Đã tải ngưỡng cảnh báo đã lưu.";
-        thStatus.style.color = "#6b7280";
-      } catch (e) {
-        console.error("Parse thresholds error:", e);
-      }
-    }
-
-    // Lưu ngưỡng
-    thSaveBtn.addEventListener("click", () => {
-      const th = {
-        hrMin:   Number(thHrMin.value || 0),
-        hrMax:   Number(thHrMax.value || 0),
-        bpSysMax: Number(thBpSys.value || 0),
-        bpDiaMax: Number(thBpDia.value || 0)
-      };
-      localStorage.setItem("alert_thresholds", JSON.stringify(th));
-      thStatus.textContent = "Đã lưu ngưỡng cảnh báo.";
-      thStatus.style.color = "#16a34a";
-    });
-
-    // Xóa ngưỡng (reset về mặc định – bạn muốn set bao nhiêu thì sửa ở đây)
-    thDelBtn.addEventListener("click", () => {
-      localStorage.removeItem("alert_thresholds");
-      thHrMin.value = 50;
-      thHrMax.value = 100;
-      thBpSys.value = 140;
-      thBpDia.value = 90;
-      thStatus.textContent = "Đã xóa ngưỡng cảnh báo, khôi phục giá trị mặc định.";
-      thStatus.style.color = "#6b7280";
-    });
+  if (action === "ack") {
+    db.ref("alerts/" + currentPatientId + "/" + alertId + "/status")
+      .set("acked");
   }
 
-  // --- Số điện thoại ---
-  const phoneInput = document.getElementById("alert-phone");
-  const phoneSaveBtn = document.getElementById("phone-save-btn");
-  const phoneDelBtn = document.getElementById("phone-delete-btn");
-  const phoneStatus = document.getElementById("phone-status");
-
-  if (phoneInput && phoneSaveBtn && phoneDelBtn && phoneStatus) {
-    const savedPhone = localStorage.getItem("alert_phone");
-    if (savedPhone) {
-      phoneInput.value = savedPhone;
-      phoneStatus.textContent = "Đã tải số điện thoại đã lưu.";
-      phoneStatus.style.color = "#6b7280";
-    }
-
-    phoneSaveBtn.addEventListener("click", () => {
-      const phone = phoneInput.value.trim();
-
-      if (!phone) {
-        phoneStatus.textContent = "Vui lòng nhập số điện thoại.";
-        phoneStatus.style.color = "#dc2626";
-        return;
-      }
-
-      localStorage.setItem("alert_phone", phone);
-      phoneStatus.textContent = "Đã lưu số điện thoại: " + phone;
-      phoneStatus.style.color = "#16a34a";
+  if (action === "view-history") {
+    // Chuyển sang tab Lịch sử, tạm thời chỉ đổi tab
+    const sideItems = document.querySelectorAll(".sidebar-item");
+    sideItems.forEach(b => {
+      if (b.dataset.page === "history") b.classList.add("active");
+      else b.classList.remove("active");
     });
 
-    phoneDelBtn.addEventListener("click", () => {
-      localStorage.removeItem("alert_phone");
-      phoneInput.value = "";
-      phoneStatus.textContent = "Đã xóa số điện thoại lưu trữ.";
-      phoneStatus.style.color = "#6b7280";
-    });
+    const pages = document.querySelectorAll(".page");
+    pages.forEach(p => p.classList.remove("active"));
+    const pageHistory = document.getElementById("page-history");
+    if (pageHistory) pageHistory.classList.add("active");
+
+    const tabTitle = document.getElementById("main-tab-title");
+    if (tabTitle) tabTitle.textContent = "LỊCH SỬ";
   }
 });

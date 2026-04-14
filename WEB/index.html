@@ -10,6 +10,9 @@
   <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-auth.js"></script>
 
+  <!-- Firebase Realtime Database -->
+  <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-database.js"></script>
+  
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
@@ -175,10 +178,9 @@
         <!-- ========== OVERVIEW ========== -->
         <section id="page-overview" class="page active">
           <div class="overview-header">
-            <h2>Overview - <span id="ov-patient-name">Patient A</span></h2>
+            <h2>Overview - <span id="ov-patient-name">--</span></h2>
             <select id="ov-patient-select">
-              <option>Patient A</option>
-              <option>Patient B</option>
+              <option value="" selected disabled>Chọn bệnh nhân...</option>
             </select>
           </div>
 
@@ -258,10 +260,9 @@
         <!-- ========== HISTORY ========== -->
         <section id="page-history" class="page">
           <div class="page-header-row">
-            <h2>History - <span id="his-patient-name">Patient A</span></h2>
+            <h2>History - <span id="his-patient-name">--</span></h2>
             <select id="his-patient-select">
-              <option>Patient A</option>
-              <option>Patient B</option>
+              <option value="" selected disabled>Chọn bệnh nhân...</option>
             </select>
           </div>
 
@@ -325,10 +326,9 @@
         <!-- ========== ALERTS ========== -->
         <section id="page-alerts" class="page">
           <div class="page-header-row">
-            <h2>Alerts - <span id="al-patient-name">Patient A</span></h2>
+            <h2>Alerts - <span id="al-patient-name">--</span></h2>
             <select id="al-patient-select">
-              <option>Patient A</option>
-              <option>Patient B</option>
+              <option value="" selected disabled>Chọn bệnh nhân...</option>
             </select>
           </div>
 
@@ -370,13 +370,27 @@
         <section id="page-patients" class="page">
           <div class="page-header-row">
             <h2>Devices / Patients</h2>
-            <button class="btn-primary" id="pt-add-btn">
-              <i class="fas fa-user-plus"></i> Add Patient
-            </button>
+          </div>
+
+          <div class="placeholder-box">
+            <p>Thêm bệnh nhân mới:</p>
+            <div class="patients-form">
+              <input type="text" id="pt-name" placeholder="Tên bệnh nhân">
+              <input type="number" id="pt-age" placeholder="Tuổi">
+              <select id="pt-sex">
+                <option value="Nam">Nam</option>
+                <option value="Nữ">Nữ</option>
+              </select>
+              <input type="text" id="pt-device-id" placeholder="Mã thiết bị (DeviceId)">
+              <button class="btn-primary" id="pt-add-btn">
+                <i class="fas fa-user-plus"></i> Thêm
+              </button>
+            </div>
+            <small id="pt-status" class="phone-status-text"></small>
           </div>
 
           <div id="patients-list" class="patients-list">
-            <!-- JS render mock patients -->
+            <!-- JS render patients -->
           </div>
         </section>
 
