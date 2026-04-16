@@ -33,7 +33,7 @@ static void keypad_btn_event_cb(lv_event_t *e) {
     lv_textarea_set_text(g_ta_number, "");
     return;
   }
-  if (strcmp(txt, "->") == 0) {
+  if (strcmp(txt, "VIEW") == 0) {
     if (g_next_cb) g_next_cb(lv_textarea_get_text(g_ta_number));
     return;
   }
@@ -180,8 +180,8 @@ void keypad_init_screen(const lv_font_t *btn_font,
   lv_obj_set_style_border_color(bdel, lv_color_make(220, 40, 40), 0);
   lv_obj_set_style_border_color(bdel, lv_color_make(220, 40, 40), LV_STATE_PRESSED);
 
-  // SAVE đổi thành nút mũi tên ->
-  lv_obj_t *bnext = keypad_make_btn(cont, "->");
+  // Nút xác nhận xem thông số sau khi nhập ID
+  lv_obj_t *bnext = keypad_make_btn(cont, "VIEW");
   lv_obj_set_grid_cell(bnext, LV_GRID_ALIGN_STRETCH, 3, 1, LV_GRID_ALIGN_STRETCH, 2, 2);
   lv_obj_set_style_bg_color(bnext, lv_color_make(230, 250, 255), 0);
   lv_obj_set_style_bg_color(bnext, lv_color_make(200, 240, 255), LV_STATE_PRESSED);
