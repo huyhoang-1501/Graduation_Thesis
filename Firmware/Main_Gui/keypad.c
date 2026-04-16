@@ -100,7 +100,7 @@ void keypad_init_screen(const lv_font_t *btn_font,
   // Back button: chỉ bấm nút này mới quay lại main
   lv_obj_t *btn_back = lv_btn_create(g_keypad_scr);
   lv_obj_set_size(btn_back, 100, 40);
-  lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 0, 0);
+  lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 0, -4);
   lv_obj_set_style_radius(btn_back, 12, 0);
   lv_obj_set_style_bg_color(btn_back, card, 0);
   lv_obj_set_style_bg_color(btn_back, lv_color_make(210, 245, 255), LV_STATE_PRESSED);
@@ -117,8 +117,9 @@ void keypad_init_screen(const lv_font_t *btn_font,
 
   // Textarea hiển thị
   g_ta_number = lv_textarea_create(g_keypad_scr);
-  lv_obj_set_size(g_ta_number, 460, 78);
-  lv_obj_align(g_ta_number, LV_ALIGN_TOP_MID, 0, 48);
+  // Giảm nhẹ chiều cao ô nhập để nhường không gian cho keypad
+  lv_obj_set_size(g_ta_number, 460, 66);
+  lv_obj_align(g_ta_number, LV_ALIGN_TOP_MID, 0, 42);
   lv_textarea_set_one_line(g_ta_number, true);
   lv_textarea_set_placeholder_text(g_ta_number, "Nhap ID...");
   lv_textarea_set_cursor_click_pos(g_ta_number, false);
@@ -138,13 +139,14 @@ void keypad_init_screen(const lv_font_t *btn_font,
 
   // Grid keypad
   lv_obj_t *cont = lv_obj_create(g_keypad_scr);
-  lv_obj_set_size(cont, 460, 180);
+  // Tăng chiều cao vùng keypad để nút 0-9/CLR to hơn, dễ bấm hơn
+  lv_obj_set_size(cont, 460, 200);
   lv_obj_align(cont, LV_ALIGN_BOTTOM_MID, 0, 0);
   lv_obj_set_style_bg_opa(cont, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(cont, 0, 0);
   lv_obj_set_style_pad_all(cont, 0, 0);
-  lv_obj_set_style_pad_row(cont, 8, 0);
-  lv_obj_set_style_pad_column(cont, 8, 0);
+  lv_obj_set_style_pad_row(cont, 6, 0);
+  lv_obj_set_style_pad_column(cont, 6, 0);
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
 
   static lv_coord_t col[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
