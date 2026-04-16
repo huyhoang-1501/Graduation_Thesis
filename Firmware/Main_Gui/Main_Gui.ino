@@ -19,6 +19,7 @@
 // ===== ICONS =====
 #include "monitoring_icon.h"       // monitoring_icon
 #include "wifi_icon.h"             // wifi_icon
+#include "keypad.h"
 
 // ================= DISPLAY =================
 static const uint16_t SCREEN_WIDTH  = 480;
@@ -261,6 +262,43 @@ static lv_obj_t *label_batt = nullptr;
 static lv_obj_t *btn_guest  = nullptr;
 static lv_obj_t *btn_user   = nullptr;
 
+static lv_obj_t *main_scr   = nullptr;
+
+static void show_main_screen();
+static void show_keypad_screen();
+
+static void on_keypad_back() {
+  show_main_screen();
+}
+
+static void on_keypad_next(const char *text) {
+  Serial.print("NEXT = ");
+  Serial.println(text ? text : "");
+}
+
+static void user_btn_event_cb(lv_event_t *e) {
+  if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+  show_keypad_screen();
+}
+
+static void show_keypad_screen() {
+  static bool keypad_inited = false;
+  if (!keypad_inited) {
+    keypad_init_screen(pick_font_20_or_14(),
+                       pick_font_16_or_14(),
+                       on_keypad_back,
+                       on_keypad_next);
+    keypad_inited = true;
+  }
+
+  lv_obj_t *scr = keypad_get_screen();
+  if (scr) lv_scr_load(scr);
+}
+
+static void show_main_screen() {
+  if (main_scr) lv_scr_load(main_scr);
+}
+
 // Update status bar
 static void ui_set_status(const char *time_str, const char *batt_str) {
   if (label_time) lv_label_set_text(label_time, time_str);
@@ -269,7 +307,8 @@ static void ui_set_status(const char *time_str, const char *batt_str) {
 
 // Create Main GUI 
 static void create_main_gui() {
-  lv_obj_t *scr = lv_scr_act();
+  main_scr = lv_obj_create(NULL);
+  lv_obj_t *scr = main_scr;
 
   lv_color_t bg      = lv_color_make(245, 252, 255);
   lv_color_t primary = lv_color_make(0, 140, 200);
@@ -278,6 +317,7 @@ static void create_main_gui() {
 
   lv_obj_set_style_bg_color(scr, bg, 0);
   lv_obj_set_style_pad_all(scr, 12, 0);
+  lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
 
   // ===== STATUS BAR =====
   lv_obj_t *status = lv_obj_create(scr);
@@ -423,7 +463,11 @@ static void create_main_gui() {
   lv_obj_set_style_text_color(lu, lv_color_white(), 0);
   lv_obj_set_style_text_font(lu, pick_font_20_or_14(), 0);
 
+  lv_obj_add_event_cb(btn_user, user_btn_event_cb, LV_EVENT_CLICKED, NULL);
+
   ui_set_status("--:--  --/--/----", "--%");
+
+  lv_scr_load(main_scr);
 }
 
 // ================= format time =================
