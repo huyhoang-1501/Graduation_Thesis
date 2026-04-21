@@ -73,6 +73,63 @@ static bool ft6336u_read_touch(uint16_t &x, uint16_t &y, bool &touched) {
 RTC_DS3231 rtc;
 static bool rtc_ok = false;
 
+// ================= DEVICE ID / PAIRING DEMO =================
+static Preferences devicePref;
+static bool devicePrefReady = false;
+static const char *DEVICE_NVS_NAMESPACE = "device";
+static const char *DEVICE_NVS_KEY_ID    = "device_id";
+static const char *DEVICE_NVS_KEY_PAIR  = "pair_code";
+
+static char g_device_id[24] = "DEV-UNKNOWN";
+static char g_pair_code[24] = "";
+
+static void generate_device_id(char *out, size_t out_sz) {
+  if (!out || out_sz == 0) return;
+  unsigned long long mac = (unsigned long long)ESP.getEfuseMac();
+  snprintf(out, out_sz, "DEV-%012llX", (mac & 0xFFFFFFFFFFFFULL));
+}
+
+static void load_or_create_device_identity() {
+  if (!devicePref.begin(DEVICE_NVS_NAMESPACE, false)) {
+    Serial.println("Failed to init device NVS, using RAM-only device id");
+    devicePrefReady = false;
+    generate_device_id(g_device_id, sizeof(g_device_id));
+    return;
+  }
+
+  devicePrefReady = true;
+
+  String storedId = devicePref.getString(DEVICE_NVS_KEY_ID, "");
+  String storedPair = devicePref.getString(DEVICE_NVS_KEY_PAIR, "");
+
+  if (storedId.length() == 0) {
+    generate_device_id(g_device_id, sizeof(g_device_id));
+    devicePref.putString(DEVICE_NVS_KEY_ID, g_device_id);
+  } else {
+    storedId.toCharArray(g_device_id, sizeof(g_device_id));
+  }
+
+  if (storedPair.length() > 0) {
+    storedPair.toCharArray(g_pair_code, sizeof(g_pair_code));
+  } else {
+    g_pair_code[0] = '\0';
+  }
+
+  Serial.print("Device ID: ");
+  Serial.println(g_device_id);
+}
+
+static void save_pair_code(const char *pairCode) {
+  if (!pairCode || !*pairCode) return;
+  strncpy(g_pair_code, pairCode, sizeof(g_pair_code) - 1);
+  g_pair_code[sizeof(g_pair_code) - 1] = '\0';
+  if (devicePrefReady) {
+    devicePref.putString(DEVICE_NVS_KEY_PAIR, g_pair_code);
+  }
+  Serial.print("Saved Pair Code: ");
+  Serial.println(g_pair_code);
+}
+
 // ===== RTC sync policy =====
 // Chỉ bật true 1 lần khi muốn ép set RTC theo thời gian compile,
 // sau đó để lại false để tránh bị reset giờ mỗi lần nạp code.
@@ -316,26 +373,65 @@ static lv_obj_t *label_time = nullptr;
 static lv_obj_t *label_batt = nullptr;
 static lv_obj_t *main_label_time = nullptr;
 static lv_obj_t *main_label_batt = nullptr;
+static lv_obj_t *label_device_id = nullptr;
 static lv_obj_t *btn_guest  = nullptr;
 static lv_obj_t *btn_user   = nullptr;
+static lv_obj_t *btn_pair   = nullptr;
 
 static lv_obj_t *main_scr   = nullptr;
 
+enum KeypadMode {
+  KEYPAD_MODE_USER,
+  KEYPAD_MODE_PAIR
+};
+
+static KeypadMode g_keypad_mode = KEYPAD_MODE_USER;
+
 static void show_main_screen();
-static void show_keypad_screen();
+static void show_user_mode_screen();
+static void show_pair_device_screen();
+
+static void refresh_device_id_label() {
+  if (!label_device_id) return;
+  char buf[48];
+  snprintf(buf, sizeof(buf), "Device ID: %s", g_device_id);
+  lv_label_set_text(label_device_id, buf);
+}
 
 static void on_keypad_back() {
   show_main_screen();
 }
 
 static void on_keypad_next(const char *text) {
-  Serial.print("NEXT = ");
-  Serial.println(text ? text : "");
+  const char *value = text ? text : "";
+  if (!value[0]) {
+    Serial.println("Input is empty");
+    return;
+  }
+
+  if (g_keypad_mode == KEYPAD_MODE_PAIR) {
+    save_pair_code(value);
+    Serial.print("Paired device ");
+    Serial.print(g_device_id);
+    Serial.print(" with pair code ");
+    Serial.println(value);
+    show_main_screen();
+    return;
+  }
+
+  Serial.print("USER ID = ");
+  Serial.println(value);
+  show_main_screen();
 }
 
 static void user_btn_event_cb(lv_event_t *e) {
   if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-  show_keypad_screen();
+  show_user_mode_screen();
+}
+
+static void pair_btn_event_cb(lv_event_t *e) {
+  if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+  show_pair_device_screen();
 }
 
 static void guest_btn_event_cb(lv_event_t *e) {
@@ -343,7 +439,7 @@ static void guest_btn_event_cb(lv_event_t *e) {
   GuestMode_Show(show_main_screen);
 }
 
-static void show_keypad_screen() {
+static void show_user_mode_screen() {
   static bool keypad_inited = false;
   if (!keypad_inited) {
     keypad_init_screen(pick_font_20_or_14(),
@@ -352,6 +448,28 @@ static void show_keypad_screen() {
                        on_keypad_next);
     keypad_inited = true;
   }
+
+  g_keypad_mode = KEYPAD_MODE_USER;
+  keypad_set_placeholder_text("Nhap User ID...");
+  keypad_set_text("");
+
+  lv_obj_t *scr = keypad_get_screen();
+  if (scr) lv_scr_load(scr);
+}
+
+static void show_pair_device_screen() {
+  static bool keypad_inited = false;
+  if (!keypad_inited) {
+    keypad_init_screen(pick_font_20_or_14(),
+                       pick_font_16_or_14(),
+                       on_keypad_back,
+                       on_keypad_next);
+    keypad_inited = true;
+  }
+
+  g_keypad_mode = KEYPAD_MODE_PAIR;
+  keypad_set_placeholder_text("Nhap Pair Code...");
+  keypad_set_text("");
 
   lv_obj_t *scr = keypad_get_screen();
   if (scr) lv_scr_load(scr);
@@ -539,9 +657,15 @@ static void create_main_gui() {
   lv_obj_set_style_text_font(label_monitor, pick_font_40_or_14(), 0);
   lv_obj_align_to(label_monitor, label_health, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 4);
 
+  label_device_id = lv_label_create(text_cont);
+  lv_label_set_text(label_device_id, "Device ID: --");
+  lv_obj_set_style_text_color(label_device_id, dark, 0);
+  lv_obj_set_style_text_font(label_device_id, pick_font_16_or_14(), 0);
+  lv_obj_align_to(label_device_id, label_monitor, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 10);
+
   // ===== CỤM NÚT Guest/User =====
   lv_obj_t *cont_btn = lv_obj_create(scr);
-  lv_obj_set_size(cont_btn, lv_pct(100), 75);
+  lv_obj_set_size(cont_btn, lv_pct(100), 120);
   lv_obj_align(cont_btn, LV_ALIGN_BOTTOM_MID, 0, -5);
   lv_obj_set_style_bg_opa(cont_btn, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(cont_btn, 0, 0);
@@ -550,7 +674,7 @@ static void create_main_gui() {
   lv_obj_clear_flag(cont_btn, LV_OBJ_FLAG_SCROLLABLE);
 
   static lv_coord_t col[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t row[] = {LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t row[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
   lv_obj_set_grid_dsc_array(cont_btn, col, row);
 
   // Guest
@@ -567,7 +691,7 @@ static void create_main_gui() {
   lv_obj_set_style_pad_bottom(btn_guest, 6, 0);
 
   lv_obj_t *lg = lv_label_create(btn_guest);
-  lv_label_set_text(lg, "Guest");
+  lv_label_set_text(lg, "Guest mode");
   lv_obj_center(lg);
   lv_obj_set_style_text_color(lg, dark, 0);
   lv_obj_set_style_text_font(lg, pick_font_20_or_14(), 0);
@@ -586,14 +710,33 @@ static void create_main_gui() {
   lv_obj_set_style_pad_bottom(btn_user, 6, 0);
 
   lv_obj_t *lu = lv_label_create(btn_user);
-  lv_label_set_text(lu, "User");
+  lv_label_set_text(lu, "User mode");
   lv_obj_center(lu);
   lv_obj_set_style_text_color(lu, lv_color_white(), 0);
   lv_obj_set_style_text_font(lu, pick_font_20_or_14(), 0);
 
   lv_obj_add_event_cb(btn_user, user_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
+  // Pair device
+  btn_pair = lv_btn_create(cont_btn);
+  lv_obj_set_grid_cell(btn_pair, LV_GRID_ALIGN_STRETCH, 0, 2,
+                       LV_GRID_ALIGN_STRETCH, 1, 1);
+  lv_obj_set_style_radius(btn_pair, 16, 0);
+  lv_obj_set_style_bg_color(btn_pair, lv_color_make(140, 90, 210), 0);
+  lv_obj_set_style_bg_color(btn_pair, lv_color_make(170, 120, 230), LV_STATE_PRESSED);
+  lv_obj_set_style_border_width(btn_pair, 0, 0);
+  lv_obj_set_style_shadow_width(btn_pair, 0, 0);
+
+  lv_obj_t *lp = lv_label_create(btn_pair);
+  lv_label_set_text(lp, "Pair device");
+  lv_obj_center(lp);
+  lv_obj_set_style_text_color(lp, lv_color_white(), 0);
+  lv_obj_set_style_text_font(lp, pick_font_20_or_14(), 0);
+
+  lv_obj_add_event_cb(btn_pair, pair_btn_event_cb, LV_EVENT_CLICKED, NULL);
+
   ui_set_status("--:--  --/--/----", "--%");
+  refresh_device_id_label();
 
   lv_scr_load(main_scr);
 }
@@ -719,6 +862,8 @@ void setup() {
     Serial.print("Loaded Q_mAh from NVS: ");
     Serial.println(batteryRemaining_mAh, 1);
   }
+
+  load_or_create_device_identity();
 
   // TFT init
   tft.init();

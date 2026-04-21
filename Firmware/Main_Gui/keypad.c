@@ -1,9 +1,11 @@
 #include "keypad.h"
 
 #include <string.h>
+#include <stdio.h>
 
 static lv_obj_t *g_keypad_scr = NULL;
 static lv_obj_t *g_ta_number  = NULL;
+static char g_placeholder[48] = "Nhap ID...";
 
 static const lv_font_t *g_btn_font  = NULL;
 static const lv_font_t *g_back_font = NULL;
@@ -126,6 +128,7 @@ void keypad_init_screen(const lv_font_t *btn_font,
   lv_textarea_set_cursor_click_pos(g_ta_number, false);
   lv_obj_clear_flag(g_ta_number, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_clear_flag(g_ta_number, LV_OBJ_FLAG_GESTURE_BUBBLE);
+  lv_textarea_set_placeholder_text(g_ta_number, g_placeholder);
 
   lv_obj_set_style_bg_color(g_ta_number, card, 0);
   lv_obj_set_style_text_color(g_ta_number, dark, 0);
@@ -202,4 +205,18 @@ const char *keypad_get_text(void) {
 void keypad_set_text(const char *text) {
   if (!g_ta_number) return;
   lv_textarea_set_text(g_ta_number, text ? text : "");
+}
+
+void keypad_set_placeholder_text(const char *text) {
+  if (!text || !*text) {
+    strncpy(g_placeholder, "Nhap ID...", sizeof(g_placeholder) - 1);
+    g_placeholder[sizeof(g_placeholder) - 1] = '\0';
+  } else {
+    strncpy(g_placeholder, text, sizeof(g_placeholder) - 1);
+    g_placeholder[sizeof(g_placeholder) - 1] = '\0';
+  }
+
+  if (g_ta_number) {
+    lv_textarea_set_placeholder_text(g_ta_number, g_placeholder);
+  }
 }

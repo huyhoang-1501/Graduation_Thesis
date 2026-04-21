@@ -24,6 +24,25 @@ auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
 const googleProvider = new firebase.auth.GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
+function makeDeviceId() {
+  const bytes = new Uint8Array(6);
+  if (window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+
+  return "DEV-" + Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
+function makePairCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function getCurrentUserUid() {
+  return auth.currentUser?.uid || "";
+}
+
 // ========== TOGGLE LOGIN / REGISTER FORM ==========
 document.getElementById("show-register")?.addEventListener("click", e => {
   e.preventDefault();
@@ -122,6 +141,7 @@ function showApp(user) {
   initOverview();
   initOtherPages();
   initPatientSelectors();
+  initDeviceBindingModule();
   initPatientsModule(); 
   initSettingsModule();
 }
@@ -189,6 +209,81 @@ let leafletMarker;
 function initOverview() {
   initMiniChart();
   initMap();
+}
+
+function initDeviceBindingModule() {
+  const deviceIdInput = document.getElementById("bind-device-id");
+  const pairCodeInput = document.getElementById("bind-pair-code");
+  const createBtn = document.getElementById("device-create-btn");
+  const linkBtn = document.getElementById("device-link-btn");
+  const statusEl = document.getElementById("device-bind-status");
+
+  if (!deviceIdInput || !pairCodeInput || !createBtn || !linkBtn || !statusEl) return;
+
+  createBtn.addEventListener("click", async () => {
+    const deviceId = deviceIdInput.value.trim() || makeDeviceId();
+    const ownerUid = getCurrentUserUid();
+    const patientId = currentPatientId || deviceId;
+
+    deviceIdInput.value = deviceId;
+    pairCodeInput.value = "";
+
+    try {
+      await db.ref("devices/" + deviceId).set({
+        deviceId,
+        ownerUid,
+        patientId,
+        status: "created",
+        linked: false,
+        createdAt: firebase.database.ServerValue.TIMESTAMP
+      });
+
+      statusEl.textContent = "Đã tạo thiết bị " + deviceId + " (patientId gợi ý: " + patientId + ").";
+      statusEl.style.color = "#16a34a";
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi tạo thiết bị: " + err.message);
+    }
+  });
+
+  linkBtn.addEventListener("click", async () => {
+    const deviceId = deviceIdInput.value.trim();
+    if (!deviceId) {
+      alert("Hãy tạo hoặc nhập Device ID trước.");
+      return;
+    }
+
+    const ownerUid = getCurrentUserUid();
+    const patientId = currentPatientId || deviceId;
+    const pairCode = makePairCode();
+    pairCodeInput.value = pairCode;
+
+    try {
+      await db.ref("pairings/" + pairCode).set({
+        pairCode,
+        deviceId,
+        ownerUid,
+        patientId,
+        status: "pending",
+        createdAt: firebase.database.ServerValue.TIMESTAMP
+      });
+
+      await db.ref("devices/" + deviceId).update({
+        ownerUid,
+        patientId,
+        pairCode,
+        status: "waiting_pair",
+        linked: false,
+        updatedAt: firebase.database.ServerValue.TIMESTAMP
+      });
+
+      statusEl.textContent = "Dashboard đã sinh Pair Code: " + pairCode + ". Hãy nhập mã này lên device để hoàn tất.";
+      statusEl.style.color = "#2563eb";
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi liên kết thiết bị: " + err.message);
+    }
+  });
 }
 
 function initMiniChart() {

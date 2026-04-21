@@ -17,6 +17,7 @@ void keypad_init_screen(const lv_font_t *btn_font,
 lv_obj_t *keypad_get_screen(void);
 const char *keypad_get_text(void);
 void keypad_set_text(const char *text);
+void keypad_set_placeholder_text(const char *text);
 
 #ifdef __cplusplus
 }
