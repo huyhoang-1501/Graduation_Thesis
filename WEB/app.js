@@ -344,34 +344,61 @@ function initPatientSelectors() {
   const ovSel  = document.getElementById("ov-patient-select");
   const hisSel = document.getElementById("his-patient-select");
   const alSel  = document.getElementById("al-patient-select");
+  const setSel = document.getElementById("set-patient-select");
 
-  function attachHandler(sel) {
+  function syncAllPatientSelectors(selectedPid, sourceSel) {
+    [ovSel, hisSel, alSel, setSel].forEach(other => {
+      if (other && other !== sourceSel) other.value = selectedPid;
+    });
+  }
+
+  function attachHandler(sel, options = {}) {
     if (!sel) return;
     sel.addEventListener("change", () => {
       const pid = sel.value;
       if (!pid) return;
 
-      // Khi chọn bệnh nhân ở bất kỳ select nào, hiển thị Overview cho bệnh nhân đó
-      showOverviewForPatient(pid);
+      if (options.keepCurrentPage) {
+        currentPatientId = pid;
 
-      // Đồng bộ value 3 dropdown
-      [ovSel, hisSel, alSel].forEach(other => {
-        if (other && other !== sel) other.value = pid;
-      });
+        const p = patientsCache[pid] || {};
+        const displayName = p.name || pid;
+        const ovName = document.getElementById("ov-patient-name");
+        const hisName = document.getElementById("his-patient-name");
+        const alName = document.getElementById("al-patient-name");
+        if (ovName) ovName.textContent = displayName;
+        if (hisName) hisName.textContent = displayName;
+        if (alName) alName.textContent = displayName;
+
+        if (window.loadThresholdsForCurrentPatient) {
+          window.loadThresholdsForCurrentPatient();
+        }
+        if (window.loadPhoneForCurrentPatient) {
+          window.loadPhoneForCurrentPatient();
+        }
+      } else {
+        // Khi chọn bệnh nhân ở Overview/History/Alerts, hiển thị Overview cho bệnh nhân đó
+        showOverviewForPatient(pid);
+      }
+
+      // Đồng bộ value giữa các dropdown
+      syncAllPatientSelectors(pid, sel);
     });
   }
 
   attachHandler(ovSel);
   attachHandler(hisSel);
   attachHandler(alSel);
+  attachHandler(setSel, { keepCurrentPage: true });
 }
 
 function refreshPatientDropdowns(patientsData) {
   const ovSel  = document.getElementById("ov-patient-select");
   const hisSel = document.getElementById("his-patient-select");
   const alSel  = document.getElementById("al-patient-select");
+  const setSel = document.getElementById("set-patient-select");
 
-  const sels = [ovSel, hisSel, alSel];
+  const sels = [ovSel, hisSel, alSel, setSel];
   if (!sels.some(Boolean)) return;
 
   sels.forEach(sel => {
@@ -512,6 +539,7 @@ function  initPatientsModule() {
 }
 // ========== SETTINGS: thresholds theo từng patient + alert phone ==========
 function initSettingsModule() {
+  const setSel = document.getElementById("set-patient-select");
   const thHrMin   = document.getElementById("th-hr-min");
   const thHrMax   = document.getElementById("th-hr-max");
   const thBpSys   = document.getElementById("th-bp-sys-max");
@@ -527,15 +555,28 @@ function initSettingsModule() {
 
   if (!thHrMin || !thHrMax || !thBpSys || !thBpDia || !phoneInput) return;
 
+  function getSelectedPatientId() {
+    const selectedPid = currentPatientId
+      || setSel?.value
+      || document.getElementById("ov-patient-select")?.value
+      || document.getElementById("his-patient-select")?.value
+      || document.getElementById("al-patient-select")?.value
+      || "";
+
+    if (selectedPid) currentPatientId = selectedPid;
+    return selectedPid;
+  }
+
   // khi người dùng chuyển qua tab Cài đặt, ta nên load ngưỡng nếu đã chọn bệnh nhân
   function loadThresholdsForCurrentPatient() {
-    if (!currentPatientId) {
-      thStatus.textContent = "Chưa chọn bệnh nhân. Vào tab 'Thiết bị / Bệnh nhân' → bấm View.";
-      thStatus.style.color = "#dc2626";
+    const pid = getSelectedPatientId();
+    if (!pid) {
+      thStatus.textContent = "Chưa chọn bệnh nhân. Hãy chọn ở dropdown trong tab Cài đặt.";
+      thStatus.style.color = "#6b7280";
       return;
     }
 
-    db.ref("settings/" + currentPatientId + "/thresholds")
+    db.ref("settings/" + pid + "/thresholds")
       .once("value")
       .then(snap => {
         const th = snap.val() || {};
@@ -543,7 +584,7 @@ function initSettingsModule() {
         thHrMax.value = th.hrMax ?? "";
         thBpSys.value = th.bpSysMax ?? "";
         thBpDia.value = th.bsSysMin ?? ""; // field name theo schema: bsSysMin
-        thStatus.textContent = "Đã tải ngưỡng (nếu có) cho bệnh nhân " + currentPatientId;
+        thStatus.textContent = "Đã tải ngưỡng (nếu có) cho bệnh nhân " + pid;
         thStatus.style.color = "#6b7280";
       });
   }
@@ -553,8 +594,9 @@ function initSettingsModule() {
 
   // Lưu
   thSaveBtn?.addEventListener("click", () => {
-    if (!currentPatientId) {
-      alert("Chưa chọn bệnh nhân. Vào tab 'Thiết bị / Bệnh nhân' → bấm View.");
+    const pid = getSelectedPatientId();
+    if (!pid) {
+      alert("Chưa chọn bệnh nhân. Hãy chọn ở dropdown trong tab Cài đặt.");
       return;
     }
 
@@ -565,10 +607,10 @@ function initSettingsModule() {
       bsSysMin: thBpDia.value ? Number(thBpDia.value) : null
     };
 
-    db.ref("settings/" + currentPatientId + "/thresholds")
+    db.ref("settings/" + pid + "/thresholds")
       .set(th)
       .then(() => {
-        thStatus.textContent = "Đã lưu ngưỡng cho bệnh nhân " + currentPatientId;
+        thStatus.textContent = "Đã lưu ngưỡng cho bệnh nhân " + pid;
         thStatus.style.color = "#16a34a";
       })
       .catch(err => alert("Lỗi lưu ngưỡng: " + err.message));
@@ -576,18 +618,19 @@ function initSettingsModule() {
 
   // Xóa
   thDelBtn?.addEventListener("click", () => {
-    if (!currentPatientId) {
+    const pid = getSelectedPatientId();
+    if (!pid) {
       alert("Chưa chọn bệnh nhân.");
       return;
     }
-    db.ref("settings/" + currentPatientId + "/thresholds")
+    db.ref("settings/" + pid + "/thresholds")
       .remove()
       .then(() => {
         thHrMin.value = "";
         thHrMax.value = "";
         thBpSys.value = "";
         thBpDia.value = "";
-        thStatus.textContent = "Đã xóa ngưỡng cho bệnh nhân " + currentPatientId;
+        thStatus.textContent = "Đã xóa ngưỡng cho bệnh nhân " + pid;
         thStatus.style.color = "#6b7280";
       })
       .catch(err => alert("Lỗi xóa ngưỡng: " + err.message));
@@ -598,19 +641,20 @@ function initSettingsModule() {
 
   // --- Số điện thoại theo từng bệnh nhân ---
   function loadPhoneForCurrentPatient() {
-    if (!currentPatientId) {
-      phoneStatus.textContent = "Chưa chọn bệnh nhân. Vào tab 'Thiết bị / Bệnh nhân' → bấm View.";
-      phoneStatus.style.color = "#dc2626";
+    const pid = getSelectedPatientId();
+    if (!pid) {
+      phoneStatus.textContent = "Chưa chọn bệnh nhân. Hãy chọn ở dropdown trong tab Cài đặt.";
+      phoneStatus.style.color = "#6b7280";
       return;
     }
 
-    db.ref("settings/" + currentPatientId + "/alertphone")
+    db.ref("settings/" + pid + "/alertphone")
       .once("value")
       .then(snap => {
         const phone = snap.val() || "";
         phoneInput.value = phone;
         phoneStatus.textContent = phone
-          ? "Đã tải số điện thoại cho bệnh nhân " + currentPatientId
+          ? "Đã tải số điện thoại cho bệnh nhân " + pid
           : "Chưa có số điện thoại lưu cho bệnh nhân này.";
         phoneStatus.style.color = "#6b7280";
       });
@@ -618,8 +662,9 @@ function initSettingsModule() {
 
   // Lưu số điện thoại
   phoneSaveBtn?.addEventListener("click", () => {
-    if (!currentPatientId) {
-      alert("Chưa chọn bệnh nhân. Vào tab 'Thiết bị / Bệnh nhân' → bấm View.");
+    const pid = getSelectedPatientId();
+    if (!pid) {
+      alert("Chưa chọn bệnh nhân. Hãy chọn ở dropdown trong tab Cài đặt.");
       return;
     }
     const phone = phoneInput.value.trim();
@@ -629,10 +674,10 @@ function initSettingsModule() {
       return;
     }
 
-    db.ref("settings/" + currentPatientId + "/alertphone")
+    db.ref("settings/" + pid + "/alertphone")
       .set(phone)
       .then(() => {
-        phoneStatus.textContent = "Đã lưu số điện thoại cho bệnh nhân " + currentPatientId;
+        phoneStatus.textContent = "Đã lưu số điện thoại cho bệnh nhân " + pid;
         phoneStatus.style.color = "#16a34a";
       })
       .catch(err => alert("Lỗi lưu số điện thoại: " + err.message));
@@ -640,16 +685,17 @@ function initSettingsModule() {
 
   // Xóa số điện thoại
   phoneDelBtn?.addEventListener("click", () => {
-    if (!currentPatientId) {
+    const pid = getSelectedPatientId();
+    if (!pid) {
       alert("Chưa chọn bệnh nhân.");
       return;
     }
 
-    db.ref("settings/" + currentPatientId + "/alertphone")
+    db.ref("settings/" + pid + "/alertphone")
       .remove()
       .then(() => {
         phoneInput.value = "";
-        phoneStatus.textContent = "Đã xóa số điện thoại cho bệnh nhân " + currentPatientId;
+        phoneStatus.textContent = "Đã xóa số điện thoại cho bệnh nhân " + pid;
         phoneStatus.style.color = "#6b7280";
       })
       .catch(err => alert("Lỗi xóa số điện thoại: " + err.message));
@@ -666,6 +712,14 @@ function initSettingsModule() {
 }
 function showOverviewForPatient(patientId) {
   currentPatientId = patientId;
+
+  const ovSel = document.getElementById("ov-patient-select");
+  const hisSel = document.getElementById("his-patient-select");
+  const alSel = document.getElementById("al-patient-select");
+  const setSel = document.getElementById("set-patient-select");
+  [ovSel, hisSel, alSel, setSel].forEach(sel => {
+    if (sel) sel.value = patientId;
+  });
 
   // Đổi sidebar active sang Tổng quan
   const sideItems = document.querySelectorAll(".sidebar-item");
