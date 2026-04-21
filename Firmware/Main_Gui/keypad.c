@@ -99,11 +99,12 @@ void keypad_init_screen(const lv_font_t *btn_font,
 
   // Back button: chỉ bấm nút này mới quay lại main
   lv_obj_t *btn_back = lv_btn_create(g_keypad_scr);
-  lv_obj_set_size(btn_back, 100, 40);
+  lv_obj_set_size(btn_back, 92, 42);
   lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 0, -4);
-  lv_obj_set_style_radius(btn_back, 12, 0);
-  lv_obj_set_style_bg_color(btn_back, card, 0);
-  lv_obj_set_style_bg_color(btn_back, lv_color_make(210, 245, 255), LV_STATE_PRESSED);
+  lv_obj_set_style_radius(btn_back, 14, 0);
+  lv_obj_set_style_bg_opa(btn_back, LV_OPA_COVER, 0);
+  lv_obj_set_style_bg_color(btn_back, lv_color_make(210, 245, 255), 0);
+  lv_obj_set_style_bg_color(btn_back, lv_color_make(190, 235, 255), LV_STATE_PRESSED);
   lv_obj_set_style_border_width(btn_back, 2, 0);
   lv_obj_set_style_border_color(btn_back, primary, 0);
   lv_obj_set_style_shadow_width(btn_back, 0, 0);

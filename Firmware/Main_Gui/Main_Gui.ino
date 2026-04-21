@@ -762,4 +762,3 @@ void loop() {
     maybe_save_battery_to_nvs();
   }
 }
-    
