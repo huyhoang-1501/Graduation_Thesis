@@ -20,6 +20,7 @@
 #include "monitoring_icon.h"       // monitoring_icon
 #include "wifi_icon.h"             // wifi_icon
 #include "keypad.h"
+#include "GuestMode.h"
 
 // ================= DISPLAY =================
 static const uint16_t SCREEN_WIDTH  = 480;
@@ -260,6 +261,8 @@ static const lv_font_t* pick_font_14() { return &lv_font_montserrat_14; }
 // ================= MAIN GUI objects =================
 static lv_obj_t *label_time = nullptr;
 static lv_obj_t *label_batt = nullptr;
+static lv_obj_t *main_label_time = nullptr;
+static lv_obj_t *main_label_batt = nullptr;
 static lv_obj_t *btn_guest  = nullptr;
 static lv_obj_t *btn_user   = nullptr;
 
@@ -282,6 +285,11 @@ static void user_btn_event_cb(lv_event_t *e) {
   show_keypad_screen();
 }
 
+static void guest_btn_event_cb(lv_event_t *e) {
+  if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+  GuestMode_Show(show_main_screen);
+}
+
 static void show_keypad_screen() {
   static bool keypad_inited = false;
   if (!keypad_inited) {
@@ -297,31 +305,14 @@ static void show_keypad_screen() {
 }
 
 static void show_main_screen() {
-  if (main_scr) lv_scr_load(main_scr);
+  if (main_scr) {
+    lv_scr_load(main_scr);
+  }
 }
 
-// Update status bar
-static void ui_set_status(const char *time_str, const char *batt_str) {
-  if (label_time) lv_label_set_text(label_time, time_str);
-  if (label_batt) lv_label_set_text(label_batt, batt_str);
-}
-
-// Create Main GUI 
-static void create_main_gui() {
-  main_scr = lv_obj_create(NULL);
-  lv_obj_t *scr = main_scr;
-
-  lv_color_t bg      = lv_color_make(245, 252, 255);
-  lv_color_t primary = lv_color_make(0, 140, 200);
-  lv_color_t dark    = lv_color_make(10, 60, 90);
-  lv_color_t card    = lv_color_white();
-
-  lv_obj_set_style_bg_color(scr, bg, 0);
-  lv_obj_set_style_pad_all(scr, 12, 0);
-  lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
-
-  // ===== STATUS BAR =====
-  lv_obj_t *status = lv_obj_create(scr);
+static lv_obj_t* create_status_bar(lv_obj_t *parent, lv_color_t primary, lv_color_t dark, lv_color_t card,
+                                   lv_obj_t **out_time, lv_obj_t **out_batt) {
+  lv_obj_t *status = lv_obj_create(parent);
   lv_obj_set_size(status, lv_pct(100), 44);
   lv_obj_align(status, LV_ALIGN_TOP_MID, 0, 0);
   lv_obj_clear_flag(status, LV_OBJ_FLAG_SCROLLABLE);
@@ -334,7 +325,6 @@ static void create_main_gui() {
   lv_obj_set_style_pad_right(status, 12, 0);
   lv_obj_set_style_shadow_width(status, 0, 0);
 
-  // HCMUTE badge
   lv_obj_t *hcmute_box = lv_obj_create(status);
   lv_obj_set_size(hcmute_box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
   lv_obj_align(hcmute_box, LV_ALIGN_LEFT_MID, -5, 0);
@@ -354,28 +344,111 @@ static void create_main_gui() {
   lv_obj_set_style_text_font(label_hcmute, pick_font_18_or_14(), 0);
   lv_obj_center(label_hcmute);
 
-  // Battery
-  label_batt = lv_label_create(status);
-  lv_label_set_text(label_batt, "--%");
-  lv_obj_set_style_text_color(label_batt, dark, 0);
-  lv_obj_set_style_text_font(label_batt, pick_font_16_or_14(), 0);
-  lv_obj_align(label_batt, LV_ALIGN_RIGHT_MID, 0, 0);
+  lv_obj_t *batt = lv_label_create(status);
+  lv_label_set_text(batt, "--%");
+  lv_obj_set_style_text_color(batt, dark, 0);
+  lv_obj_set_style_text_font(batt, pick_font_16_or_14(), 0);
+  lv_obj_align(batt, LV_ALIGN_RIGHT_MID, 0, 0);
 
-  // WiFi icon cạnh phần trăm pin
   lv_obj_t *img_wifi = lv_img_create(status);
   lv_img_set_src(img_wifi, &wifi_icon);
-  lv_obj_align_to(img_wifi, label_batt, LV_ALIGN_OUT_LEFT_MID, -20, 0);
-
+  lv_obj_align_to(img_wifi, batt, LV_ALIGN_OUT_LEFT_MID, -20, 0);
   lv_obj_set_style_img_recolor(img_wifi, lv_color_make(0,0,0), LV_PART_MAIN);
   lv_obj_set_style_img_recolor_opa(img_wifi, 255, LV_PART_MAIN);
   lv_obj_set_style_opa(img_wifi, 255, LV_PART_MAIN);
 
-  // Time
-  label_time = lv_label_create(status);
-  lv_label_set_text(label_time, "--:--  --/--/----");
-  lv_obj_set_style_text_color(label_time, dark, 0);
-  lv_obj_set_style_text_font(label_time, pick_font_16_or_14(), 0);
-  lv_obj_align(label_time, LV_ALIGN_RIGHT_MID, -70, 0);
+  lv_obj_t *time_lbl = lv_label_create(status);
+  lv_label_set_text(time_lbl, "--:--  --/--/----");
+  lv_obj_set_style_text_color(time_lbl, dark, 0);
+  lv_obj_set_style_text_font(time_lbl, pick_font_16_or_14(), 0);
+  lv_obj_align(time_lbl, LV_ALIGN_RIGHT_MID, -70, 0);
+
+  if (out_time) *out_time = time_lbl;
+  if (out_batt) *out_batt = batt;
+  return status;
+}
+
+static lv_obj_t* create_metric_card(lv_obj_t *parent,
+                                    const char *title,
+                                    const char *unit,
+                                    lv_coord_t col,
+                                    lv_coord_t row,
+                                    lv_color_t title_color,
+                                    lv_obj_t **value_out) {
+  lv_obj_t *card = lv_obj_create(parent);
+  lv_obj_set_grid_cell(card, LV_GRID_ALIGN_STRETCH, col, 1,
+                       LV_GRID_ALIGN_STRETCH, row, 1);
+  lv_obj_set_style_radius(card, 16, 0);
+  lv_obj_set_style_border_width(card, 2, 0);
+  lv_obj_set_style_border_color(card, lv_color_make(200, 235, 250), 0);
+  lv_obj_set_style_bg_color(card, lv_color_white(), 0);
+  lv_obj_set_style_shadow_width(card, 0, 0);
+  lv_obj_set_style_pad_all(card, 10, 0);
+  lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+
+  lv_obj_t *ttl = lv_label_create(card);
+  lv_label_set_text(ttl, title);
+  lv_obj_set_style_text_color(ttl, title_color, 0);
+  lv_obj_set_style_text_font(ttl, pick_font_16_or_14(), 0);
+  lv_obj_align(ttl, LV_ALIGN_TOP_LEFT, 0, 0);
+
+  lv_obj_t *val = lv_label_create(card);
+  lv_label_set_text(val, "--");
+  lv_obj_set_style_text_color(val, lv_color_make(15, 75, 110), 0);
+  lv_obj_set_style_text_font(val, pick_font_40_or_14(), 0);
+  lv_obj_align(val, LV_ALIGN_LEFT_MID, 0, 4);
+
+  lv_obj_t *u = lv_label_create(card);
+  lv_label_set_text(u, unit);
+  lv_obj_set_style_text_color(u, lv_color_make(90, 120, 140), 0);
+  lv_obj_set_style_text_font(u, pick_font_14(), 0);
+  lv_obj_align(u, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+
+  if (value_out) *value_out = val;
+  return card;
+}
+
+static lv_obj_t *guest_label_state = nullptr;
+static lv_obj_t *guest_label_spo2  = nullptr;
+static lv_obj_t *guest_label_hr    = nullptr;
+static lv_obj_t *guest_label_sys   = nullptr;
+static lv_obj_t *guest_label_dia   = nullptr;
+static bool     guest_measuring = false;
+static uint32_t guest_measure_start_ms = 0;
+
+static void create_guest_screen() {
+  static bool guest_created = false;
+  if (guest_created) return;
+
+  GuestMode_Show(show_main_screen);
+  guest_created = true;
+}
+
+static void ui_set_status(const char *time_str, const char *batt_str) {
+  if (main_label_time) lv_label_set_text(main_label_time, time_str);
+  if (main_label_batt) lv_label_set_text(main_label_batt, batt_str);
+  GuestMode_UpdateStatus(time_str, batt_str);
+
+  if (label_time) lv_label_set_text(label_time, time_str);
+  if (label_batt) lv_label_set_text(label_batt, batt_str);
+}
+
+// Create Main GUI 
+static void create_main_gui() {
+  main_scr = lv_obj_create(NULL);
+  lv_obj_t *scr = main_scr;
+
+  lv_color_t bg      = lv_color_make(245, 252, 255);
+  lv_color_t primary = lv_color_make(0, 140, 200);
+  lv_color_t dark    = lv_color_make(10, 60, 90);
+  lv_color_t card    = lv_color_white();
+
+  lv_obj_set_style_bg_color(scr, bg, 0);
+  lv_obj_set_style_pad_all(scr, 12, 0);
+  lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+
+  // ===== STATUS BAR =====
+  create_status_bar(scr, primary, dark, card, &main_label_time, &main_label_batt);
 
   // ===== FRAME CHỨA TEXT + ẢNH =====
   lv_obj_t *frame = lv_obj_create(scr);
@@ -445,6 +518,7 @@ static void create_main_gui() {
   lv_obj_center(lg);
   lv_obj_set_style_text_color(lg, dark, 0);
   lv_obj_set_style_text_font(lg, pick_font_20_or_14(), 0);
+  lv_obj_add_event_cb(btn_guest, guest_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
   // User
   btn_user = lv_btn_create(cont_btn);
@@ -573,7 +647,6 @@ static void maybe_save_battery_to_nvs() {
   }
 }
 
-// ================= SETUP / LOOP =================
 void setup() {
   Serial.begin(115200);
 
@@ -664,6 +737,7 @@ void loop() {
   delay(5);
 
   power_save_task();
+  GuestMode_Loop();
 
   static uint32_t last = 0;
   if (millis() - last >= 1000) {
@@ -688,3 +762,4 @@ void loop() {
     maybe_save_battery_to_nvs();
   }
 }
+    
