@@ -74,8 +74,9 @@ static bool rtc_ok = false;
 
 // ================= INA219 + Battery SOH/SOC bằng tích phân =================
 
-// Dung lượng danh định của pin (mAh)
-const float BATTERY_CAPACITY_mAh = 3500.0f;
+// Dung lượng danh định của pack pin (mAh).
+// 2 cell nối tiếp (2S1P) => mAh giữ nguyên như 1 cell.
+const float BATTERY_CAPACITY_mAh = 2600.0f;
 
 // INA219
 Adafruit_INA219 ina219;
