@@ -73,6 +73,59 @@ static bool ft6336u_read_touch(uint16_t &x, uint16_t &y, bool &touched) {
 RTC_DS3231 rtc;
 static bool rtc_ok = false;
 
+// ===== RTC sync policy =====
+// Chỉ bật true 1 lần khi muốn ép set RTC theo thời gian compile,
+// sau đó để lại false để tránh bị reset giờ mỗi lần nạp code.
+static const bool RTC_FORCE_SET_ON_BOOT = false;
+
+// Nếu toolchain của bạn compile theo UTC và muốn cộng múi giờ VN (+7h),
+// đặt thành 7 * 3600. Mặc định 0 (dùng giờ local của máy build).
+static const int32_t RTC_TIMEZONE_OFFSET_SEC = 0;
+
+static DateTime get_build_time_with_tz() {
+  DateTime t(F(__DATE__), F(__TIME__));
+  if (RTC_TIMEZONE_OFFSET_SEC != 0) {
+    t = t + TimeSpan(RTC_TIMEZONE_OFFSET_SEC);
+  }
+  return t;
+}
+
+static bool rtc_time_looks_invalid(const DateTime &t) {
+  // DS3231 hợp lệ lâu dài, nhưng với app này chỉ cần chặn giá trị rác.
+  return (t.year() < 2024 || t.year() > 2099 ||
+          t.month() < 1 || t.month() > 12 ||
+          t.day() < 1 || t.day() > 31);
+}
+
+static void rtc_sync_if_needed() {
+  if (!rtc_ok) return;
+
+  bool need_adjust = RTC_FORCE_SET_ON_BOOT;
+
+  if (rtc.lostPower()) {
+    Serial.println("RTC lost power -> will adjust from build time");
+    need_adjust = true;
+  }
+
+  DateTime current = rtc.now();
+  if (rtc_time_looks_invalid(current)) {
+    Serial.println("RTC invalid datetime -> will adjust from build time");
+    need_adjust = true;
+  }
+
+  if (need_adjust) {
+    DateTime build_time = get_build_time_with_tz();
+    rtc.adjust(build_time);
+    Serial.print("RTC adjusted to: ");
+    Serial.print(build_time.hour()); Serial.print(":");
+    Serial.print(build_time.minute()); Serial.print(":");
+    Serial.print(build_time.second()); Serial.print("  ");
+    Serial.print(build_time.day()); Serial.print("/");
+    Serial.print(build_time.month()); Serial.print("/");
+    Serial.println(build_time.year());
+  }
+}
+
 // ================= INA219 + Battery SOH/SOC bằng tích phân =================
 
 // Dung lượng danh định của pack pin (mAh).
@@ -685,8 +738,7 @@ void setup() {
   rtc_ok = rtc.begin();
   Serial.println(rtc_ok ? "DS3231 OK" : "DS3231 not found");
   if (rtc_ok) {
-    // Chỉ adjust khi lần đầu cắm, sau đó comment lại để không reset thời gian mỗi lần
-    // rtc.adjust(DateTime(2026, 4, 7, 21, 0, 0));
+    rtc_sync_if_needed();
   }
 
   // INA219 init
