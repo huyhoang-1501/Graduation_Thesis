@@ -384,7 +384,7 @@
             <p>Nhập DEVICE ID cho User mode:</p>
             <div class="patients-form">
               <input type="text" id="bind-device-id" placeholder="DEVICE ID (ví dụ: DEV-6C068C8E720)">
-              <input type="text" id="bind-pair-code" placeholder="Mã 5 số để nhập trên thiết bị" readonly>
+              <input type="text" id="bind-pair-code" placeholder="Mã 5 số để nhập trên thiết bị" inputmode="numeric" pattern="[0-9]*" maxlength="5" autocomplete="off">
               <button class="btn-primary" id="device-create-btn">
                 <i class="fas fa-microchip"></i> Lưu DEVICE ID
               </button>

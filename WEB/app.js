@@ -239,6 +239,12 @@ function initDeviceBindingModule() {
   deviceIdInput.removeAttribute("maxlength");
 
   // User mode ID chỉ 5 số
+  pairCodeInput.addEventListener("beforeinput", (e) => {
+    if (e.data && /\D/.test(e.data)) {
+      e.preventDefault();
+    }
+  });
+
   pairCodeInput.addEventListener("input", (e) => {
     e.target.value = normalizeUserModeId(e.target.value);
   });
