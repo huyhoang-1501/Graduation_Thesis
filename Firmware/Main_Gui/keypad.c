@@ -17,7 +17,7 @@ static void keypad_add_digit(const char *d) {
   if (!g_ta_number || !d) return;
 
   const char *cur = lv_textarea_get_text(g_ta_number);
-  if (cur && strlen(cur) >= 18) return;
+  if (cur && strlen(cur) >= 24) return;
   lv_textarea_add_text(g_ta_number, d);
 }
 

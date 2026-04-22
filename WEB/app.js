@@ -220,6 +220,11 @@ function initDeviceBindingModule() {
 
   if (!deviceIdInput || !pairCodeInput || !createBtn || !linkBtn || !statusEl) return;
 
+  // Chỉ cho phép nhập số trên input device ID
+  deviceIdInput.addEventListener("input", (e) => {
+    e.target.value = e.target.value.replace(/[^0-9]/g, "");
+  });
+
   pairCodeInput.placeholder = "Mã ID cho User mode";
   statusEl.textContent = "Bước 1: Tạo Mã ID. Bước 2: Trên thiết bị chọn User mode và nhập đúng Mã ID đó.";
   statusEl.style.color = "#6b7280";
@@ -573,6 +578,13 @@ function  initPatientsModule() {
   const statusEl = document.getElementById("pt-status");
 
   if (!listEl) return;
+
+  // Chỉ cho phép nhập số trên input device ID
+  if (devEl) {
+    devEl.addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/[^0-9]/g, "");
+    });
+  }
 
   const ref = db.ref("patients");
   const ownerUid = getCurrentUserUid();

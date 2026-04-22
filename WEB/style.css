@@ -215,6 +215,42 @@ body {
   color:#333; font-size:14px;
 }
 
+.patients-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.patients-form input,
+.patients-form select {
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 13px;
+  min-width: 180px;
+}
+
+#bind-device-id {
+  flex: 1 1 100%;
+}
+
+#bind-pair-code,
+#pt-device-id {
+  flex: 1 1 100%;
+}
+
+#pt-name,
+#pt-age,
+#pt-sex {
+  flex: 1 1 160px;
+}
+
+.patients-form button {
+  flex: 0 0 auto;
+}
+
 /* ========== OVERVIEW ========== */
 .overview-container { display:flex; flex-direction:column; gap:16px; }
 .overview-row { display:flex; gap:16px; }
