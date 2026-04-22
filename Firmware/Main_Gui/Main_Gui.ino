@@ -78,10 +78,10 @@ static Preferences devicePref;
 static bool devicePrefReady = false;
 static const char *DEVICE_NVS_NAMESPACE = "device";
 static const char *DEVICE_NVS_KEY_ID    = "device_id";
-static const char *DEVICE_NVS_KEY_PAIR  = "pair_code";
+static const char *DEVICE_NVS_KEY_USER  = "user_id";
 
 static char g_device_id[24] = "DEV-UNKNOWN";
-static char g_pair_code[24] = "";
+static char g_user_id[24] = "";
 
 static void generate_device_id(char *out, size_t out_sz) {
   if (!out || out_sz == 0) return;
@@ -100,7 +100,7 @@ static void load_or_create_device_identity() {
   devicePrefReady = true;
 
   String storedId = devicePref.getString(DEVICE_NVS_KEY_ID, "");
-  String storedPair = devicePref.getString(DEVICE_NVS_KEY_PAIR, "");
+  String storedUser = devicePref.getString(DEVICE_NVS_KEY_USER, "");
 
   if (storedId.length() == 0) {
     generate_device_id(g_device_id, sizeof(g_device_id));
@@ -109,25 +109,25 @@ static void load_or_create_device_identity() {
     storedId.toCharArray(g_device_id, sizeof(g_device_id));
   }
 
-  if (storedPair.length() > 0) {
-    storedPair.toCharArray(g_pair_code, sizeof(g_pair_code));
+  if (storedUser.length() > 0) {
+    storedUser.toCharArray(g_user_id, sizeof(g_user_id));
   } else {
-    g_pair_code[0] = '\0';
+    g_user_id[0] = '\0';
   }
 
   Serial.print("Device ID: ");
   Serial.println(g_device_id);
 }
 
-static void save_pair_code(const char *pairCode) {
-  if (!pairCode || !*pairCode) return;
-  strncpy(g_pair_code, pairCode, sizeof(g_pair_code) - 1);
-  g_pair_code[sizeof(g_pair_code) - 1] = '\0';
+static void save_user_id(const char *userId) {
+  if (!userId || !*userId) return;
+  strncpy(g_user_id, userId, sizeof(g_user_id) - 1);
+  g_user_id[sizeof(g_user_id) - 1] = '\0';
   if (devicePrefReady) {
-    devicePref.putString(DEVICE_NVS_KEY_PAIR, g_pair_code);
+    devicePref.putString(DEVICE_NVS_KEY_USER, g_user_id);
   }
-  Serial.print("Saved Pair Code: ");
-  Serial.println(g_pair_code);
+  Serial.print("Saved User ID: ");
+  Serial.println(g_user_id);
 }
 
 // ===== RTC sync policy =====
@@ -338,8 +338,8 @@ static void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t
 }
 
 // ================= Fonts fallback =================
-static const lv_font_t* pick_font_40_or_14() {
-#if defined(LV_FONT_MONTSERRAT_40) && (LV_FONT_MONTSERRAT_40 == 1)
+static const lv_font_t* pick_font_36_or_14() {
+#if defined(LV_FONT_MONTSERRAT_36) && (LV_FONT_MONTSERRAT_36 == 1)
   return &lv_font_montserrat_40;
 #else
   return &lv_font_montserrat_14;
@@ -374,28 +374,32 @@ static lv_obj_t *label_batt = nullptr;
 static lv_obj_t *main_label_time = nullptr;
 static lv_obj_t *main_label_batt = nullptr;
 static lv_obj_t *label_device_id = nullptr;
+static lv_obj_t *label_user_id = nullptr;
+static lv_obj_t *label_mode_hint = nullptr;
 static lv_obj_t *btn_guest  = nullptr;
 static lv_obj_t *btn_user   = nullptr;
-static lv_obj_t *btn_pair   = nullptr;
 
 static lv_obj_t *main_scr   = nullptr;
 
-enum KeypadMode {
-  KEYPAD_MODE_USER,
-  KEYPAD_MODE_PAIR
-};
-
-static KeypadMode g_keypad_mode = KEYPAD_MODE_USER;
-
 static void show_main_screen();
 static void show_user_mode_screen();
-static void show_pair_device_screen();
 
 static void refresh_device_id_label() {
   if (!label_device_id) return;
   char buf[48];
   snprintf(buf, sizeof(buf), "Device ID: %s", g_device_id);
   lv_label_set_text(label_device_id, buf);
+}
+
+static void refresh_user_id_label() {
+  if (!label_user_id) return;
+  char buf[48];
+  if (g_user_id[0]) {
+    snprintf(buf, sizeof(buf), "User ID: %s", g_user_id);
+  } else {
+    snprintf(buf, sizeof(buf), "User ID: (chua nhap)");
+  }
+  lv_label_set_text(label_user_id, buf);
 }
 
 static void on_keypad_back() {
@@ -409,29 +413,16 @@ static void on_keypad_next(const char *text) {
     return;
   }
 
-  if (g_keypad_mode == KEYPAD_MODE_PAIR) {
-    save_pair_code(value);
-    Serial.print("Paired device ");
-    Serial.print(g_device_id);
-    Serial.print(" with pair code ");
-    Serial.println(value);
-    show_main_screen();
-    return;
-  }
-
-  Serial.print("USER ID = ");
-  Serial.println(value);
+  save_user_id(value);
+  Serial.print("USER MODE with ID = ");
+  Serial.println(g_user_id);
+  refresh_user_id_label();
   show_main_screen();
 }
 
 static void user_btn_event_cb(lv_event_t *e) {
   if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
   show_user_mode_screen();
-}
-
-static void pair_btn_event_cb(lv_event_t *e) {
-  if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-  show_pair_device_screen();
 }
 
 static void guest_btn_event_cb(lv_event_t *e) {
@@ -449,26 +440,7 @@ static void show_user_mode_screen() {
     keypad_inited = true;
   }
 
-  g_keypad_mode = KEYPAD_MODE_USER;
-  keypad_set_placeholder_text("Nhap User ID...");
-  keypad_set_text("");
-
-  lv_obj_t *scr = keypad_get_screen();
-  if (scr) lv_scr_load(scr);
-}
-
-static void show_pair_device_screen() {
-  static bool keypad_inited = false;
-  if (!keypad_inited) {
-    keypad_init_screen(pick_font_20_or_14(),
-                       pick_font_16_or_14(),
-                       on_keypad_back,
-                       on_keypad_next);
-    keypad_inited = true;
-  }
-
-  g_keypad_mode = KEYPAD_MODE_PAIR;
-  keypad_set_placeholder_text("Nhap Pair Code...");
+  keypad_set_placeholder_text("Nhap ID da tao tren web...");
   keypad_set_text("");
 
   lv_obj_t *scr = keypad_get_screen();
@@ -484,8 +456,8 @@ static void show_main_screen() {
 static lv_obj_t* create_status_bar(lv_obj_t *parent, lv_color_t primary, lv_color_t dark, lv_color_t card,
                                    lv_obj_t **out_time, lv_obj_t **out_batt) {
   lv_obj_t *status = lv_obj_create(parent);
-  lv_obj_set_size(status, lv_pct(100), 44);
-  lv_obj_align(status, LV_ALIGN_TOP_MID, 0, 0);
+  lv_obj_set_size(status, lv_pct(98), 44);
+  lv_obj_align(status, LV_ALIGN_TOP_MID, 0, -4);
   lv_obj_clear_flag(status, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_set_style_bg_color(status, card, 0);
@@ -566,7 +538,7 @@ static lv_obj_t* create_metric_card(lv_obj_t *parent,
   lv_obj_t *val = lv_label_create(card);
   lv_label_set_text(val, "--");
   lv_obj_set_style_text_color(val, lv_color_make(15, 75, 110), 0);
-  lv_obj_set_style_text_font(val, pick_font_40_or_14(), 0);
+  lv_obj_set_style_text_font(val, pick_font_36_or_14(), 0);
   lv_obj_align(val, LV_ALIGN_LEFT_MID, 0, 4);
 
   lv_obj_t *u = lv_label_create(card);
@@ -622,9 +594,9 @@ static void create_main_gui() {
   create_status_bar(scr, primary, dark, card, &main_label_time, &main_label_batt);
 
   // ===== FRAME CHỨA TEXT + ẢNH =====
-  lv_obj_t *frame = lv_obj_create(scr);
-  lv_obj_set_size(frame, lv_pct(100), 160);
-  lv_obj_align(frame, LV_ALIGN_TOP_MID, 0, 50);
+  lv_obj_t *  frame = lv_obj_create(scr);
+    lv_obj_set_size(frame, lv_pct(100), 184);
+  lv_obj_align(frame, LV_ALIGN_TOP_MID, 0, 44);
 
   lv_obj_set_style_bg_opa(frame, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(frame, 3, 0);
@@ -648,14 +620,14 @@ static void create_main_gui() {
   lv_obj_t *label_health = lv_label_create(text_cont);
   lv_label_set_text(label_health, "Health");
   lv_obj_set_style_text_color(label_health, primary, 0);
-  lv_obj_set_style_text_font(label_health, pick_font_40_or_14(), 0);
-  lv_obj_align(label_health, LV_ALIGN_TOP_LEFT, 0, 0);
+  lv_obj_set_style_text_font(label_health, pick_font_36_or_14(), 0);
+  lv_obj_align(label_health, LV_ALIGN_TOP_LEFT, 0, 2);
 
   lv_obj_t *label_monitor = lv_label_create(text_cont);
   lv_label_set_text(label_monitor, "Monitoring");
   lv_obj_set_style_text_color(label_monitor, primary, 0);
-  lv_obj_set_style_text_font(label_monitor, pick_font_40_or_14(), 0);
-  lv_obj_align_to(label_monitor, label_health, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 4);
+  lv_obj_set_style_text_font(label_monitor, pick_font_36_or_14(), 0);
+  lv_obj_align_to(label_monitor, label_health, LV_ALIGN_OUT_BOTTOM_LEFT, 0, -4);
 
   label_device_id = lv_label_create(text_cont);
   lv_label_set_text(label_device_id, "Device ID: --");
@@ -663,32 +635,49 @@ static void create_main_gui() {
   lv_obj_set_style_text_font(label_device_id, pick_font_16_or_14(), 0);
   lv_obj_align_to(label_device_id, label_monitor, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 10);
 
+  label_user_id = lv_label_create(text_cont);
+  lv_label_set_text(label_user_id, "User ID: (chua nhap)");
+  lv_obj_set_style_text_color(label_user_id, dark, 0);
+  lv_obj_set_style_text_font(label_user_id, pick_font_16_or_14(), 0);
+  lv_obj_align_to(label_user_id, label_device_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 6);
+
+  label_mode_hint = lv_label_create(text_cont);
+  lv_label_set_text(label_mode_hint, "Guest: do tai cho | User: nhap ID de dong bo web");
+    lv_label_set_long_mode(label_mode_hint, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(label_mode_hint, 230);
+  lv_obj_set_style_text_color(label_mode_hint, lv_color_make(70, 110, 130), 0);
+  lv_obj_set_style_text_font(label_mode_hint, pick_font_14(), 0);
+  lv_obj_align_to(label_mode_hint, label_user_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 6);
+
   // ===== CỤM NÚT Guest/User =====
   lv_obj_t *cont_btn = lv_obj_create(scr);
-  lv_obj_set_size(cont_btn, lv_pct(100), 120);
-  lv_obj_align(cont_btn, LV_ALIGN_BOTTOM_MID, 0, -5);
+    lv_obj_set_size(cont_btn, lv_pct(100), 74);
+    lv_obj_align(cont_btn, LV_ALIGN_BOTTOM_MID, 0, 8);
   lv_obj_set_style_bg_opa(cont_btn, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(cont_btn, 0, 0);
-  lv_obj_set_style_pad_all(cont_btn, 0, 0);
-  lv_obj_set_style_pad_column(cont_btn, 12, 0);
+    lv_obj_set_style_pad_left(cont_btn, 0, 0);
+    lv_obj_set_style_pad_right(cont_btn, 0, 0);
+  lv_obj_set_style_pad_top(cont_btn, 0, 0);
+  lv_obj_set_style_pad_bottom(cont_btn, 0, 0);
+  lv_obj_set_style_pad_column(cont_btn, 10, 0);
   lv_obj_clear_flag(cont_btn, LV_OBJ_FLAG_SCROLLABLE);
 
   static lv_coord_t col[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t row[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t row[] = {LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
   lv_obj_set_grid_dsc_array(cont_btn, col, row);
 
   // Guest
   btn_guest = lv_btn_create(cont_btn);
   lv_obj_set_grid_cell(btn_guest, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 0, 1);
-  lv_obj_set_style_radius(btn_guest, 16, 0);
+  lv_obj_set_style_radius(btn_guest, 14, 0);
   lv_obj_set_style_bg_color(btn_guest, card, 0);
   lv_obj_set_style_bg_color(btn_guest, lv_color_make(210, 245, 255), LV_STATE_PRESSED);
-  lv_obj_set_style_border_width(btn_guest, 3, 0);
+  lv_obj_set_style_border_width(btn_guest, 2, 0);
   lv_obj_set_style_border_color(btn_guest, primary, 0);
   lv_obj_set_style_shadow_width(btn_guest, 0, 0);
-  lv_obj_set_style_pad_top(btn_guest, 6, 0);
-  lv_obj_set_style_pad_bottom(btn_guest, 6, 0);
+  lv_obj_set_style_pad_top(btn_guest, 4, 0);
+  lv_obj_set_style_pad_bottom(btn_guest, 4, 0);
 
   lv_obj_t *lg = lv_label_create(btn_guest);
   lv_label_set_text(lg, "Guest mode");
@@ -701,42 +690,25 @@ static void create_main_gui() {
   btn_user = lv_btn_create(cont_btn);
   lv_obj_set_grid_cell(btn_user, LV_GRID_ALIGN_STRETCH, 1, 1,
                        LV_GRID_ALIGN_STRETCH, 0, 1);
-  lv_obj_set_style_radius(btn_user, 16, 0);
+  lv_obj_set_style_radius(btn_user, 14, 0);
   lv_obj_set_style_bg_color(btn_user, lv_color_make(0, 140, 200), 0);
   lv_obj_set_style_bg_color(btn_user, lv_color_make(0, 175, 235), LV_STATE_PRESSED);
   lv_obj_set_style_border_width(btn_user, 0, 0);
   lv_obj_set_style_shadow_width(btn_user, 0, 0);
-  lv_obj_set_style_pad_top(btn_user, 6, 0);
-  lv_obj_set_style_pad_bottom(btn_user, 6, 0);
+  lv_obj_set_style_pad_top(btn_user, 4, 0);
+  lv_obj_set_style_pad_bottom(btn_user, 4, 0);
 
   lv_obj_t *lu = lv_label_create(btn_user);
-  lv_label_set_text(lu, "User mode");
+  lv_label_set_text(lu, "User mode (nhap ID)");
   lv_obj_center(lu);
   lv_obj_set_style_text_color(lu, lv_color_white(), 0);
   lv_obj_set_style_text_font(lu, pick_font_20_or_14(), 0);
 
   lv_obj_add_event_cb(btn_user, user_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
-  // Pair device
-  btn_pair = lv_btn_create(cont_btn);
-  lv_obj_set_grid_cell(btn_pair, LV_GRID_ALIGN_STRETCH, 0, 2,
-                       LV_GRID_ALIGN_STRETCH, 1, 1);
-  lv_obj_set_style_radius(btn_pair, 16, 0);
-  lv_obj_set_style_bg_color(btn_pair, lv_color_make(140, 90, 210), 0);
-  lv_obj_set_style_bg_color(btn_pair, lv_color_make(170, 120, 230), LV_STATE_PRESSED);
-  lv_obj_set_style_border_width(btn_pair, 0, 0);
-  lv_obj_set_style_shadow_width(btn_pair, 0, 0);
-
-  lv_obj_t *lp = lv_label_create(btn_pair);
-  lv_label_set_text(lp, "Pair device");
-  lv_obj_center(lp);
-  lv_obj_set_style_text_color(lp, lv_color_white(), 0);
-  lv_obj_set_style_text_font(lp, pick_font_20_or_14(), 0);
-
-  lv_obj_add_event_cb(btn_pair, pair_btn_event_cb, LV_EVENT_CLICKED, NULL);
-
   ui_set_status("--:--  --/--/----", "--%");
   refresh_device_id_label();
+  refresh_user_id_label();
 
   lv_scr_load(main_scr);
 }

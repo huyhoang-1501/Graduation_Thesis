@@ -35,8 +35,8 @@ function makeDeviceId() {
   return "DEV-" + Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
 }
 
-function makePairCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+function normalizeId(raw) {
+  return String(raw || "").trim().toUpperCase();
 }
 
 function getCurrentUserUid() {
@@ -220,25 +220,60 @@ function initDeviceBindingModule() {
 
   if (!deviceIdInput || !pairCodeInput || !createBtn || !linkBtn || !statusEl) return;
 
+  pairCodeInput.placeholder = "Mã ID cho User mode";
+  statusEl.textContent = "Bước 1: Tạo Mã ID. Bước 2: Trên thiết bị chọn User mode và nhập đúng Mã ID đó.";
+  statusEl.style.color = "#6b7280";
+
   createBtn.addEventListener("click", async () => {
-    const deviceId = deviceIdInput.value.trim() || makeDeviceId();
+    const deviceId = normalizeId(deviceIdInput.value) || makeDeviceId();
     const ownerUid = getCurrentUserUid();
-    const patientId = currentPatientId || deviceId;
+    const patientId = deviceId;
+
+    if (!ownerUid) {
+      alert("Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.");
+      return;
+    }
 
     deviceIdInput.value = deviceId;
-    pairCodeInput.value = "";
+    pairCodeInput.value = patientId;
 
     try {
+      const deviceSnap = await db.ref("devices/" + deviceId).once("value");
+      const oldDevice = deviceSnap.val();
+      if (oldDevice?.ownerUid && oldDevice.ownerUid !== ownerUid) {
+        alert("Mã thiết bị này đang thuộc tài khoản khác.");
+        return;
+      }
+
       await db.ref("devices/" + deviceId).set({
         deviceId,
         ownerUid,
         patientId,
-        status: "created",
-        linked: false,
+        status: "ready_for_user_mode",
+        linked: true,
+        mode: "user",
         createdAt: firebase.database.ServerValue.TIMESTAMP
       });
 
-      statusEl.textContent = "Đã tạo thiết bị " + deviceId + " (patientId gợi ý: " + patientId + ").";
+      const patientSnap = await db.ref("patients/" + patientId).once("value");
+      const oldPatient = patientSnap.val();
+      if (oldPatient?.ownerUid && oldPatient.ownerUid !== ownerUid) {
+        alert("Mã bệnh nhân này đang thuộc tài khoản khác.");
+        return;
+      }
+
+      await db.ref("patients/" + patientId).set({
+        name: oldPatient?.name || ("Bệnh nhân " + patientId.slice(-4)),
+        age: oldPatient?.age || "",
+        sex: oldPatient?.sex || "Nam",
+        deviceId,
+        ownerUid,
+        mode: "user",
+        status: oldPatient?.status || "offline",
+        updatedAt: firebase.database.ServerValue.TIMESTAMP
+      });
+
+      statusEl.textContent = "Đã tạo ID: " + patientId + ". Trên thiết bị hãy chọn User mode và nhập đúng ID này.";
       statusEl.style.color = "#16a34a";
     } catch (err) {
       console.error(err);
@@ -247,41 +282,42 @@ function initDeviceBindingModule() {
   });
 
   linkBtn.addEventListener("click", async () => {
-    const deviceId = deviceIdInput.value.trim();
+    const deviceId = normalizeId(deviceIdInput.value);
     if (!deviceId) {
-      alert("Hãy tạo hoặc nhập Device ID trước.");
+      alert("Hãy tạo hoặc nhập Mã ID trước.");
       return;
     }
 
     const ownerUid = getCurrentUserUid();
-    const patientId = currentPatientId || deviceId;
-    const pairCode = makePairCode();
-    pairCodeInput.value = pairCode;
+    const patientId = deviceId;
 
     try {
-      await db.ref("pairings/" + pairCode).set({
-        pairCode,
-        deviceId,
-        ownerUid,
-        patientId,
-        status: "pending",
-        createdAt: firebase.database.ServerValue.TIMESTAMP
-      });
+      const deviceSnap = await db.ref("devices/" + deviceId).once("value");
+      const deviceData = deviceSnap.val();
+      if (!deviceData) {
+        alert("Mã ID chưa được tạo trên dashboard.");
+        return;
+      }
+      if (deviceData.ownerUid && deviceData.ownerUid !== ownerUid) {
+        alert("Mã ID này thuộc tài khoản khác.");
+        return;
+      }
 
       await db.ref("devices/" + deviceId).update({
         ownerUid,
         patientId,
-        pairCode,
-        status: "waiting_pair",
-        linked: false,
+        status: "linked",
+        linked: true,
+        mode: "user",
         updatedAt: firebase.database.ServerValue.TIMESTAMP
       });
 
-      statusEl.textContent = "Dashboard đã sinh Pair Code: " + pairCode + ". Hãy nhập mã này lên device để hoàn tất.";
+      pairCodeInput.value = patientId;
+      statusEl.textContent = "Đã xác nhận User mode cho ID " + patientId + ". Thiết bị sẽ đẩy dữ liệu lên dashboard của tài khoản này.";
       statusEl.style.color = "#2563eb";
     } catch (err) {
       console.error(err);
-      alert("Lỗi liên kết thiết bị: " + err.message);
+      alert("Lỗi xác nhận thiết bị: " + err.message);
     }
   });
 }
@@ -539,15 +575,24 @@ function  initPatientsModule() {
   if (!listEl) return;
 
   const ref = db.ref("patients");
+  const ownerUid = getCurrentUserUid();
 
   // Lắng nghe realtime danh sách patients
   ref.on("value", snap => {
     const data = snap.val() || {};
-    patientsCache = data;
+    const ownedPatients = {};
+    Object.keys(data).forEach(pid => {
+      const p = data[pid] || {};
+      if (p.ownerUid === ownerUid) {
+        ownedPatients[pid] = p;
+      }
+    });
+
+    patientsCache = ownedPatients;
     listEl.innerHTML = "";
 
-    Object.keys(data).forEach(pid => {
-      const p = data[pid];
+    Object.keys(ownedPatients).forEach(pid => {
+      const p = ownedPatients[pid];
       const row = document.createElement("div");
       row.className = "patient-row";
       const statusBadge = p.status === "online" ? "badge-online" : "badge-offline";
@@ -568,7 +613,7 @@ function  initPatientsModule() {
     });
 
     // Cập nhật các dropdown chọn bệnh nhân ở Overview/History/Alerts
-    refreshPatientDropdowns(patientsCache);
+    refreshPatientDropdowns(ownedPatients);
   });
 
   // Thêm patient: ghi vào /patients
@@ -592,13 +637,23 @@ function  initPatientsModule() {
       age,
       sex,
       deviceId,
+      ownerUid,
+      mode: "user",
       status: "offline"   // mặc định, phần cứng cập nhật sau
     };
 
     const patientRef = ref.child(patientId);
     patientRef.set(patientData)
+      .then(() => db.ref("devices/" + deviceId).update({
+        ownerUid,
+        patientId,
+        status: "linked",
+        linked: true,
+        mode: "user",
+        updatedAt: firebase.database.ServerValue.TIMESTAMP
+      }))
       .then(() => {
-        statusEl.textContent = "Đã thêm bệnh nhân, patientId (DeviceId): " + patientId;
+        statusEl.textContent = "Đã thêm bệnh nhân với ID: " + patientId + ". Trên thiết bị chọn User mode và nhập ID này.";
         statusEl.style.color = "#16a34a";
         nameEl.value = "";
         ageEl.value = "";
@@ -806,6 +861,12 @@ function initSettingsModule() {
   }
 }
 function showOverviewForPatient(patientId) {
+  const pCache = patientsCache[patientId];
+  if (!pCache || (pCache.ownerUid && pCache.ownerUid !== getCurrentUserUid())) {
+    alert("Bạn không có quyền truy cập bệnh nhân này.");
+    return;
+  }
+
   currentPatientId = patientId;
 
   const ovSel = document.getElementById("ov-patient-select");

@@ -369,23 +369,31 @@
         <!-- ========== DEVICES / PATIENTS ========== -->
         <section id="page-patients" class="page">
           <div class="page-header-row">
-            <h2>Devices / Patients</h2>
+            <h2>Thiết bị / Bệnh nhân</h2>
           </div>
 
           <div class="placeholder-box">
-            <p>Pair thiết bị với dashboard:</p>
+            <p><strong>Flow đơn giản cho người dùng:</strong></p>
+            <p style="margin-top:8px; color:#374151;">
+              <strong>Guest mode:</strong> đo tại chỗ trên thiết bị, không cần web.<br>
+              <strong>User mode:</strong> tạo Mã ID trên dashboard, sau đó nhập đúng Mã ID đó trên thiết bị để đồng bộ.
+            </p>
+          </div>
+
+          <div class="placeholder-box">
+            <p>Tạo Mã ID cho User mode:</p>
             <div class="patients-form">
-              <input type="text" id="bind-device-id" placeholder="Device ID">
-              <input type="text" id="bind-pair-code" placeholder="Pair Code" readonly>
+              <input type="text" id="bind-device-id" placeholder="Mã ID (ví dụ: DEV-ABC123)">
+              <input type="text" id="bind-pair-code" placeholder="Mã ID để nhập trên thiết bị" readonly>
               <button class="btn-primary" id="device-create-btn">
-                <i class="fas fa-microchip"></i> Tạo thiết bị mới
+                <i class="fas fa-microchip"></i> Tạo Mã ID
               </button>
               <button class="btn-secondary" id="device-link-btn">
-                <i class="fas fa-link"></i> Liên kết thiết bị
+                <i class="fas fa-link"></i> Xác nhận Mã ID
               </button>
             </div>
             <small id="device-bind-status" class="phone-status-text">
-              1) Tạo Device ID trên dashboard. 2) Bấm Liên kết để sinh Pair Code. 3) Nhập Pair Code đó trên device.
+              Bước 1: Tạo Mã ID. Bước 2: Trên thiết bị chọn User mode và nhập đúng Mã ID đó.
             </small>
           </div>
 
@@ -398,7 +406,7 @@
                 <option value="Nam">Nam</option>
                 <option value="Nữ">Nữ</option>
               </select>
-              <input type="text" id="pt-device-id" placeholder="Mã thiết bị (DeviceId)">
+              <input type="text" id="pt-device-id" placeholder="Mã ID (trùng mã nhập trên thiết bị)">
               <button class="btn-primary" id="pt-add-btn">
                 <i class="fas fa-user-plus"></i> Thêm
               </button>
