@@ -381,24 +381,26 @@
           </div>
 
           <div class="placeholder-box">
-            <p>Tạo Mã ID cho User mode:</p>
+            <p>Nhập DEVICE ID cho User mode:</p>
             <div class="patients-form">
-              <input type="text" id="bind-device-id" placeholder="Mã ID (ví dụ: DEV-ABC123)">
-              <input type="text" id="bind-pair-code" placeholder="Mã ID để nhập trên thiết bị" readonly>
+              <input type="text" id="bind-device-id" placeholder="DEVICE ID (ví dụ: DEV-6C068C8E720)">
+              <input type="text" id="bind-pair-code" placeholder="Mã 5 số để nhập trên thiết bị" readonly>
               <button class="btn-primary" id="device-create-btn">
-                <i class="fas fa-microchip"></i> Tạo Mã ID
+                <i class="fas fa-microchip"></i> Lưu DEVICE ID
               </button>
               <button class="btn-secondary" id="device-link-btn">
                 <i class="fas fa-link"></i> Xác nhận Mã ID
               </button>
             </div>
             <small id="device-bind-status" class="phone-status-text">
-              Bước 1: Tạo Mã ID. Bước 2: Trên thiết bị chọn User mode và nhập đúng Mã ID đó.
+              Bước 1: Nhập DEVICE ID dạng DEV-... Bước 2: Tạo mã User mode 5 số và nhập mã đó trên thiết bị.
             </small>
           </div>
 
           <div class="placeholder-box">
             <p>Thêm bệnh nhân mới:</p>
+            <p style="margin-top:6px; color:#374151; font-size:13px;">
+            </p>
             <div class="patients-form">
               <input type="text" id="pt-name" placeholder="Tên bệnh nhân">
               <input type="number" id="pt-age" placeholder="Tuổi">
@@ -406,7 +408,6 @@
                 <option value="Nam">Nam</option>
                 <option value="Nữ">Nữ</option>
               </select>
-              <input type="text" id="pt-device-id" placeholder="Mã ID (trùng mã nhập trên thiết bị)">
               <button class="btn-primary" id="pt-add-btn">
                 <i class="fas fa-user-plus"></i> Thêm
               </button>
@@ -481,6 +482,11 @@
   </div>
 
   <!-- JS chính -->
+  <script src="modules.state.js"></script>
+  <script src="modules.selectors.js"></script>
+  <script src="modules.alerts.js"></script>
+  <script src="modules.patients.js"></script>
+  <script src="modules.settings.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

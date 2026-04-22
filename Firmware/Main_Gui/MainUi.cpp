@@ -213,7 +213,7 @@ static void create_main_gui() {
 
   lv_obj_t *img_monitor = lv_img_create(frame);
   lv_img_set_src(img_monitor, &monitoring_icon);
-  lv_obj_align(img_monitor, LV_ALIGN_RIGHT_MID, -10, 0);
+  lv_obj_align(img_monitor, LV_ALIGN_RIGHT_MID, -5, 0);
 
   lv_obj_t *text_cont = lv_obj_create(frame);
   lv_obj_set_size(text_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);

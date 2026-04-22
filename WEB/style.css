@@ -236,8 +236,7 @@ body {
   flex: 1 1 100%;
 }
 
-#bind-pair-code,
-#pt-device-id {
+#bind-pair-code {
   flex: 1 1 100%;
 }
 
