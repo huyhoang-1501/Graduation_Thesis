@@ -5,6 +5,25 @@
 #include <string.h>
 
 #include "keypad.h"
+#include "FirebaseSync.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <stdlib.h>
+
+typedef struct {
+  char userId[16];
+  usermode_success_cb_t success_cb;
+} validate_ctx_t;
+
+typedef struct {
+  bool ok;
+  char msg[128];
+  char userId[16];
+  usermode_success_cb_t success_cb;
+} result_t;
+
+static void ui_result(void *arg);
+static void validation_task(void *pv);
 
 static usermode_back_cb_t g_back_cb = NULL;
 static usermode_validate_cb_t g_validate_cb = NULL;
@@ -65,14 +84,22 @@ static void on_keypad_view_internal(const char *text) {
   }
 
   UserMode_SetStatus("Dang kiem tra User ID tren Firebase...", false);
-  if (!g_validate_cb(userId, errMsg, sizeof(errMsg))) {
-    UserMode_SetStatus(errMsg[0] ? errMsg : "User ID khong hop le", true);
+
+  // Run validation by creating a background task (validation_task).
+  validate_ctx_t *ctx = (validate_ctx_t *)malloc(sizeof(validate_ctx_t));
+  if (!ctx) {
+    UserMode_SetStatus("Loi bo nho", true);
     return;
   }
+  strncpy(ctx->userId, userId, sizeof(ctx->userId) - 1);
+  ctx->userId[sizeof(ctx->userId) - 1] = '\0';
+  ctx->success_cb = g_success_cb;
 
-  UserMode_SetStatus("User ID hop le. Dang vao man hinh do...", false);
-  if (g_success_cb) {
-    g_success_cb(userId);
+  BaseType_t r = xTaskCreate(validation_task, "validate_user", 4096, ctx, 1, NULL);
+  if (r != pdPASS) {
+    free(ctx);
+    UserMode_SetStatus("Khong tao duoc task", true);
+    return;
   }
 }
 
@@ -110,4 +137,44 @@ void UserMode_Show(void) {
   if (scr) {
     lv_scr_load(scr);
   }
+}
+
+// --- validation task and UI result handler (file-scope) ---
+static void ui_result(void *arg) {
+  result_t *r = (result_t *)arg;
+  if (!r) return;
+  if (!r->ok) {
+    UserMode_SetStatus(r->msg[0] ? r->msg : "User ID khong hop le", true);
+  } else {
+    UserMode_SetStatus("User ID hop le. Dang vao man hinh do...", false);
+    if (r->success_cb) r->success_cb(r->userId);
+  }
+  free(r);
+}
+
+static void validation_task(void *pv) {
+  validate_ctx_t *c = (validate_ctx_t *)pv;
+  if (!c) {
+    vTaskDelete(NULL);
+    return;
+  }
+  result_t *res = (result_t *)malloc(sizeof(result_t));
+  if (!res) {
+    free(c);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  char err[128] = {0};
+  bool ok = FirebaseSync_ValidateUserId(c->userId, err, sizeof(err));
+  res->ok = ok;
+  strncpy(res->msg, err, sizeof(res->msg) - 1);
+  res->msg[sizeof(res->msg) - 1] = '\0';
+  strncpy(res->userId, c->userId, sizeof(res->userId) - 1);
+  res->userId[sizeof(res->userId) - 1] = '\0';
+  res->success_cb = c->success_cb;
+
+  free(c);
+  lv_async_call(ui_result, res);
+  vTaskDelete(NULL);
 }

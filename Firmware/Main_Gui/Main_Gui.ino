@@ -566,10 +566,11 @@ void setup() {
 
 void loop() {
   lv_timer_handler();
-  delay(5);
+  delay(1);
 
   power_save_task();
   GuestMode_Loop();
+  FirebaseSync_Loop();
 
   static uint32_t last = 0;
   if (millis() - last >= 1000) {
@@ -592,6 +593,5 @@ void loop() {
 
     // Lưu NVS định kỳ
     maybe_save_battery_to_nvs();
-    FirebaseSync_Loop();
   }
 }
