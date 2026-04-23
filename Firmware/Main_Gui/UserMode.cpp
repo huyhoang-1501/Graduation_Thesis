@@ -1,0 +1,113 @@
+#include "UserMode.h"
+
+#include <ctype.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "keypad.h"
+
+static usermode_back_cb_t g_back_cb = NULL;
+static usermode_validate_cb_t g_validate_cb = NULL;
+static usermode_success_cb_t g_success_cb = NULL;
+
+static const lv_font_t *g_btn_font = NULL;
+static const lv_font_t *g_back_font = NULL;
+
+static lv_obj_t *g_status_label = NULL;
+static bool g_inited = false;
+
+static void ensure_status_label() {
+  lv_obj_t *scr = keypad_get_screen();
+  if (!scr || g_status_label) return;
+
+  g_status_label = lv_label_create(scr);
+  lv_label_set_long_mode(g_status_label, LV_LABEL_LONG_WRAP);
+  lv_obj_set_width(g_status_label, 360);
+  lv_obj_align(g_status_label, LV_ALIGN_TOP_RIGHT, -4, 6);
+  lv_obj_set_style_text_align(g_status_label, LV_TEXT_ALIGN_RIGHT, 0);
+  lv_obj_set_style_text_color(g_status_label, lv_color_make(80, 120, 140), 0);
+  lv_label_set_text(g_status_label, "Nhap User ID 5 so da tao tren Web");
+}
+
+void UserMode_SetStatus(const char *text, bool is_error) {
+  if (!g_status_label) return;
+  lv_obj_set_style_text_color(g_status_label,
+                              is_error ? lv_color_make(220, 40, 40) : lv_color_make(60, 120, 80),
+                              0);
+  lv_label_set_text(g_status_label, text && text[0] ? text : "");
+}
+
+static bool is_valid_user_id_5digits(const char *userId) {
+  if (!userId) return false;
+  if (strlen(userId) != 5) return false;
+  for (size_t i = 0; i < 5; ++i) {
+    if (!isdigit((unsigned char)userId[i])) return false;
+  }
+  return true;
+}
+
+static void on_keypad_back_internal() {
+  if (g_back_cb) g_back_cb();
+}
+
+static void on_keypad_view_internal(const char *text) {
+  char errMsg[96] = {0};
+  const char *userId = text ? text : "";
+
+  if (!is_valid_user_id_5digits(userId)) {
+    UserMode_SetStatus("User ID phai dung 5 so", true);
+    return;
+  }
+
+  if (!g_validate_cb) {
+    UserMode_SetStatus("Chua cau hinh bo kiem tra User ID", true);
+    return;
+  }
+
+  UserMode_SetStatus("Dang kiem tra User ID tren Firebase...", false);
+  if (!g_validate_cb(userId, errMsg, sizeof(errMsg))) {
+    UserMode_SetStatus(errMsg[0] ? errMsg : "User ID khong hop le", true);
+    return;
+  }
+
+  UserMode_SetStatus("User ID hop le. Dang vao man hinh do...", false);
+  if (g_success_cb) {
+    g_success_cb(userId);
+  }
+}
+
+void UserMode_Init(const lv_font_t *btn_font,
+                   const lv_font_t *back_font,
+                   usermode_back_cb_t back_cb,
+                   usermode_validate_cb_t validate_cb,
+                   usermode_success_cb_t success_cb) {
+  g_btn_font = btn_font;
+  g_back_font = back_font;
+  g_back_cb = back_cb;
+  g_validate_cb = validate_cb;
+  g_success_cb = success_cb;
+
+  if (!g_inited) {
+    keypad_init_screen(g_btn_font,
+                       g_back_font,
+                       on_keypad_back_internal,
+                       on_keypad_view_internal);
+    g_inited = true;
+  }
+
+  keypad_set_placeholder_text("Nhap User ID 5 so da dang ky tren Web...");
+  ensure_status_label();
+}
+
+void UserMode_Show(void) {
+  if (!g_inited) return;
+  keypad_set_text("");
+  keypad_set_placeholder_text("Nhap User ID 5 so da dang ky tren Web...");
+  ensure_status_label();
+  UserMode_SetStatus("Nhap User ID 5 so da tao tren Web", false);
+
+  lv_obj_t *scr = keypad_get_screen();
+  if (scr) {
+    lv_scr_load(scr);
+  }
+}

@@ -68,7 +68,7 @@ function initPatientsModule() {
     }
 
     if (!isValidDeviceId(deviceId)) {
-      statusEl.textContent = "DEVICE ID không hợp lệ (dạng DEV-...).";
+      statusEl.textContent = "DEVICE ID không hợp lệ (UTE-2026 hoặc DEV-...).";
       statusEl.style.color = "#dc2626";
       return;
     }

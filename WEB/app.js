@@ -47,7 +47,7 @@ function normalizeDeviceId(raw) {
 }
 
 function isValidDeviceId(deviceId) {
-  return /^DEV-[0-9A-Z]{8,16}$/.test(deviceId);
+  return /^(UTE-2026|DEV-[0-9A-Z]{8,16})$/.test(deviceId);
 }
 
 function getCurrentUserUid() {
@@ -231,7 +231,7 @@ function initDeviceBindingModule() {
 
   if (!deviceIdInput || !pairCodeInput || !createBtn || !linkBtn || !statusEl) return;
 
-  // DEVICE ID nhập theo dạng DEV-... (không giới hạn 5 số)
+  // DEVICE ID nhập theo dạng UTE-2026 hoặc DEV-... (không giới hạn 5 số)
   deviceIdInput.addEventListener("input", (e) => {
     e.target.value = normalizeDeviceId(e.target.value);
   });
@@ -252,7 +252,7 @@ function initDeviceBindingModule() {
   pairCodeInput.setAttribute("maxlength", "5");
 
   pairCodeInput.placeholder = "Mã 5 số cho User mode";
-  statusEl.textContent = "Bước 1: Nhập DEVICE ID dạng DEV-... Bước 2: Tạo mã User mode 5 số và nhập mã đó trên thiết bị.";
+  statusEl.textContent = "Bước 1: Nhập DEVICE ID (ưu tiên UTE-2026, hoặc DEV-...). Bước 2: Tạo mã User mode 5 số và nhập mã đó trên thiết bị.";
   statusEl.style.color = "#6b7280";
 
   createBtn.addEventListener("click", async () => {
@@ -261,12 +261,12 @@ function initDeviceBindingModule() {
     const ownerUid = getCurrentUserUid();
 
     if (!deviceId) {
-      alert("Vui lòng nhập DEVICE ID (ví dụ: DEV-6C068C8E720).");
+      alert("Vui lòng nhập DEVICE ID (ví dụ: UTE-2026).");
       return;
     }
 
     if (!isValidDeviceId(deviceId)) {
-      alert("DEVICE ID không hợp lệ. Định dạng mong muốn: DEV-XXXXXXXX (chữ/số).");
+      alert("DEVICE ID không hợp lệ. Định dạng mong muốn: UTE-2026 hoặc DEV-XXXXXXXX.");
       return;
     }
 
@@ -336,7 +336,7 @@ function initDeviceBindingModule() {
     }
 
     if (!isValidDeviceId(deviceId)) {
-      alert("DEVICE ID không hợp lệ. Định dạng mong muốn: DEV-XXXXXXXX (chữ/số).");
+      alert("DEVICE ID không hợp lệ. Định dạng mong muốn: UTE-2026 hoặc DEV-XXXXXXXX.");
       return;
     }
 

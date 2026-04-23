@@ -19,6 +19,8 @@
 // ===== UI modules =====
 #include "GuestMode.h"
 #include "MainUi.h"
+#include "UserMode.h"
+#include "FirebaseSync.h"
 
 // ================= DISPLAY =================
 static const uint16_t SCREEN_WIDTH  = 480;
@@ -28,7 +30,8 @@ static const uint16_t SCREEN_HEIGHT = 320;
 TFT_eSPI tft;
 
 // ================= LVGL BUFFER =================
-static lv_color_t buf1[SCREEN_WIDTH * 40];
+static const uint16_t LVGL_DRAW_BUF_LINES = 24;
+static lv_color_t buf1[SCREEN_WIDTH * LVGL_DRAW_BUF_LINES];
 static lv_disp_draw_buf_t draw_buf;
 
 // ================= LVGL TICK =================
@@ -77,21 +80,16 @@ static bool devicePrefReady = false;
 static const char *DEVICE_NVS_NAMESPACE = "device";
 static const char *DEVICE_NVS_KEY_ID    = "device_id";
 static const char *DEVICE_NVS_KEY_USER  = "user_id";
+static const char *DEVICE_ID_FIXED      = "UTE-2026";
 
 static char g_device_id[24] = "DEV-UNKNOWN";
 static char g_user_id[24] = "";
 
-static void generate_device_id(char *out, size_t out_sz) {
-  if (!out || out_sz == 0) return;
-  unsigned long long mac = (unsigned long long)ESP.getEfuseMac();
-  snprintf(out, out_sz, "DEV-%012llX", (mac & 0xFFFFFFFFFFFFULL));
-}
-
 static void load_or_create_device_identity() {
   if (!devicePref.begin(DEVICE_NVS_NAMESPACE, false)) {
-    Serial.println("Failed to init device NVS, using RAM-only device id");
+    Serial.println("Failed to init device NVS, using RAM-only fixed device id");
     devicePrefReady = false;
-    generate_device_id(g_device_id, sizeof(g_device_id));
+    snprintf(g_device_id, sizeof(g_device_id), "%s", DEVICE_ID_FIXED);
     return;
   }
 
@@ -100,11 +98,9 @@ static void load_or_create_device_identity() {
   String storedId = devicePref.getString(DEVICE_NVS_KEY_ID, "");
   String storedUser = devicePref.getString(DEVICE_NVS_KEY_USER, "");
 
-  if (storedId.length() == 0) {
-    generate_device_id(g_device_id, sizeof(g_device_id));
-    devicePref.putString(DEVICE_NVS_KEY_ID, g_device_id);
-  } else {
-    storedId.toCharArray(g_device_id, sizeof(g_device_id));
+  snprintf(g_device_id, sizeof(g_device_id), "%s", DEVICE_ID_FIXED);
+  if (!storedId.equals(DEVICE_ID_FIXED)) {
+    devicePref.putString(DEVICE_NVS_KEY_ID, DEVICE_ID_FIXED);
   }
 
   if (storedUser.length() > 0) {
@@ -134,6 +130,26 @@ static const char *ui_get_device_id() {
 
 static const char *ui_get_user_id() {
   return g_user_id;
+}
+
+// ================= FIREBASE SYNC CONFIG =================
+static const char *WIFI_SSID = "NAVI Apartment 2.4G";
+static const char *WIFI_PASSWORD = "168168168";
+static const char *FIREBASE_DB_URL = "https://graduation-thesis-3a3df-default-rtdb.firebaseio.com";
+static const uint32_t FIREBASE_PUSH_INTERVAL_MS = 5000;
+
+static void on_user_mode_back() {
+  MainUi_ShowMainScreen();
+}
+
+static void on_user_mode_success(const char *userId) {
+  save_user_id(userId);
+  FirebaseSync_PushStatusAndBattery();
+  GuestMode_Show(MainUi_ShowMainScreen);
+}
+
+static void on_open_user_mode() {
+  UserMode_Show();
 }
 
 // ===== RTC sync policy =====
@@ -424,6 +440,7 @@ static void update_battery_soc_from_ina219(char *out, size_t out_sz) {
   int batPercent = (int)(batPercent_f + 0.5f);
   if (batPercent < 0)   batPercent = 0;
   if (batPercent > 100) batPercent = 100;
+  FirebaseSync_SetBatteryPercent(batPercent);
 
   // Debug
   Serial.print("Q = ");
@@ -513,7 +530,7 @@ void setup() {
   esp_timer_start_periodic(lvgl_tick_timer, 1000);
 
   // Display driver
-  lv_disp_draw_buf_init(&draw_buf, buf1, NULL, SCREEN_WIDTH * 40);
+  lv_disp_draw_buf_init(&draw_buf, buf1, NULL, SCREEN_WIDTH * LVGL_DRAW_BUF_LINES);
 
   static lv_disp_drv_t disp_drv;
   lv_disp_drv_init(&disp_drv);
@@ -530,7 +547,21 @@ void setup() {
   indev_drv.read_cb = my_touch_read;
   lv_indev_drv_register(&indev_drv);
 
-  MainUi_Init(save_user_id, ui_get_device_id, ui_get_user_id);
+  MainUi_Init(save_user_id, ui_get_device_id, ui_get_user_id, on_open_user_mode);
+  FirebaseSync_Init(WIFI_SSID,
+                    WIFI_PASSWORD,
+                    FIREBASE_DB_URL,
+                    ui_get_device_id,
+                    ui_get_user_id,
+                    FIREBASE_PUSH_INTERVAL_MS);
+  UserMode_Init(nullptr,
+                nullptr,
+                on_user_mode_back,
+                FirebaseSync_ValidateUserId,
+                on_user_mode_success);
+
+  // Day trang thai ban dau len Firebase.
+  FirebaseSync_PushStatusAndBattery();
 }
 
 void loop() {
@@ -561,5 +592,6 @@ void loop() {
 
     // Lưu NVS định kỳ
     maybe_save_battery_to_nvs();
+    FirebaseSync_Loop();
   }
 }

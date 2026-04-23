@@ -3,13 +3,13 @@
 #include <cstdio>
 
 #include "GuestMode.h"
-#include "keypad.h"
 #include "monitoring_icon.h"
 #include "wifi_icon.h"
 
 static MainUiSaveUserIdCb g_save_user_id_cb = nullptr;
 static MainUiGetTextCb g_get_device_id_cb = nullptr;
 static MainUiGetTextCb g_get_user_id_cb = nullptr;
+static MainUiOpenUserModeCb g_open_user_mode_cb = nullptr;
 
 static lv_obj_t *main_scr = nullptr;
 static lv_obj_t *main_label_time = nullptr;
@@ -53,7 +53,7 @@ static const lv_font_t* pick_font_14() {
   return &lv_font_montserrat_14;
 }
 
-static void show_main_screen();
+void MainUi_ShowMainScreen();
 
 static void refresh_device_id_label() {
   if (!label_device_id) return;
@@ -77,50 +77,19 @@ static void refresh_user_id_label() {
   lv_label_set_text(label_user_id, buf);
 }
 
-static void on_keypad_back() {
-  show_main_screen();
-}
-
-static void on_keypad_next(const char *text) {
-  const char *value = text ? text : "";
-  if (!value[0]) return;
-
-  if (g_save_user_id_cb) {
-    g_save_user_id_cb(value);
-  }
-
-  refresh_user_id_label();
-  show_main_screen();
-}
-
-static void show_user_mode_screen() {
-  static bool keypad_inited = false;
-  if (!keypad_inited) {
-    keypad_init_screen(pick_font_20_or_14(),
-                       pick_font_16_or_14(),
-                       on_keypad_back,
-                       on_keypad_next);
-    keypad_inited = true;
-  }
-
-  keypad_set_placeholder_text("Nhap ID da tao tren web...");
-  keypad_set_text("");
-
-  lv_obj_t *scr = keypad_get_screen();
-  if (scr) lv_scr_load(scr);
-}
-
 static void guest_btn_event_cb(lv_event_t *e) {
   if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-  GuestMode_Show(show_main_screen);
+  GuestMode_Show(MainUi_ShowMainScreen);
 }
 
 static void user_btn_event_cb(lv_event_t *e) {
   if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-  show_user_mode_screen();
+  if (g_open_user_mode_cb) {
+    g_open_user_mode_cb();
+  }
 }
 
-static void show_main_screen() {
+void MainUi_ShowMainScreen() {
   if (main_scr) lv_scr_load(main_scr);
 }
 
@@ -315,17 +284,19 @@ static void create_main_gui() {
 
 void MainUi_Init(MainUiSaveUserIdCb saveUserIdCb,
                  MainUiGetTextCb getDeviceIdCb,
-                 MainUiGetTextCb getUserIdCb) {
+                 MainUiGetTextCb getUserIdCb,
+                 MainUiOpenUserModeCb openUserModeCb) {
   g_save_user_id_cb = saveUserIdCb;
   g_get_device_id_cb = getDeviceIdCb;
   g_get_user_id_cb = getUserIdCb;
+  g_open_user_mode_cb = openUserModeCb;
 
   if (!main_scr) {
     create_main_gui();
   } else {
     refresh_device_id_label();
     refresh_user_id_label();
-    show_main_screen();
+    MainUi_ShowMainScreen();
   }
 }
 
