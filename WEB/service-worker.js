@@ -1,4 +1,5 @@
-const CACHE_NAME = 'health-monitor-v1';
+// bump this value when releasing changes so clients update their service worker
+const CACHE_NAME = 'health-monitor-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -17,7 +18,10 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(ASSETS_TO_CACHE))
-      .then(() => self.skipWaiting())
+      .then(() => {
+        console.log('[SW] installed, cache updated:', CACHE_NAME);
+        return self.skipWaiting();
+      })
   );
 });
 
@@ -47,4 +51,11 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request).then(cached => cached || fetch(event.request))
   );
+});
+
+// allow page to message SW to skip waiting and activate immediately
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

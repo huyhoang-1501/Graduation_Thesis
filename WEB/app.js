@@ -149,12 +149,57 @@ function showApp(user) {
     nameFromEmail || "Người dùng";
 
   initSidebarNavigation();
+  initMobileMenu();
+  initSwipeHandlers();
+  detectPwaMode();
   initOverview();
   initOtherPages();
   initPatientSelectors();
   initDeviceBindingModule();
   initPatientsModule(); 
   initSettingsModule();
+}
+
+// ========== MOBILE MENU (OFF-CANVAS SIDEBAR) ==========
+function initMobileMenu() {
+  // Ensure we only initialize once
+  if (window._mobileMenuInit) return;
+  window._mobileMenuInit = true;
+
+  const topbarLeft = document.querySelector('.topbar-left');
+  const menuBtn = document.querySelector('.menu-btn');
+  const overlay = document.querySelector('.overlay');
+
+  // Toggle body class to open/close sidebar
+  const toggle = () => {
+    const open = document.body.classList.toggle('sidebar-open');
+    if (menuBtn) menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  };
+  const close = () => {
+    document.body.classList.remove('sidebar-open');
+    if (menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
+  };
+
+  if (menuBtn) menuBtn.addEventListener('click', toggle);
+  if (overlay) overlay.addEventListener('click', close);
+
+  // Close sidebar when clicking a navigation item (mobile)
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.sidebar-item')) {
+      // small delay to allow navigation to take effect visually
+      setTimeout(close, 150);
+    }
+  });
+
+  // Close with Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+  });
+
+  // When resizing to desktop, ensure sidebar-open removed
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) close();
+  });
 }
 
 // ========== LOGOUT ==========
@@ -192,16 +237,16 @@ function initSidebarNavigation() {
 
   sideItems.forEach(btn => {
     btn.addEventListener("click", () => {
-      sideItems.forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
+        sideItems.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
 
-      const pageName = btn.dataset.page;
+        const pageName = btn.dataset.page;
 
-      showPage(pageName);
+        showPage(pageName);
 
-      if (tabTitle && titleMap[pageName]) {
-        tabTitle.textContent = titleMap[pageName];
-      }
+        if (tabTitle && titleMap[pageName]) {
+          tabTitle.textContent = titleMap[pageName];
+        }
     });
   });
 
@@ -210,7 +255,65 @@ function initSidebarNavigation() {
     const target = document.getElementById("page-" + pageName);
     if (target) target.classList.add("active");
   }
+    // no global page helper required (bottom-nav removed)
 }
+
+  // bottom navigation removed
+
+  // ========== PWA DETECTION (switch to bottom nav) ==========
+  function detectPwaMode() {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || location.search.indexOf('pwa=1') !== -1;
+    if (isStandalone) {
+      document.body.classList.add('pwa-mode');
+    } else {
+      document.body.classList.remove('pwa-mode');
+    }
+  }
+
+  // ========== SWIPE HANDLERS for opening/closing sidebar ==========
+  function initSwipeHandlers() {
+    if (window._swipeInit) return;
+    window._swipeInit = true;
+
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+
+    document.addEventListener('touchstart', (e) => {
+      if (window.innerWidth > 768) return;
+      const t = e.touches[0];
+      startX = t.clientX;
+      startY = t.clientY;
+      tracking = true;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!tracking) return;
+      const t = e.touches[0];
+      const dx = t.clientX - startX;
+      const dy = Math.abs(t.clientY - startY);
+      // ignore vertical scrolls
+      if (dy > 30) { tracking = false; return; }
+
+      // swipe right from left edge
+      if (startX < 30 && dx > 50) {
+        document.body.classList.add('sidebar-open');
+        const menuBtn = document.querySelector('.menu-btn');
+        if (menuBtn) menuBtn.setAttribute('aria-expanded', 'true');
+        tracking = false;
+      }
+
+      // swipe left to close
+      if (document.body.classList.contains('sidebar-open') && dx < -50) {
+        document.body.classList.remove('sidebar-open');
+        const menuBtn = document.querySelector('.menu-btn');
+        if (menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
+        tracking = false;
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => { tracking = false; });
+  }
 
 // ========== OVERVIEW: CHART + MAP ==========
 let miniChart;
@@ -466,6 +569,47 @@ function mockUpdateOverview() {
     leafletMap.setView([lat, lng], 15);
   }
 }
+
+// ========== SERVICE WORKER UPDATE NOTIFICATION ==========
+function initSWUpdateHandler() {
+  if (!('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker.getRegistration().then(reg => {
+    if (!reg) return;
+
+    if (reg.waiting) {
+      // there's an updated SW waiting to activate
+      askUserToRefresh();
+    }
+
+    reg.addEventListener('updatefound', () => {
+      const newSW = reg.installing;
+      newSW.addEventListener('statechange', () => {
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+          askUserToRefresh();
+        }
+      });
+    });
+  });
+
+  // when the new SW takes control, reload so user sees latest
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
+  });
+}
+
+function askUserToRefresh() {
+  // simple native confirm — can be replaced with nicer UI
+  if (confirm('Bản cập nhật mới đã sẵn sàng. Tải lại để cập nhật?')) {
+    navigator.serviceWorker.getRegistration().then(reg => {
+      if (!reg || !reg.waiting) return;
+      reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    });
+  }
+}
+
+// run SW handler early
+initSWUpdateHandler();
 
 // Helper cập nhật vị trí trên map theo data từ Realtime Database
 function updateMapLocation(lat, lng) {
