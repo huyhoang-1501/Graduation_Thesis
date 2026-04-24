@@ -35,29 +35,26 @@ body {
 
 /* Responsive tweaks for small/mobile screens to make the login card tighter */
 @media (max-width: 480px) {
-  .login-container {
-    width: 300px;
-    max-width: 94%;
-    padding: 12px 14px;
-    border-radius: 10px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.22);
+    .login-container {
+      /* ensure the container never exceeds viewport width on small screens */
+      width: min(280px, calc(100% - 20px));
+      max-width: 96%;
+      margin: 0 10px;               /* small side margin so rounded corners aren't off-screen */
+      padding: 8px 10px;            /* tighten vertical space */
+    overflow-y: auto;
   }
+  .login-header img { width:44px; height:44px; }
+  .login-header h1 { font-size:16px; margin:2px 0; }
+  .login-title h2 { font-size:14px; margin:6px 0; }
 
-  .login-header img { width: 56px; height: 56px; margin-bottom:6px; }
-  .login-header h1 { font-size: 20px; margin:4px 0; }
-  .login-header p { font-size: 13px; }
-  .login-title h2 { font-size: 18px; margin: 10px 0 12px; }
-
-  .input-group-login { margin-bottom: 10px; }
-  .input-group-login input { padding: 7px 8px; font-size: 13px; border-radius:6px; }
-  .input-group-login label { font-size:13px; }
-
-  .btn-login { padding: 9px; font-size: 14px; border-radius:6px; }
+  .input-group-login { margin-bottom:4px; }
+  .input-group-login input { padding:5px 6px; font-size:13px; }
+  .btn-login { padding:6px; font-size:13px; }
 
   /* reduce large gaps for tighter vertical spacing */
   .login-container .login-header,
   .login-container .login-title,
-  .login-container .login-box { margin-bottom: 6px; }
+  .login-container .login-box { margin-bottom: 4px; }
 }
 
 .login-header img {
