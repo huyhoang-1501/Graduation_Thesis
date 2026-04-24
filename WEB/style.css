@@ -551,6 +551,14 @@ body {
     background-size: 120px 120px;
     margin-bottom: 6px;
   }
+  /* Remove login background image on mobile for better readability */
+  #login-section {
+    background-image: none !important;
+    background-size: initial !important;
+    background-position: initial !important;
+    background-repeat: initial !important;
+    background-color: #dbeafe; /* keep fallback color */
+  }
   
   /* Bottom navigation */
   /* bottom nav removed - mobile menu uses sidebar */

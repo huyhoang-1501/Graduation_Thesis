@@ -42,7 +42,7 @@
   <div id="login-section">
     <div class="login-container">
       <div class="login-header">
-        <img src="image/healthcare.png" alt="Healthcare Logo">
+        <img src="image/healthcare.png?v=3" alt="Healthcare Logo">
         <h1>HEALTH MONITORING</h1>
         <p>HỆ THỐNG THEO DÕI SỨC KHỎE</p>
       </div>
@@ -135,7 +135,7 @@
           <button class="menu-btn" aria-label="Mở menu" aria-expanded="false">
             <i class="fas fa-bars" aria-hidden="true"></i>
           </button>
-        <img src="image/healthcare.png" class="topbar-logo" alt="">
+        <img src="image/healthcare.png?v=3" class="topbar-logo" alt="">
         <span class="topbar-title">HỆ THỐNG THEO DÕI SỨC KHỎE</span>
       </div>
       <div class="topbar-right">
@@ -513,7 +513,17 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
         navigator.serviceWorker.register('./service-worker.js')
-          .then(reg => console.log('ServiceWorker registered:', reg.scope))
+          .then(reg => {
+            console.log('ServiceWorker registered:', reg.scope);
+            // If there's an updated worker waiting, tell it to skipWaiting so it activates immediately
+            if (reg.waiting) {
+              reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+            // Listen for controller change and reload so the page uses the fresh assets
+            navigator.serviceWorker.addEventListener('controllerchange', function() {
+              window.location.reload();
+            });
+          })
           .catch(err => console.warn('ServiceWorker registration failed:', err));
       });
     }
