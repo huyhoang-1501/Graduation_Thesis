@@ -9,7 +9,7 @@ body {
 #login-section {
   position: fixed;
   inset: 0;
-  background-image: url('image/SPKT.jpg');
+  background-image: url('image/ute_gate.png');
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
@@ -43,8 +43,8 @@ body {
       padding: 8px 10px;            /* tighten vertical space */
     overflow-y: auto;
   }
-  .login-header img { width:44px; height:44px; }
-  .login-header h1 { font-size:16px; margin:2px 0; }
+  .login-header img { width:60px; height:60px; }
+  .login-header h1 { font-size:14px; margin:1px 0; }
   .login-title h2 { font-size:14px; margin:6px 0; }
 
   .input-group-login { margin-bottom:4px; }
@@ -64,9 +64,13 @@ body {
 }
 .login-header h1 {
   color: #006a9b;
-  font-size: 32px;
+  /* make smaller so the heading fits on one line on narrow viewports */
+  font-size: clamp(14px, 4.5vw, 28px); /* responsive size that scales to viewport */
   font-weight: bold;
   margin: 6px 0;
+  white-space: nowrap; /* keep on single line */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .login-header p { color: #555; font-size: 14px; }
 
@@ -541,7 +545,7 @@ body {
     display:block;
     width:100%;
     height:140px;
-    background-image: url('image/logo_spkt.png');
+    background-image: url('image/healthcare.png');
     background-repeat:no-repeat;
     background-position:center 20px;
     background-size: 120px 120px;
