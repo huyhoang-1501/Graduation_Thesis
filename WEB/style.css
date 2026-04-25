@@ -48,8 +48,8 @@ body {
   .login-title h2 { font-size:14px; margin:6px 0; }
 
   .input-group-login { margin-bottom:4px; }
-  .input-group-login input { padding:5px 6px; font-size:13px; }
-  .btn-login { padding:6px; font-size:13px; }
+  .input-group-login input { padding:10px 8px; font-size:13px; min-height:44px; line-height:1.25; }
+  .btn-login { padding:8px; font-size:13px; }
 
   /* reduce large gaps for tighter vertical spacing */
   .login-container .login-header,
@@ -93,10 +93,13 @@ body {
 }
 .input-group-login input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 16px 12px; /* give extra top space so diacritics are not clipped */
+  min-height: 52px;
+  line-height: 1.25; /* improve vertical spacing for accented glyphs */
   border-radius: 8px;
   border: 2px solid #ddd;
   font-size: 15px;
+  background-clip: padding-box; /* avoid box-shadow overlap affecting glyphs */
 }
 .input-group-login input:focus {
   outline: none;
@@ -106,7 +109,7 @@ body {
 
 .btn-login {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   border-radius: 8px;
   border: none;
   color: white;

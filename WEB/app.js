@@ -46,6 +46,16 @@ function normalizeDeviceId(raw) {
   return String(raw || "").trim().toUpperCase();
 }
 
+// map an identifier (username or full email) to an email usable by Firebase
+function normalizeIdentifierToEmail(raw) {
+  const v = String(raw || "").trim();
+  if (!v) return "";
+  // if looks like an email, return as-is
+  if (v.indexOf('@') !== -1) return v;
+  // otherwise treat as username -> synthetic local email
+  return v + '@local.app';
+}
+
 function isValidDeviceId(deviceId) {
   return /^(UTE-2026|DEV-[0-9A-Z]{8,16})$/.test(deviceId);
 }
@@ -103,6 +113,39 @@ document.getElementById("username-signin-btn")?.addEventListener("click", () => 
 
   auth.signInWithEmailAndPassword(email, pass)
     .catch(err => alert("Sai tên đăng nhập hoặc mật khẩu!"));
+});
+
+// ========== FORGOT PASSWORD / RESET ==========
+document.getElementById("forgot-password-link")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  document.getElementById("reset-form").style.display = 'block';
+});
+
+document.getElementById("reset-cancel-btn")?.addEventListener("click", () => {
+  document.getElementById("reset-form").style.display = 'none';
+});
+
+document.getElementById("reset-btn")?.addEventListener("click", async () => {
+  const id = document.getElementById("reset-identifier").value.trim();
+  if (!id) return alert("Vui lòng nhập tên đăng nhập hoặc email để khôi phục mật khẩu.");
+
+  const email = normalizeIdentifierToEmail(id);
+
+  try {
+    await auth.sendPasswordResetEmail(email);
+    alert('Một email đặt lại mật khẩu đã được gửi tới: ' + email + '. Vui lòng kiểm tra hộp thư (và cả mục spam).');
+    document.getElementById("reset-form").style.display = 'none';
+  } catch (err) {
+    console.error('Lỗi khi gửi email khôi phục:', err);
+    // Friendly messages for common errors
+    if (err.code === 'auth/user-not-found') {
+      alert('Không tìm thấy tài khoản liên quan. Hãy kiểm tra tên đăng nhập / email.');
+    } else if (err.code === 'auth/invalid-email') {
+      alert('Địa chỉ email không hợp lệ. Vui lòng kiểm tra lại.');
+    } else {
+      alert('Lỗi khi gửi email khôi phục: ' + err.message);
+    }
+  }
 });
 
 // ========== GOOGLE SIGN IN ==========
