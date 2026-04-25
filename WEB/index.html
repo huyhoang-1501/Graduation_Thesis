@@ -52,24 +52,24 @@
           <h2>ĐĂNG NHẬP</h2>
         </div>
 
-        <!-- FORM LOGIN: EMAIL + GOOGLE -->
+        <!-- FORM LOGIN: USERNAME + GOOGLE -->
         <form id="login-form">
           <div class="input-group-login">
-            <label>Email</label>
-            <input type="email" id="email-login"
-                   placeholder="Nhập email của bạn" autocomplete="off">
+            <label>Tên đăng nhập</label>
+            <input type="text" id="username-login"
+                   placeholder="Tên đăng nhập" autocomplete="username">
           </div>
           <div class="input-group-login">
             <label>Mật khẩu</label>
             <input type="password" id="password-login"
                    placeholder="Nhập mật khẩu" minlength="6"
-                   autocomplete="new-password">
+                   autocomplete="current-password">
           </div>
 
-          <button type="button" id="email-signin-btn"
+          <button type="button" id="username-signin-btn"
                   class="btn-login"
                   style="background:#2c3e50; margin-bottom:15px;">
-            Đăng nhập bằng Email
+            Đăng nhập bằng Tên đăng nhập
           </button>
 
           <div style="text-align:center; margin:15px 0; color:#777; font-weight:bold;">
@@ -101,9 +101,8 @@
         <div id="register-form" style="display:none; margin-top:30px;">
           <h3 style="color:#2c3e50; margin-bottom:20px;">TẠO TÀI KHOẢN MỚI</h3>
           <div class="input-group-login">
-            <label>Email</label>
-            <input type="email" id="email-register" placeholder="Nhập email"
-                   required autocomplete="off">
+            <label>Tên đăng nhập</label>
+            <input type="text" id="username-register" placeholder="Tên đăng nhập" required autocomplete="username">
           </div>
           <div class="input-group-login">
             <label>Mật khẩu (tối thiểu 6 ký tự)</label>

@@ -67,32 +67,42 @@ document.getElementById("show-login")?.addEventListener("click", e => {
   document.getElementById("login-form").style.display = "block";
 });
 
-// ========== REGISTER ==========
+// ========== REGISTER (username -> synthetic email)
 document.getElementById("register-btn")?.addEventListener("click", () => {
-  const email = document.getElementById("email-register").value.trim();
+  const username = document.getElementById("username-register").value.trim();
   const pass = document.getElementById("password-register").value;
 
-  if (!email || !pass) return alert("Vui lòng nhập đầy đủ!");
+  if (!username || !pass) return alert("Vui lòng nhập đầy đủ!");
+  if (!/^[a-zA-Z0-9._-]{3,20}$/.test(username)) return alert("Tên đăng nhập chỉ gồm chữ, số, . _ - và 3-20 ký tự.");
   if (pass.length < 6) return alert("Mật khẩu phải ≥ 6 ký tự!");
 
+  // We map username to a synthetic email for Firebase Email/Password auth.
+  // Example: username -> username@local.app
+  const email = username + "@local.app";
+
   auth.createUserWithEmailAndPassword(email, pass)
+    .then(userCred => {
+      // set displayName for convenience
+      return userCred.user.updateProfile({ displayName: username });
+    })
     .then(() => {
-      alert("Đăng ký thành công! Hãy đăng nhập lại.");
+      alert("Đăng ký thành công! Hãy đăng nhập.");
       document.getElementById("register-form").style.display = "none";
       document.getElementById("login-form").style.display = "block";
     })
     .catch(err => alert("Lỗi đăng ký: " + err.message));
 });
 
-// ========== EMAIL SIGN IN ==========
-document.getElementById("email-signin-btn")?.addEventListener("click", () => {
-  const email = document.getElementById("email-login").value.trim();
+// ========== USERNAME SIGN IN (maps to synthetic email)
+document.getElementById("username-signin-btn")?.addEventListener("click", () => {
+  const username = document.getElementById("username-login").value.trim();
   const pass = document.getElementById("password-login").value;
 
-  if (!email || !pass) return alert("Vui lòng nhập email và mật khẩu!");
+  if (!username || !pass) return alert("Vui lòng nhập tên đăng nhập và mật khẩu!");
+  const email = username + "@local.app";
 
   auth.signInWithEmailAndPassword(email, pass)
-    .catch(err => alert("Sai email hoặc mật khẩu!"));
+    .catch(err => alert("Sai tên đăng nhập hoặc mật khẩu!"));
 });
 
 // ========== GOOGLE SIGN IN ==========
@@ -142,11 +152,11 @@ function showApp(user) {
   app.classList.remove("hidden");
 
   const email = user?.email || auth.currentUser?.email || "";
-  const nameFromEmail = email ? email.split("@")[0] : "";
+  const displayName = user?.displayName || (email ? email.split("@")[0] : "");
 
-  document.getElementById("current-user-email").textContent = email;
-  document.getElementById("sidebar-user-name").textContent =
-    nameFromEmail || "Người dùng";
+  // show friendly name (username) in header and sidebar; fallback to email
+  document.getElementById("current-user-email").textContent = displayName || email;
+  document.getElementById("sidebar-user-name").textContent = displayName || "Người dùng";
 
   initSidebarNavigation();
   initMobileMenu();
@@ -206,9 +216,9 @@ function initMobileMenu() {
 function logout() {
   auth.signOut()
     .then(() => {
-      const emailLogin = document.getElementById("email-login");
+      const usernameLogin = document.getElementById("username-login");
       const passLogin = document.getElementById("password-login");
-      if (emailLogin) emailLogin.value = "";
+      if (usernameLogin) usernameLogin.value = "";
       if (passLogin) passLogin.value = "";
 
       const googleBtn = document.getElementById("google-signin-btn");
