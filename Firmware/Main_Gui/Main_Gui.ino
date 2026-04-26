@@ -133,8 +133,8 @@ static const char *ui_get_user_id() {
 }
 
 // ================= FIREBASE SYNC CONFIG =================
-static const char *WIFI_SSID = "NAVI Apartment 2.4G";
-static const char *WIFI_PASSWORD = "168168168";
+static const char *WIFI_SSID = "HUY HOANG";
+static const char *WIFI_PASSWORD = "123456789";
 static const char *FIREBASE_DB_URL = "https://graduation-thesis-3a3df-default-rtdb.firebaseio.com";
 static const uint32_t FIREBASE_PUSH_INTERVAL_MS = 5000;
 
