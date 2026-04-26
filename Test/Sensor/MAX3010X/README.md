@@ -2,22 +2,20 @@
 
 1) Rolling average (BPM):
 
-\[\text{BPM}_{avg} = \frac{1}{N} \sum_{i=0}^{N-1} \text{bpmBuf}[i]\]
+BPM_avg = (1 / N) * sum_{i=0..N-1} bpmBuf[i]
 
 2) Exponential Moving Average (EMA) để làm mượt:
 
-\[\text{EMA}_t = \alpha \cdot x_t + (1-\alpha) \cdot \text{EMA}_{t-1}\]
+EMA_t = alpha * x_t + (1 - alpha) * EMA_{t-1}
 
 - Tham số trong code: `HR_EMA_ALPHA` (mặc định 0.28), `SPO2_EMA_ALPHA` (mặc định 0.45).
 
 3) Deadband (hysteresis hiển thị):
 
-Nếu \(d\) là ngưỡng deadband và \(v_t\) là giá trị mới sau EMA, thì giá trị hiển thị \(V_t\):
+Nếu d là ngưỡng deadband và v_t là giá trị mới sau EMA, thì giá trị hiển thị V_t:
 
-\[V_t = \begin{cases}
-V_{t-1} & \text{nếu } |v_t - V_{t-1}| < d \\
-v_t & \text{ngược lại}
-\end{cases}\]
+Nếu |v_t - V_{t-1}| < d thì V_t = V_{t-1}  
+Ngược lại V_t = v_t
 
 - Ngưỡng mặc định trong code: `HR_DISPLAY_DEADBAND = 0.6` (bpm), `SPO2_DISPLAY_DEADBAND = 0.1` (%).
 
