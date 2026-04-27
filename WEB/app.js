@@ -84,23 +84,31 @@ document.getElementById("show-login")?.addEventListener("click", e => {
 });
 
 // ========== REGISTER (username -> synthetic email)
+// ========== REGISTER (email required)
 document.getElementById("register-btn")?.addEventListener("click", () => {
-  const username = document.getElementById("username-register").value.trim();
+  const identifier = document.getElementById("identifier-register").value.trim();
   const pass = document.getElementById("password-register").value;
 
-  if (!username || !pass) return alert("Vui lòng nhập đầy đủ!");
-  if (!/^[a-zA-Z0-9._-]{3,20}$/.test(username)) return alert("Tên đăng nhập chỉ gồm chữ, số, . _ - và 3-20 ký tự.");
+  if (!identifier || !pass) return alert("Vui lòng nhập Tên đăng nhập/Email và mật khẩu!");
   if (pass.length < 6) return alert("Mật khẩu phải ≥ 6 ký tự!");
 
-  // We map username to a synthetic email for Firebase Email/Password auth.
-  // Example: username -> username@local.app
-  const email = username + "@local.app";
+  let regEmail = "";
+  let displayName = "";
 
-  auth.createUserWithEmailAndPassword(email, pass)
-    .then(userCred => {
-      // set displayName for convenience
-      return userCred.user.updateProfile({ displayName: username });
-    })
+  if (identifier.indexOf('@') !== -1) {
+    // Treat as email
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) return alert("Vui lòng nhập một địa chỉ email hợp lệ.");
+    regEmail = identifier;
+    displayName = identifier.split('@')[0];
+  } else {
+    // Treat as username
+    if (!/^[a-zA-Z0-9._-]{3,20}$/.test(identifier)) return alert("Tên đăng nhập chỉ gồm chữ, số, . _ - và 3-20 ký tự.");
+    regEmail = identifier + "@local.app";
+    displayName = identifier;
+  }
+
+  auth.createUserWithEmailAndPassword(regEmail, pass)
+    .then(userCred => userCred.user.updateProfile({ displayName }))
     .then(() => {
       alert("Đăng ký thành công! Hãy đăng nhập.");
       document.getElementById("register-form").style.display = "none";
@@ -111,11 +119,11 @@ document.getElementById("register-btn")?.addEventListener("click", () => {
 
 // ========== USERNAME SIGN IN (maps to synthetic email)
 document.getElementById("username-signin-btn")?.addEventListener("click", () => {
-  const username = document.getElementById("username-login").value.trim();
+  const identifier = document.getElementById("username-login").value.trim();
   const pass = document.getElementById("password-login").value;
 
-  if (!username || !pass) return alert("Vui lòng nhập tên đăng nhập và mật khẩu!");
-  const email = username + "@local.app";
+  if (!identifier || !pass) return alert("Vui lòng nhập tên đăng nhập / email và mật khẩu!");
+  const email = normalizeIdentifierToEmail(identifier);
 
   auth.signInWithEmailAndPassword(email, pass)
     .catch(err => alert("Sai tên đăng nhập hoặc mật khẩu!"));
@@ -141,16 +149,30 @@ document.getElementById("reset-cancel-btn")?.addEventListener("click", () => {
   if (loginForm) loginForm.style.display = 'block';
 });
 
+// (removed explicit back button - reset flow returns to login automatically)
+
 document.getElementById("reset-btn")?.addEventListener("click", async () => {
   const id = document.getElementById("reset-identifier").value.trim();
   if (!id) return alert("Vui lòng nhập tên đăng nhập hoặc email để khôi phục mật khẩu.");
 
   const email = normalizeIdentifierToEmail(id);
+  // If the identifier was a plain username, normalizeIdentifierToEmail
+  // returns a synthetic local email (username@local.app). Those addresses
+  // are not real mailboxes — inform user instead of trying to send.
+  if (email.endsWith('@local.app')) {
+    alert('Tài khoản này được tạo bằng tên đăng nhập (không phải email).\n' +
+          'Khôi phục mật khẩu qua email không khả dụng cho tài khoản nội bộ.\n' +
+          'Bạn có thể đăng ký lại bằng một email thực hoặc liên hệ quản trị viên để được hỗ trợ.');
+    return;
+  }
 
   try {
     await auth.sendPasswordResetEmail(email);
     alert('Một email đặt lại mật khẩu đã được gửi tới: ' + email + '. Vui lòng kiểm tra hộp thư (và cả mục spam).');
-    document.getElementById("reset-form").style.display = 'none';
+    const resetForm = document.getElementById("reset-form");
+    if (resetForm) resetForm.style.display = 'none';
+    const loginForm = document.getElementById("login-form");
+    if (loginForm) loginForm.style.display = 'block';
   } catch (err) {
     console.error('Lỗi khi gửi email khôi phục:', err);
     // Friendly messages for common errors

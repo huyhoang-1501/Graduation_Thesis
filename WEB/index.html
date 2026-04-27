@@ -55,9 +55,9 @@
         <!-- FORM LOGIN: USERNAME + GOOGLE -->
         <form id="login-form">
           <div class="input-group-login">
-            <label>Tên đăng nhập</label>
+            <label>Tên đăng nhập hoặc Email</label>
             <input type="text" id="username-login"
-                   placeholder="Tên đăng nhập" autocomplete="username">
+                   placeholder="Tên đăng nhập hoặc Email" autocomplete="username">
           </div>
           <div class="input-group-login">
             <label>Mật khẩu</label>
@@ -106,22 +106,22 @@
         <div id="reset-form" style="display:none; margin-top:20px;">
           <h4 style="color:#2c3e50; margin-bottom:10px;">Khôi phục mật khẩu</h4>
           <div class="input-group-login">
-            <label>Tên đăng nhập hoặc Email</label>
+            <label>Nhập Email</label>
             <input type="text" id="reset-identifier" placeholder="Nhập tên đăng nhập hoặc email" autocomplete="username">
           </div>
           <div style="display:flex; gap:8px; margin-top:10px;">
             <button type="button" id="reset-btn" class="btn-login" style="background:#ef4444;">Gửi liên kết khôi phục</button>
             <button type="button" id="reset-cancel-btn" class="btn-login" style="background:#6b7280;">Hủy</button>
           </div>
-          <p style="margin-top:8px; font-size:13px; color:#6b7280;">Bạn có thể nhập tên đăng nhập (ví dụ: user123) hoặc email (user@example.com). Hệ thống sẽ gửi email đặt lại mật khẩu.</p>
         </div>
 
         <!-- ĐĂNG KÝ (ẩn mặc định) -->
         <div id="register-form" style="display:none; margin-top:30px;">
           <h3 style="color:#2c3e50; margin-bottom:20px;">TẠO TÀI KHOẢN MỚI</h3>
+          <p style="font-size:14px; color:#374151;">Bạn có thể đăng ký bằng Email (ưu tiên) hoặc chỉ nhập Tên đăng nhập (không có email). Lưu ý: tài khoản chỉ có tên đăng nhập sẽ không thể khôi phục mật khẩu qua email.</p>
           <div class="input-group-login">
-            <label>Tên đăng nhập</label>
-            <input type="text" id="username-register" placeholder="Tên đăng nhập" required autocomplete="username">
+            <label>Email hoặc Tên đăng nhập</label>
+            <input type="text" id="identifier-register" placeholder="you@example.com hoặc user123" autocomplete="username">
           </div>
           <div class="input-group-login">
             <label>Mật khẩu (tối thiểu 6 ký tự)</label>
