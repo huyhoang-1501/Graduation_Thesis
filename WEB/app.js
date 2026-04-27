@@ -69,12 +69,18 @@ document.getElementById("show-register")?.addEventListener("click", e => {
   e.preventDefault();
   document.getElementById("login-form").style.display = "none";
   document.getElementById("register-form").style.display = "block";
+  // Ensure reset page is hidden when opening register
+  const rf = document.getElementById("reset-form");
+  if (rf) rf.style.display = "none";
 });
 
 document.getElementById("show-login")?.addEventListener("click", e => {
   e.preventDefault();
   document.getElementById("register-form").style.display = "none";
   document.getElementById("login-form").style.display = "block";
+  // Ensure reset page is hidden when returning to login
+  const rf = document.getElementById("reset-form");
+  if (rf) rf.style.display = "none";
 });
 
 // ========== REGISTER (username -> synthetic email)
@@ -118,11 +124,21 @@ document.getElementById("username-signin-btn")?.addEventListener("click", () => 
 // ========== FORGOT PASSWORD / RESET ==========
 document.getElementById("forgot-password-link")?.addEventListener("click", (e) => {
   e.preventDefault();
-  document.getElementById("reset-form").style.display = 'block';
+  // Hide other auth panes and show the standalone reset page
+  const loginForm = document.getElementById("login-form");
+  const registerForm = document.getElementById("register-form");
+  const resetForm = document.getElementById("reset-form");
+  if (loginForm) loginForm.style.display = 'none';
+  if (registerForm) registerForm.style.display = 'none';
+  if (resetForm) resetForm.style.display = 'block';
 });
 
 document.getElementById("reset-cancel-btn")?.addEventListener("click", () => {
-  document.getElementById("reset-form").style.display = 'none';
+  // Close reset page and return to login
+  const resetForm = document.getElementById("reset-form");
+  if (resetForm) resetForm.style.display = 'none';
+  const loginForm = document.getElementById("login-form");
+  if (loginForm) loginForm.style.display = 'block';
 });
 
 document.getElementById("reset-btn")?.addEventListener("click", async () => {
@@ -722,11 +738,3 @@ function renderMockHistory() {
     }
   });
 }
-
-// ========== PATIENT SELECTORS (Overview / History / Alerts) ==========
-// Các module nặng đã tách sang:
-// - modules.state.js
-// - modules.selectors.js
-// - modules.alerts.js
-// - modules.patients.js
-// - modules.settings.js
