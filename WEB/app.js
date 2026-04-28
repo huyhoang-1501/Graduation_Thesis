@@ -108,9 +108,26 @@ document.getElementById("register-btn")?.addEventListener("click", () => {
   }
 
   auth.createUserWithEmailAndPassword(regEmail, pass)
-    .then(userCred => userCred.user.updateProfile({ displayName }))
-    .then(() => {
-      alert("Đăng ký thành công! Hãy đăng nhập.");
+    .then(async (userCred) => {
+      // update display name
+      await userCred.user.updateProfile({ displayName });
+
+      // If this is a real email (not synthetic @local.app), send verification
+      if (!regEmail.endsWith('@local.app')) {
+        try {
+          await userCred.user.sendEmailVerification();
+          alert('Đăng ký thành công! Một email xác thực đã được gửi tới: ' + regEmail + '. Vui lòng kiểm tra hộp thư và xác thực trước khi đăng nhập.');
+          // sign out so user must verify before using the app
+          await auth.signOut();
+        } catch (err) {
+          console.error('Lỗi khi gửi email xác thực:', err);
+          alert('Đăng ký thành công nhưng không thể gửi email xác thực: ' + err.message);
+        }
+      } else {
+        // synthetic local accounts do not support email delivery
+        alert('Đăng ký thành công! Bạn có thể đăng nhập bằng tên đăng nhập và mật khẩu.');
+      }
+
       document.getElementById("register-form").style.display = "none";
       document.getElementById("login-form").style.display = "block";
     })
@@ -126,7 +143,20 @@ document.getElementById("username-signin-btn")?.addEventListener("click", () => 
   const email = normalizeIdentifierToEmail(identifier);
 
   auth.signInWithEmailAndPassword(email, pass)
-    .catch(err => alert("Sai tên đăng nhập hoặc mật khẩu!"));
+    .then((userCred) => {
+      // If this is a synthetic local account, allow login (no email delivery)
+      if (email.endsWith('@local.app')) return;
+
+      // For real emails ensure email has been verified
+      if (!userCred.user.emailVerified) {
+        alert('Vui lòng xác thực email trước khi đăng nhập. Một email xác thực đã được gửi khi bạn đăng ký.');
+        auth.signOut();
+      }
+    })
+    .catch(err => {
+      console.error('Sign-in error:', err);
+      alert("Sai tên đăng nhập hoặc mật khẩu!");
+    });
 });
 
 // ========== FORGOT PASSWORD / RESET ==========
@@ -214,6 +244,18 @@ const appRoot = document.getElementById("app");
 
 auth.onAuthStateChanged(user => {
   if (user) {
+    // If user exists, enforce email verification for real email accounts
+    const email = user.email || '';
+    const isLocal = email.endsWith('@local.app');
+    const isGoogle = (user.providerData || []).some(p => p.providerId === 'google.com');
+    const verified = !!user.emailVerified || isLocal || isGoogle;
+    if (!verified) {
+      // user signed in but hasn't verified email
+      alert('Tài khoản chưa được xác thực email. Vui lòng kiểm tra hộp thư và xác thực trước khi sử dụng.');
+      auth.signOut();
+      return;
+    }
+
     // Đã đăng nhập
     loginSection.classList.remove("show-flex");
     loginSection.classList.add("hidden");
