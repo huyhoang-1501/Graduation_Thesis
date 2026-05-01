@@ -20,12 +20,7 @@ const uint16_t MEASURE_DELAY_MAX = 500;
 const uint8_t  MAX_RETRIES       = 5;
 const unsigned long I2C_TIMEOUT_MS = 2000;
 
-// Statistics
-uint32_t totalReads      = 0;
-uint32_t successReads    = 0;
-uint32_t failedReads     = 0;
-uint32_t timeoutCount    = 0;
-uint32_t busRecoveryCount = 0;
+// (Statistics removed)
 
 // Adaptive delay
 uint16_t currentDelay = MEASURE_DELAY_MIN;
@@ -40,7 +35,6 @@ void stopAll();
 void measureBloodPressure();
 void i2c_recovery();
 void i2c_init();
-void printStats();
 
 // ====================== SETUP ======================
 void setup() {
@@ -75,9 +69,6 @@ void loop() {
       stopAll();
       Serial.println("Đã dừng tất cả.");
     }
-    else if (cmd == "stats") {
-      printStats();
-    }
   }
 }
 
@@ -93,88 +84,109 @@ void i2c_recovery() {
   Wire.end();
   delay(100);
   i2c_init();
-  busRecoveryCount++;
   delay(200);
 }
+// Helper: Wire.requestFrom with small retry+timeout, returns available byte count
+int requestFromWithRetry(uint8_t addr, uint8_t numBytes, uint8_t retries, uint16_t timeoutMs)
+{
+  for (uint8_t r = 0; r < retries; r++) {
+    Wire.requestFrom(addr, numBytes);
+    unsigned long start = millis();
+    while (Wire.available() < numBytes && (millis() - start) < timeoutMs) {
+      delay(1);
+    }
+    uint8_t avail = Wire.available();
+    if (avail >= numBytes) return avail;
+    // flush and retry
+    while (Wire.available()) Wire.read();
+    delay(5);
+  }
+  return Wire.available();
+}
 
-// ====================== ĐỌC ÁP SUẤT (Phiên bản mới) ======================
+// ====================== ĐỌC ÁP SUẤT (tích hợp từ AGR12_pressure_sensor) ======================
 bool readPressure(float &pressure_kPa, float &pressure_mmHg, int16_t &raw) {
-  totalReads++;
-  uint8_t retry = 0;
+  pressure_kPa = 0.0f;
+  pressure_mmHg = 0.0f;
   raw = 0;
-  pressure_kPa = 0;
-  pressure_mmHg = 0;
 
-  while (retry < MAX_RETRIES) {
-    // Gửi lệnh đo
+  for (uint8_t attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    // send measure command
     Wire.beginTransmission(AGR12_I2C_ADDRESS);
     Wire.write(CMD_MEASURE_HIGH);
     Wire.write(CMD_MEASURE_LOW);
-    uint8_t txStatus = Wire.endTransmission();
+    uint8_t txErr = Wire.endTransmission();
 
-    if (txStatus != 0) {
-      Serial.printf("[Retry %d/%d] TX Error: %d\n", retry + 1, MAX_RETRIES, txStatus);
-      if (retry >= 2) i2c_recovery();
-      retry++;
+    if (txErr != 0) {
+      Serial.printf("[Attempt %d/%d] I2C TX error: %d\n", attempt + 1, MAX_RETRIES, txErr);
+      if (attempt >= 2) i2c_recovery();
       delay(100);
       continue;
     }
 
+    // wait for sensor
     delay(currentDelay);
 
-    // Đọc dữ liệu
-    uint8_t count = Wire.requestFrom(AGR12_I2C_ADDRESS, 4);
+    const uint8_t expectedBytes = 4;
+    int count = requestFromWithRetry(AGR12_I2C_ADDRESS, expectedBytes, 3, 12);
 
-    if (count < 4) {
-      if (count == 0) timeoutCount++;
-      
-      Serial.printf("[Retry %d/%d] RX Error: got %d/4 bytes\n", retry + 1, MAX_RETRIES, count);
-      
-      while (Wire.available()) Wire.read(); // clear buffer
-      
-      if (retry >= 2) i2c_recovery();
-      retry++;
-      delay(150);
+    uint8_t noData = 0, data0 = 0, data1 = 0, crc = 0;
+
+    if (count == expectedBytes) {
+      noData = Wire.read();
+      data0 = Wire.read();
+      data1 = Wire.read();
+      crc = Wire.read();
+    } else if (count == 3) {
+      // some modules return 3 bytes: DATA0, DATA1, CRC
+      data0 = Wire.read();
+      data1 = Wire.read();
+      crc = Wire.read();
+      noData = 0;
+      Serial.println("Note: Received 3-byte frame (DATA0,DATA1,CRC)");
+    } else {
+      Serial.printf("[Attempt %d] Received %d bytes (expected %d)\n", attempt+1, count, expectedBytes);
+      while (Wire.available()) Wire.read();
+      if (attempt >= 2) i2c_recovery();
+      delay(20);
       continue;
     }
 
-    // Đọc 4 byte
-    uint8_t buf[4];
-    for (int i = 0; i < 4; i++) {
-      buf[i] = Wire.read();
+    // Some sensors send a leading byte; handle frames where noData != 0xFF
+    if (noData != 0xFF && count == expectedBytes) {
+      data1 = noData;
+      data0 = 0x00;
+      crc = data0 ^ data1;
+      noData = 0xFF;
     }
 
-    // Tìm frame hợp lệ (thử 2 vị trí)
-    for (int i = 0; i <= 1; i++) {
-      uint8_t d0 = buf[i];
-      uint8_t d1 = buf[i + 1];
-      uint8_t crc = buf[i + 2];
-
-      if ((d0 ^ d1) == crc) {
-        raw = (int16_t)((d0 << 8) | d1);
-        pressure_kPa  = raw / 10.0f;
-        pressure_mmHg = pressure_kPa * 7.5006f;
-
-        successReads++;
-        currentDelay = MEASURE_DELAY_MIN;        // Reset delay khi thành công
-
-        Serial.printf("OK → Raw: %d | %.1f kPa | %.1f mmHg\n", 
-                      raw, pressure_kPa, pressure_mmHg);
-        return true;
+    uint8_t crc_xor = data0 ^ data1;
+    if (crc != crc_xor) {
+      Serial.printf("CRC mismatch: got 0x%02X expected 0x%02X\n", crc, crc_xor);
+      // if we see bus pull-up/no-response patterns, try recovery
+      if (crc == 0xFF || crc == 0x00 || data0 == 0xFF || data1 == 0xFF) {
+        Serial.println("Detected 0xFF/0x00 in frame — possible bus issue; recovering");
+        i2c_recovery();
+        delay(20);
+        continue;
       }
+      delay(10);
+      continue;
     }
 
-    // Nếu không tìm thấy frame hợp lệ
-    retry++;
-    delay(100);
+    // valid frame
+    raw = (int16_t)((data0 << 8) | data1);
+    pressure_kPa = raw / 10.0f;
+    pressure_mmHg = pressure_kPa * 7.5006f;
+
+    currentDelay = MEASURE_DELAY_MIN;
+
+    Serial.printf("OK → Raw: %d | %.1f kPa | %.1f mmHg\n", raw, pressure_kPa, pressure_mmHg);
+    return true;
   }
 
-  // Thất bại sau nhiều lần thử
-  failedReads++;
-  if (currentDelay < MEASURE_DELAY_MAX) {
-    currentDelay += 50;
-  }
-
+  // all attempts failed
+  if (currentDelay < MEASURE_DELAY_MAX) currentDelay += 50;
   Serial.printf("Đọc cảm biến thất bại sau %d lần thử!\n", MAX_RETRIES);
   return false;
 }
@@ -204,14 +216,7 @@ void stopAll() {
   stopPump();
   closeValve();
 }
-// ====================== THỐNG KÊ ======================
-void printStats() {
-  float rate = totalReads > 0 ? (successReads * 100.0 / totalReads) : 0;
-  Serial.printf("\n=== THỐNG KÊ ĐỌC CẢM BIẾN ===\n");
-  Serial.printf("Total: %d | Success: %d | Failed: %d\n", totalReads, successReads, failedReads);
-  Serial.printf("Timeout: %d | Bus Recovery: %d\n", timeoutCount, busRecoveryCount);
-  Serial.printf("Success Rate: %.1f%% | Current Delay: %dms\n\n", rate, currentDelay);
-}
+// (Statistics printing removed)
 
 // ====================== ĐO HUYẾT ÁP ======================
 void measureBloodPressure() {
@@ -225,53 +230,55 @@ void measureBloodPressure() {
 
   unsigned long startTime = millis();
 
-  // ================== GIAI ĐOẠN BƠM ==================
+  // ===== BƠM =====
   Serial.println("Đang bơm lên 190 mmHg...");
-  startPump(200);
+  startPump(243);
   closeValve();
 
   while (pressure_mmHg < 190.0) {
-    if (!readPressure(pressure_kPa, pressure_mmHg, raw)) {
-      delay(50);
-      if (millis() - startTime > 20000) {
-        Serial.println("Timeout bơm! Dừng khẩn cấp.");
-        openValve(220);
-        delay(6000);
-        stopAll();
-        return;
-      }
-      continue;
-    }
-
-    if (millis() - startTime > 18000) {
-      Serial.println("Timeout bơm 18 giây!");
-      stopPump();
+    if (millis() - startTime > 20000) {
+      Serial.println("Timeout bơm!");
       openValve(220);
       delay(5000);
       stopAll();
       return;
     }
+
+    if (readPressure(pressure_kPa, pressure_mmHg, raw)) {
+      if (pressure_mmHg < 0 || pressure_mmHg > 300) continue;
+    }
+
     delay(40);
   }
 
   stopPump();
   Serial.printf("→ Đạt %.1f mmHg. Bắt đầu xả chậm...\n", pressure_mmHg);
 
-  // ================== XẢ CHẬM ==================
-  openValve(45);        // Giảm tốc độ xả để đo chính xác hơn
+  // ===== XẢ CHẬM =====
+  openValve(48);
+
+  unsigned long deflateStart = millis();
 
   while (pressure_mmHg > 45.0) {
-    readPressure(pressure_kPa, pressure_mmHg, raw);   // không kiểm tra lỗi quá nghiêm ngặt ở giai đoạn này
+    if (millis() - deflateStart > 30000) {
+      Serial.println("Timeout xả!");
+      break;
+    }
+
+    if (!readPressure(pressure_kPa, pressure_mmHg, raw)) continue;
+
     delay(50);
   }
 
-  // ================== XẢ NHANH ==================
+  // ===== XẢ NHANH =====
   Serial.println("Xả nhanh phần còn lại...");
-  openValve(220);
-  delay(4500);
+  openValve(245);
+
+  while (pressure_mmHg > 5) {
+    readPressure(pressure_kPa, pressure_mmHg, raw);
+    delay(50);
+  }
 
   stopAll();
   Serial.println("=== HOÀN TẤT ĐO HUYẾT ÁP ===\n");
-
-  printStats();   // In thống kê sau khi đo xong
 }
