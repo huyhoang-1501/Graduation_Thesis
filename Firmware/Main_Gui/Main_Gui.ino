@@ -21,6 +21,7 @@
 #include "MainUi.h"
 #include "UserMode.h"
 #include "FirebaseSync.h"
+#include "UserDashboard.h"
 
 // ================= DISPLAY =================
 static const uint16_t SCREEN_WIDTH  = 480;
@@ -138,18 +139,42 @@ static const char *WIFI_PASSWORD = "123456789";
 static const char *FIREBASE_DB_URL = "https://graduation-thesis-3a3df-default-rtdb.firebaseio.com";
 static const uint32_t FIREBASE_PUSH_INTERVAL_MS = 5000;
 
+// If true, disable all Firebase push/loop/init calls to allow disconnecting WiFi temporarily.
+static const bool DISABLE_FIREBASE_PUSH = true;
+
 static void on_user_mode_back() {
   MainUi_ShowMainScreen();
 }
 
 static void on_user_mode_success(const char *userId) {
   save_user_id(userId);
-  FirebaseSync_PushStatusAndBattery();
-  GuestMode_Show(MainUi_ShowMainScreen);
+  if (!DISABLE_FIREBASE_PUSH) {
+    FirebaseSync_PushStatusAndBattery();
+  } else {
+    Serial.println("Firebase push disabled: skipping PushStatusAndBattery");
+  }
+  // Show per-user dashboard (similar to GuestMode but with user settings)
+  UserDashboard_Show(MainUi_ShowMainScreen);
 }
 
 static void on_open_user_mode() {
   UserMode_Show();
+}
+
+// Local validator used when Firebase (and thus WiFi) is disabled.
+static bool local_validate_user_id(const char *userId, char *errMsg, size_t errMsgSize) {
+  if (errMsg && errMsgSize) errMsg[0] = '\0';
+  if (!userId || !userId[0]) {
+    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "User ID rong");
+    return false;
+  }
+  // Keep same basic check as UI: 5 digits
+  if (strlen(userId) != 5) {
+    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "User ID phai dung 5 so");
+    return false;
+  }
+  if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "OK");
+  return true;
 }
 
 // ===== RTC sync policy =====
@@ -440,7 +465,11 @@ static void update_battery_soc_from_ina219(char *out, size_t out_sz) {
   int batPercent = (int)(batPercent_f + 0.5f);
   if (batPercent < 0)   batPercent = 0;
   if (batPercent > 100) batPercent = 100;
-  FirebaseSync_SetBatteryPercent(batPercent);
+  if (!DISABLE_FIREBASE_PUSH) {
+    FirebaseSync_SetBatteryPercent(batPercent);
+  } else {
+    // Firebase push disabled: skip updating remote percent
+  }
 
   // Debug
   Serial.print("Q = ");
@@ -548,20 +577,28 @@ void setup() {
   lv_indev_drv_register(&indev_drv);
 
   MainUi_Init(save_user_id, ui_get_device_id, ui_get_user_id, on_open_user_mode);
-  FirebaseSync_Init(WIFI_SSID,
-                    WIFI_PASSWORD,
-                    FIREBASE_DB_URL,
-                    ui_get_device_id,
-                    ui_get_user_id,
-                    FIREBASE_PUSH_INTERVAL_MS);
+  if (!DISABLE_FIREBASE_PUSH) {
+    FirebaseSync_Init(WIFI_SSID,
+                      WIFI_PASSWORD,
+                      FIREBASE_DB_URL,
+                      ui_get_device_id,
+                      ui_get_user_id,
+                      FIREBASE_PUSH_INTERVAL_MS);
+  } else {
+    Serial.println("Firebase disabled by flag: not initializing FirebaseSync");
+  }
   UserMode_Init(nullptr,
                 nullptr,
                 on_user_mode_back,
-                FirebaseSync_ValidateUserId,
+                (usermode_validate_cb_t)(DISABLE_FIREBASE_PUSH ? local_validate_user_id : FirebaseSync_ValidateUserId),
                 on_user_mode_success);
 
-  // Day trang thai ban dau len Firebase.
-  FirebaseSync_PushStatusAndBattery();
+  // Day trang thai ban dau len Firebase (skipped if disabled).
+  if (!DISABLE_FIREBASE_PUSH) {
+    FirebaseSync_PushStatusAndBattery();
+  } else {
+    Serial.println("Firebase disabled: initial push skipped");
+  }
 }
 
 void loop() {
@@ -570,7 +607,10 @@ void loop() {
 
   power_save_task();
   GuestMode_Loop();
-  FirebaseSync_Loop();
+  UserDashboard_Loop();
+  if (!DISABLE_FIREBASE_PUSH) {
+    FirebaseSync_Loop();
+  }
 
   static uint32_t last = 0;
   if (millis() - last >= 1000) {

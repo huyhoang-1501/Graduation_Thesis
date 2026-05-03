@@ -166,7 +166,13 @@ static void validation_task(void *pv) {
   }
 
   char err[128] = {0};
-  bool ok = FirebaseSync_ValidateUserId(c->userId, err, sizeof(err));
+  bool ok = false;
+  // Use configured validation callback if provided (allows local validation when Firebase is disabled)
+  if (g_validate_cb) {
+    ok = g_validate_cb(c->userId, err, sizeof(err));
+  } else {
+    ok = FirebaseSync_ValidateUserId(c->userId, err, sizeof(err));
+  }
   res->ok = ok;
   strncpy(res->msg, err, sizeof(res->msg) - 1);
   res->msg[sizeof(res->msg) - 1] = '\0';
