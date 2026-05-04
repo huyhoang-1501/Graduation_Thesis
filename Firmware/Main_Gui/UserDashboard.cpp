@@ -382,6 +382,8 @@ static void build_settings_screen() {
   settings_scr = lv_obj_create(nullptr);
   lv_obj_set_style_bg_color(settings_scr, lv_color_make(245, 252, 255), 0);
   lv_obj_set_style_pad_all(settings_scr, 12, 0);
+  // prevent the settings screen from showing a scrollbar
+  lv_obj_clear_flag(settings_scr, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_t *h = lv_obj_create(settings_scr);
   lv_obj_set_size(h, lv_pct(100), 56);
@@ -407,6 +409,8 @@ static void build_settings_screen() {
   lv_obj_align(cont, LV_ALIGN_TOP_MID, 0, 64);
   lv_obj_set_style_pad_all(cont, 8, 0);
   lv_obj_set_style_bg_color(cont, lv_color_white(), 0);
+  // disable scrolling/scrollbar on the content container
+  lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
 
   // Phone row: label on left, value next to it, edit button aligned to top-right
   lv_obj_t *lblp = lv_label_create(cont);
@@ -422,12 +426,13 @@ static void build_settings_screen() {
 
   // edit button stays on the top-right of the container (same vertical alignment as the label)
   lv_obj_t *ep = lv_btn_create(cont);
-  // Make size match other Edit buttons and remove trailing space from label
-  lv_obj_set_size(ep, 100, 30);
+  // Make size match other Edit buttons and slightly reduced height
+  lv_obj_set_size(ep, 110, 32);
   lv_obj_align(ep, LV_ALIGN_TOP_RIGHT, -8, 4);
   lv_obj_add_event_cb(ep, [](lv_event_t *ev){ if (lv_event_get_code(ev)==LV_EVENT_CLICKED) open_keypad_for_phone(); }, LV_EVENT_ALL, nullptr);
   lv_obj_t *ep_l = lv_label_create(ep);
   lv_label_set_text(ep_l, "Edit");
+  lv_obj_set_style_text_font(ep_l, pick_font_mid(), 0);
   lv_obj_center(ep_l);
   // four main metric rows: each shows "min - max" summary and Edit button to open metric screen
   auto make_metric_row = [&](const char *name, lv_obj_t **summary_lbl, lv_event_cb_t cb) {
@@ -444,14 +449,16 @@ static void build_settings_screen() {
     lv_obj_align(*summary_lbl, LV_ALIGN_TOP_LEFT, 120, row_y);
 
     lv_obj_t *btn = lv_btn_create(cont);
-    lv_obj_set_size(btn, 80, 34);
-    lv_obj_align(btn, LV_ALIGN_TOP_RIGHT, -8, row_y-4);
+    // make Edit buttons match the Phone edit button size/style (slightly reduced height)
+    lv_obj_set_size(btn, 110, 32);
+    lv_obj_align(btn, LV_ALIGN_TOP_RIGHT, -8, row_y);
     lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
     lv_obj_t *lblb = lv_label_create(btn);
     lv_label_set_text(lblb, "Edit");
+    lv_obj_set_style_text_font(lblb, pick_font_mid(), 0);
     lv_obj_center(lblb);
 
-    row_y += 44;
+    row_y += 48;
   };
 
   make_metric_row("SPO2", &settings_label_spo2_summary, [](lv_event_t *e){ build_metric_screen(); if (spo2_scr) lv_scr_load(spo2_scr); });
