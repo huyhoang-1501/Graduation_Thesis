@@ -12,12 +12,14 @@ static const lv_font_t *g_back_font = NULL;
 
 static keypad_back_cb_t g_back_cb = NULL;
 static keypad_next_cb_t g_next_cb = NULL;
+static const char *g_confirm_label = "Save";
 
 static void keypad_add_digit(const char *d) {
   if (!g_ta_number || !d) return;
 
   const char *cur = lv_textarea_get_text(g_ta_number);
-  if (cur && strlen(cur) >= 5) return;
+  // allow longer inputs (phone numbers up to 11 digits)
+  if (cur && strlen(cur) >= 11) return;
   lv_textarea_add_text(g_ta_number, d);
 }
 
@@ -35,7 +37,8 @@ static void keypad_btn_event_cb(lv_event_t *e) {
     lv_textarea_set_text(g_ta_number, "");
     return;
   }
-  if (strcmp(txt, "VIEW") == 0) {
+  // confirm button: match against configured confirm label
+  if (g_confirm_label && strcmp(txt, g_confirm_label) == 0) {
     if (g_next_cb) g_next_cb(lv_textarea_get_text(g_ta_number));
     return;
   }
@@ -80,13 +83,20 @@ static lv_obj_t* keypad_make_btn(lv_obj_t *parent, const char *label) {
 void keypad_init_screen(const lv_font_t *btn_font,
                         const lv_font_t *back_font,
                         keypad_back_cb_t back_cb,
-                        keypad_next_cb_t next_cb) {
-  if (g_keypad_scr) return;
+                        keypad_next_cb_t next_cb,
+                        const char *confirm_label) {
+  // If a keypad screen already exists, delete it so callers can re-create with
+  // different callbacks/placeholders (avoids the "Back goes to main" bug).
+  if (g_keypad_scr) {
+    lv_obj_del(g_keypad_scr);
+    g_keypad_scr = NULL;
+  }
 
   g_btn_font  = btn_font;
   g_back_font = back_font;
   g_back_cb   = back_cb;
   g_next_cb   = next_cb;
+  g_confirm_label = confirm_label ? confirm_label : "Save";
 
   lv_color_t bg      = lv_color_make(245, 252, 255);
   lv_color_t primary = lv_color_make(0, 140, 200);
@@ -184,8 +194,9 @@ void keypad_init_screen(const lv_font_t *btn_font,
   lv_obj_set_style_border_color(bdel, lv_color_make(220, 40, 40), 0);
   lv_obj_set_style_border_color(bdel, lv_color_make(220, 40, 40), LV_STATE_PRESSED);
 
-  // Nút xác nhận xem thông số sau khi nhập ID
-  lv_obj_t *bnext = keypad_make_btn(cont, "VIEW");
+  // Confirm button shows the chosen label (e.g. "VIEW" for user-id validation,
+  // "Save" for saving phone/thresholds).
+  lv_obj_t *bnext = keypad_make_btn(cont, g_confirm_label);
   lv_obj_set_grid_cell(bnext, LV_GRID_ALIGN_STRETCH, 3, 1, LV_GRID_ALIGN_STRETCH, 2, 2);
   lv_obj_set_style_bg_color(bnext, lv_color_make(230, 250, 255), 0);
   lv_obj_set_style_bg_color(bnext, lv_color_make(200, 240, 255), LV_STATE_PRESSED);

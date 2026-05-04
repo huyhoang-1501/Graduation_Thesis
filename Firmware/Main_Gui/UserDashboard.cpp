@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <cstdio>
+#include <ctype.h>
 #include <lvgl.h>
 
 #include "keypad.h"
@@ -13,10 +14,13 @@ static lv_obj_t *label_hr   = nullptr;
 static lv_obj_t *label_sys  = nullptr;
 static lv_obj_t *label_dia  = nullptr;
 static lv_obj_t *label_phone = nullptr;
-static lv_obj_t *label_thresh = nullptr;
+// settings UI labels for thresholds
+static lv_obj_t *settings_label_spo2 = nullptr;
+static lv_obj_t *settings_label_hr = nullptr;
+static lv_obj_t *settings_label_sys = nullptr;
+static lv_obj_t *settings_label_dia = nullptr;
 static lv_obj_t *settings_scr = nullptr;
 static lv_obj_t *settings_label_phone = nullptr;
-static lv_obj_t *settings_label_thresh = nullptr;
 
 static UserDashboardBackCallback g_back_callback = nullptr;
 static bool g_active = false;
@@ -24,14 +28,20 @@ static uint32_t g_start_ms = 0;
 static lv_obj_t *g_prev_scr = nullptr;
 
 static char g_phone[32] = "";
-static char g_thresh[32] = "";
+static char g_thresh_spo2[16] = "";
+static char g_thresh_hr[16] = "";
+static char g_thresh_sys[16] = "";
+static char g_thresh_dia[16] = "";
 
 // NVS for persisting phone and threshold
 static Preferences userPref;
 static bool userPrefReady = false;
 static const char *USER_NVS_NS = "usercfg";
 static const char *USER_NVS_KEY_PHONE = "phone";
-static const char *USER_NVS_KEY_THRESH = "thresh";
+static const char *USER_NVS_KEY_THRESH_SPO2 = "th_spo2";
+static const char *USER_NVS_KEY_THRESH_HR   = "th_hr";
+static const char *USER_NVS_KEY_THRESH_SYS  = "th_sys";
+static const char *USER_NVS_KEY_THRESH_DIA  = "th_dia";
 
 static void load_settings_from_nvs() {
   if (!userPrefReady) {
@@ -44,16 +54,25 @@ static void load_settings_from_nvs() {
 
   if (userPrefReady) {
     String p = userPref.getString(USER_NVS_KEY_PHONE, "");
-    String t = userPref.getString(USER_NVS_KEY_THRESH, "");
+    String s_spo2 = userPref.getString(USER_NVS_KEY_THRESH_SPO2, "");
+    String s_hr   = userPref.getString(USER_NVS_KEY_THRESH_HR, "");
+    String s_sys  = userPref.getString(USER_NVS_KEY_THRESH_SYS, "");
+    String s_dia  = userPref.getString(USER_NVS_KEY_THRESH_DIA, "");
     if (p.length() > 0) p.toCharArray(g_phone, sizeof(g_phone));
-    if (t.length() > 0) t.toCharArray(g_thresh, sizeof(g_thresh));
+    if (s_spo2.length() > 0) s_spo2.toCharArray(g_thresh_spo2, sizeof(g_thresh_spo2));
+    if (s_hr.length() > 0)   s_hr.toCharArray(g_thresh_hr, sizeof(g_thresh_hr));
+    if (s_sys.length() > 0)  s_sys.toCharArray(g_thresh_sys, sizeof(g_thresh_sys));
+    if (s_dia.length() > 0)  s_dia.toCharArray(g_thresh_dia, sizeof(g_thresh_dia));
   }
 }
 
 static void save_settings_to_nvs() {
   if (!userPrefReady) return;
   userPref.putString(USER_NVS_KEY_PHONE, g_phone);
-  userPref.putString(USER_NVS_KEY_THRESH, g_thresh);
+  userPref.putString(USER_NVS_KEY_THRESH_SPO2, g_thresh_spo2);
+  userPref.putString(USER_NVS_KEY_THRESH_HR,   g_thresh_hr);
+  userPref.putString(USER_NVS_KEY_THRESH_SYS,  g_thresh_sys);
+  userPref.putString(USER_NVS_KEY_THRESH_DIA,  g_thresh_dia);
 }
 
 static const lv_font_t *pick_font_large() {
@@ -94,6 +113,20 @@ static void on_kp_back_from_edit(void) {
 
 static void on_kp_next_phone(const char *text) {
   if (!text) text = "";
+  // validate phone: require exactly 10 digits
+  size_t len = strlen(text);
+  if (len != 10) {
+    // keep keypad open and show hint
+    keypad_set_placeholder_text("Phone must be 10 digits");
+    return;
+  }
+  for (size_t i = 0; i < len; ++i) {
+    if (!isdigit((unsigned char)text[i])) {
+      keypad_set_placeholder_text("Phone must be numeric (10 digits)");
+      return;
+    }
+  }
+
   strncpy(g_phone, text, sizeof(g_phone)-1);
   g_phone[sizeof(g_phone)-1] = '\0';
   // update any visible labels
@@ -104,12 +137,34 @@ static void on_kp_next_phone(const char *text) {
   if (g_prev_scr) lv_scr_load(g_prev_scr);
 }
 
-static void on_kp_next_thresh(const char *text) {
+// Generic threshold editing support
+typedef enum { TT_SPO2 = 0, TT_HR = 1, TT_SYS = 2, TT_DIA = 3 } ThreshTarget;
+static ThreshTarget g_thresh_target = TT_SPO2;
+
+static void on_kp_next_thresh_generic(const char *text) {
   if (!text) text = "";
-  strncpy(g_thresh, text, sizeof(g_thresh)-1);
-  g_thresh[sizeof(g_thresh)-1] = '\0';
-  if (settings_label_thresh) lv_label_set_text(settings_label_thresh, g_thresh[0] ? g_thresh : "(none)");
-  if (label_thresh) lv_label_set_text(label_thresh, g_thresh[0] ? g_thresh : "(none)");
+  switch (g_thresh_target) {
+    case TT_SPO2:
+      strncpy(g_thresh_spo2, text, sizeof(g_thresh_spo2)-1);
+      g_thresh_spo2[sizeof(g_thresh_spo2)-1] = '\0';
+      if (settings_label_spo2) lv_label_set_text(settings_label_spo2, g_thresh_spo2[0] ? g_thresh_spo2 : "(none)");
+      break;
+    case TT_HR:
+      strncpy(g_thresh_hr, text, sizeof(g_thresh_hr)-1);
+      g_thresh_hr[sizeof(g_thresh_hr)-1] = '\0';
+      if (settings_label_hr) lv_label_set_text(settings_label_hr, g_thresh_hr[0] ? g_thresh_hr : "(none)");
+      break;
+    case TT_SYS:
+      strncpy(g_thresh_sys, text, sizeof(g_thresh_sys)-1);
+      g_thresh_sys[sizeof(g_thresh_sys)-1] = '\0';
+      if (settings_label_sys) lv_label_set_text(settings_label_sys, g_thresh_sys[0] ? g_thresh_sys : "(none)");
+      break;
+    case TT_DIA:
+      strncpy(g_thresh_dia, text, sizeof(g_thresh_dia)-1);
+      g_thresh_dia[sizeof(g_thresh_dia)-1] = '\0';
+      if (settings_label_dia) lv_label_set_text(settings_label_dia, g_thresh_dia[0] ? g_thresh_dia : "(none)");
+      break;
+  }
   // persist and return
   save_settings_to_nvs();
   if (g_prev_scr) lv_scr_load(g_prev_scr);
@@ -119,18 +174,23 @@ static void open_keypad_for_phone() {
   // remember previous screen so we can return correctly
   g_prev_scr = lv_scr_act();
   // re-init keypad with our callbacks
-  keypad_init_screen(NULL, NULL, on_kp_back_from_edit, on_kp_next_phone);
+  keypad_init_screen(NULL, NULL, on_kp_back_from_edit, on_kp_next_phone, "Save");
   keypad_set_text(g_phone);
   keypad_set_placeholder_text("Nhap so dien thoai...");
   lv_obj_t *scr = keypad_get_screen();
   if (scr) lv_scr_load(scr);
 }
 
-static void open_keypad_for_thresh() {
+static void open_keypad_for_thresh(ThreshTarget target) {
   g_prev_scr = lv_scr_act();
-  keypad_init_screen(NULL, NULL, on_kp_back_from_edit, on_kp_next_thresh);
-  keypad_set_text(g_thresh);
-  keypad_set_placeholder_text("Nhap nguong canh bao (so)...");
+  g_thresh_target = target;
+  keypad_init_screen(NULL, NULL, on_kp_back_from_edit, on_kp_next_thresh_generic, "Save");
+  switch (g_thresh_target) {
+    case TT_SPO2: keypad_set_text(g_thresh_spo2); keypad_set_placeholder_text("Nhap nguong SPO2..."); break;
+    case TT_HR:   keypad_set_text(g_thresh_hr);   keypad_set_placeholder_text("Nhap nguong Heart Rate..."); break;
+    case TT_SYS:  keypad_set_text(g_thresh_sys);  keypad_set_placeholder_text("Nhap nguong Systolic..."); break;
+    case TT_DIA:  keypad_set_text(g_thresh_dia);  keypad_set_placeholder_text("Nhap nguong Diastolic..."); break;
+  }
   lv_obj_t *scr = keypad_get_screen();
   if (scr) lv_scr_load(scr);
 }
@@ -166,35 +226,85 @@ static void build_settings_screen() {
   lv_obj_set_style_pad_all(cont, 8, 0);
   lv_obj_set_style_bg_color(cont, lv_color_white(), 0);
 
+  // Phone row: label on left, value next to it, edit button aligned to top-right
   lv_obj_t *lblp = lv_label_create(cont);
   lv_label_set_text(lblp, "Phone:");
   lv_obj_set_style_text_font(lblp, pick_font_small(), 0);
   lv_obj_align(lblp, LV_ALIGN_TOP_LEFT, 8, 8);
+
+  // place phone value to the right of the "Phone:" label on the same line
   settings_label_phone = lv_label_create(cont);
   lv_label_set_text(settings_label_phone, g_phone[0] ? g_phone : "(none)");
-  lv_obj_align(settings_label_phone, LV_ALIGN_TOP_LEFT, 8, 28);
+  lv_obj_set_style_text_font(settings_label_phone, pick_font_small(), 0);
+  lv_obj_align(settings_label_phone, LV_ALIGN_TOP_LEFT, 80, 8);
+
+  // edit button stays on the top-right of the container (same vertical alignment as the label)
   lv_obj_t *ep = lv_btn_create(cont);
-  lv_obj_set_size(ep, 120, 34);
-  lv_obj_align(ep, LV_ALIGN_RIGHT_MID, -8, -8);
+  // Make size match other Edit buttons and remove trailing space from label
+  lv_obj_set_size(ep, 100, 30);
+  lv_obj_align(ep, LV_ALIGN_TOP_RIGHT, -8, 4);
   lv_obj_add_event_cb(ep, [](lv_event_t *ev){ if (lv_event_get_code(ev)==LV_EVENT_CLICKED) open_keypad_for_phone(); }, LV_EVENT_ALL, nullptr);
   lv_obj_t *ep_l = lv_label_create(ep);
-  lv_label_set_text(ep_l, "Edit Phone");
+  lv_label_set_text(ep_l, "Edit");
   lv_obj_center(ep_l);
 
-  lv_obj_t *lblt = lv_label_create(cont);
-  lv_label_set_text(lblt, "Threshold:");
-  lv_obj_set_style_text_font(lblt, pick_font_small(), 0);
-  lv_obj_align(lblt, LV_ALIGN_TOP_LEFT, 8, 68);
-  settings_label_thresh = lv_label_create(cont);
-  lv_label_set_text(settings_label_thresh, g_thresh[0] ? g_thresh : "(none)");
-  lv_obj_align(settings_label_thresh, LV_ALIGN_TOP_LEFT, 8, 88);
-  lv_obj_t *et = lv_btn_create(cont);
-  lv_obj_set_size(et, 120, 34);
-  lv_obj_align(et, LV_ALIGN_RIGHT_MID, -8, 20);
-  lv_obj_add_event_cb(et, [](lv_event_t *ev){ if (lv_event_get_code(ev)==LV_EVENT_CLICKED) open_keypad_for_thresh(); }, LV_EVENT_ALL, nullptr);
-  lv_obj_t *et_l = lv_label_create(et);
-  lv_label_set_text(et_l, "Edit Threshold");
-  lv_obj_center(et_l);
+  // Thresholds: show four editable threshold values (SPO2, Heart Rate, Systolic, Diastolic)
+  lv_obj_t *lbl_spo2 = lv_label_create(cont);
+  lv_label_set_text(lbl_spo2, "SPO2 Threshold:");
+  lv_obj_set_style_text_font(lbl_spo2, pick_font_small(), 0);
+  lv_obj_align(lbl_spo2, LV_ALIGN_TOP_LEFT, 8, 56);
+  settings_label_spo2 = lv_label_create(cont);
+  lv_label_set_text(settings_label_spo2, g_thresh_spo2[0] ? g_thresh_spo2 : "(none)");
+  lv_obj_set_style_text_font(settings_label_spo2, pick_font_small(), 0);
+  /* Align the value to the right side of the container so it doesn't overlap the label text */
+  lv_obj_align(settings_label_spo2, LV_ALIGN_TOP_RIGHT, -136, 56);
+  lv_obj_t *btn_spo2 = lv_btn_create(cont);
+  lv_obj_set_size(btn_spo2, 100, 30);
+  lv_obj_align(btn_spo2, LV_ALIGN_TOP_RIGHT, -8, 52);
+  lv_obj_add_event_cb(btn_spo2, [](lv_event_t *ev){ if (lv_event_get_code(ev)==LV_EVENT_CLICKED) open_keypad_for_thresh(TT_SPO2); }, LV_EVENT_ALL, nullptr);
+  lv_obj_t *btn_spo2_l = lv_label_create(btn_spo2); lv_label_set_text(btn_spo2_l, "Edit"); lv_obj_center(btn_spo2_l);
+
+  lv_obj_t *lbl_hr = lv_label_create(cont);
+  lv_label_set_text(lbl_hr, "Heart Rate Threshold:");
+  lv_obj_set_style_text_font(lbl_hr, pick_font_small(), 0);
+  lv_obj_align(lbl_hr, LV_ALIGN_TOP_LEFT, 8, 96);
+  settings_label_hr = lv_label_create(cont);
+  lv_label_set_text(settings_label_hr, g_thresh_hr[0] ? g_thresh_hr : "(none)");
+  lv_obj_set_style_text_font(settings_label_hr, pick_font_small(), 0);
+  lv_obj_align(settings_label_hr, LV_ALIGN_TOP_RIGHT, -136, 96);
+  lv_obj_t *btn_hr = lv_btn_create(cont);
+  lv_obj_set_size(btn_hr, 100, 30);
+  lv_obj_align(btn_hr, LV_ALIGN_TOP_RIGHT, -8, 92);
+  lv_obj_add_event_cb(btn_hr, [](lv_event_t *ev){ if (lv_event_get_code(ev)==LV_EVENT_CLICKED) open_keypad_for_thresh(TT_HR); }, LV_EVENT_ALL, nullptr);
+  lv_obj_t *btn_hr_l = lv_label_create(btn_hr); lv_label_set_text(btn_hr_l, "Edit"); lv_obj_center(btn_hr_l);
+
+  lv_obj_t *lbl_sys = lv_label_create(cont);
+  lv_label_set_text(lbl_sys, "Systolic Threshold:");
+  lv_obj_set_style_text_font(lbl_sys, pick_font_small(), 0);
+  lv_obj_align(lbl_sys, LV_ALIGN_TOP_LEFT, 8, 136);
+  settings_label_sys = lv_label_create(cont);
+  lv_label_set_text(settings_label_sys, g_thresh_sys[0] ? g_thresh_sys : "(none)");
+  lv_obj_set_style_text_font(settings_label_sys, pick_font_small(), 0);
+  lv_obj_align(settings_label_sys, LV_ALIGN_TOP_RIGHT, -136, 136);
+  lv_obj_t *btn_sys = lv_btn_create(cont);
+  lv_obj_set_size(btn_sys, 100, 30);
+  lv_obj_align(btn_sys, LV_ALIGN_TOP_RIGHT, -8, 132);
+  lv_obj_add_event_cb(btn_sys, [](lv_event_t *ev){ if (lv_event_get_code(ev)==LV_EVENT_CLICKED) open_keypad_for_thresh(TT_SYS); }, LV_EVENT_ALL, nullptr);
+  lv_obj_t *btn_sys_l = lv_label_create(btn_sys); lv_label_set_text(btn_sys_l, "Edit"); lv_obj_center(btn_sys_l);
+
+  lv_obj_t *lbl_dia = lv_label_create(cont);
+  lv_label_set_text(lbl_dia, "Diastolic Threshold:");
+  lv_obj_set_style_text_font(lbl_dia, pick_font_small(), 0);
+  lv_obj_align(lbl_dia, LV_ALIGN_TOP_LEFT, 8, 176);
+  settings_label_dia = lv_label_create(cont);
+  lv_label_set_text(settings_label_dia, g_thresh_dia[0] ? g_thresh_dia : "(none)");
+  lv_obj_set_style_text_font(settings_label_dia, pick_font_small(), 0);
+  lv_obj_align(settings_label_dia, LV_ALIGN_TOP_RIGHT, -136, 176);
+  lv_obj_t *btn_dia = lv_btn_create(cont);
+  lv_obj_set_size(btn_dia, 100, 30);
+  lv_obj_align(btn_dia, LV_ALIGN_TOP_RIGHT, -8, 172);
+  lv_obj_add_event_cb(btn_dia, [](lv_event_t *ev){ if (lv_event_get_code(ev)==LV_EVENT_CLICKED) open_keypad_for_thresh(TT_DIA); }, LV_EVENT_ALL, nullptr);
+  lv_obj_t *btn_dia_l = lv_label_create(btn_dia); lv_label_set_text(btn_dia_l, "Edit"); lv_obj_center(btn_dia_l);
 }
 
 static void build_ud_screen() {
@@ -354,7 +464,10 @@ void UserDashboard_Show(UserDashboardBackCallback backCallback) {
     lv_label_set_text(label_sys, "--");
     lv_label_set_text(label_dia, "--");
     if (settings_label_phone) lv_label_set_text(settings_label_phone, g_phone[0] ? g_phone : "(none)");
-    if (settings_label_thresh) lv_label_set_text(settings_label_thresh, g_thresh[0] ? g_thresh : "(none)");
+    if (settings_label_spo2) lv_label_set_text(settings_label_spo2, g_thresh_spo2[0] ? g_thresh_spo2 : "(none)");
+    if (settings_label_hr)   lv_label_set_text(settings_label_hr,   g_thresh_hr[0] ? g_thresh_hr : "(none)");
+    if (settings_label_sys)  lv_label_set_text(settings_label_sys,  g_thresh_sys[0] ? g_thresh_sys : "(none)");
+    if (settings_label_dia)  lv_label_set_text(settings_label_dia,  g_thresh_dia[0] ? g_thresh_dia : "(none)");
     lv_scr_load(ud_scr);
   }
 }

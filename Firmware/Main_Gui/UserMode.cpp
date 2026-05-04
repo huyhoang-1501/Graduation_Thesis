@@ -116,9 +116,10 @@ void UserMode_Init(const lv_font_t *btn_font,
 
   if (!g_inited) {
     keypad_init_screen(g_btn_font,
-                       g_back_font,
-                       on_keypad_back_internal,
-                       on_keypad_view_internal);
+               g_back_font,
+               on_keypad_back_internal,
+               on_keypad_view_internal,
+               "VIEW");
     g_inited = true;
   }
 
