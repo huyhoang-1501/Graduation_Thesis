@@ -17,6 +17,59 @@ static lv_obj_t *label_phone = nullptr;
 // settings UI labels for thresholds
 static lv_obj_t *settings_scr = nullptr;
 static lv_obj_t *settings_label_phone = nullptr;
+// labels for thresholds in settings
+static lv_obj_t *settings_label_spo2_min = nullptr;
+static lv_obj_t *settings_label_spo2_max = nullptr;
+static lv_obj_t *settings_label_hr_min = nullptr;
+static lv_obj_t *settings_label_hr_max = nullptr;
+static lv_obj_t *settings_label_sys_min = nullptr;
+static lv_obj_t *settings_label_sys_max = nullptr;
+static lv_obj_t *settings_label_dia_min = nullptr;
+static lv_obj_t *settings_label_dia_max = nullptr;
+// summary labels for main metric rows
+static lv_obj_t *settings_label_spo2_summary = nullptr;
+static lv_obj_t *settings_label_hr_summary = nullptr;
+static lv_obj_t *settings_label_sys_summary = nullptr;
+static lv_obj_t *settings_label_dia_summary = nullptr;
+
+// per-metric subscreens
+static lv_obj_t *spo2_scr = nullptr;
+static lv_obj_t *hr_scr = nullptr;
+static lv_obj_t *sys_scr = nullptr;
+static lv_obj_t *dia_scr = nullptr;
+
+// forward declare metric screen builder
+static void build_metric_screen();
+
+// edit target for keypad (forward-declare early so callbacks can use it)
+enum EditTarget {
+  EDIT_NONE = 0,
+  EDIT_PHONE,
+  EDIT_SPO2_MIN,
+  EDIT_SPO2_MAX,
+  EDIT_HR_MIN,
+  EDIT_HR_MAX,
+  EDIT_SYS_MIN,
+  EDIT_SYS_MAX,
+  EDIT_DIA_MIN,
+  EDIT_DIA_MAX,
+};
+
+// forward declare keypad opener so callbacks can call it
+static void open_keypad_for_threshold(EditTarget target, const char *placeholder);
+
+// small struct to pass to event callback
+struct MetricEditData {
+  EditTarget target;
+  const char *placeholder;
+};
+
+static void metric_edit_event_cb(lv_event_t *ev) {
+  if (lv_event_get_code(ev) != LV_EVENT_CLICKED) return;
+  MetricEditData *d = (MetricEditData*)lv_event_get_user_data(ev);
+  if (!d) return;
+  open_keypad_for_threshold(d->target, d->placeholder);
+}
 
 static UserDashboardBackCallback g_back_callback = nullptr;
 static bool g_active = false;
@@ -26,13 +79,32 @@ static lv_obj_t *g_prev_scr = nullptr;
 static lv_obj_t *g_saved_prev_scr = nullptr;
 
 static char g_phone[32] = "";
-// thresholds removed per request
+// thresholds (min/max for each metric)
+static int g_spo2_min = 92;
+static int g_spo2_max = 100;
+static int g_hr_min   = 55;
+static int g_hr_max   = 130;
+static int g_sys_min  = 90;
+static int g_sys_max  = 160;
+static int g_dia_min  = 55;
+static int g_dia_max  = 110;
+
+// current edit target (uses enum defined above)
+static EditTarget g_current_edit = EDIT_NONE;
 
 // NVS for persisting phone and threshold
 static Preferences userPref;
 static bool userPrefReady = false;
 static const char *USER_NVS_NS = "usercfg";
 static const char *USER_NVS_KEY_PHONE = "phone";
+static const char *USER_NVS_KEY_SPO2_MIN = "spo2_min";
+static const char *USER_NVS_KEY_SPO2_MAX = "spo2_max";
+static const char *USER_NVS_KEY_HR_MIN   = "hr_min";
+static const char *USER_NVS_KEY_HR_MAX   = "hr_max";
+static const char *USER_NVS_KEY_SYS_MIN  = "sys_min";
+static const char *USER_NVS_KEY_SYS_MAX  = "sys_max";
+static const char *USER_NVS_KEY_DIA_MIN  = "dia_min";
+static const char *USER_NVS_KEY_DIA_MAX  = "dia_max";
 
 static void load_settings_from_nvs() {
   if (!userPrefReady) {
@@ -46,12 +118,37 @@ static void load_settings_from_nvs() {
   if (userPrefReady) {
     String p = userPref.getString(USER_NVS_KEY_PHONE, "");
     if (p.length() > 0) p.toCharArray(g_phone, sizeof(g_phone));
+    // load thresholds
+    g_spo2_min = userPref.getInt(USER_NVS_KEY_SPO2_MIN, g_spo2_min);
+    g_spo2_max = userPref.getInt(USER_NVS_KEY_SPO2_MAX, g_spo2_max);
+    g_hr_min   = userPref.getInt(USER_NVS_KEY_HR_MIN, g_hr_min);
+    g_hr_max   = userPref.getInt(USER_NVS_KEY_HR_MAX, g_hr_max);
+    g_sys_min  = userPref.getInt(USER_NVS_KEY_SYS_MIN, g_sys_min);
+    g_sys_max  = userPref.getInt(USER_NVS_KEY_SYS_MAX, g_sys_max);
+    g_dia_min  = userPref.getInt(USER_NVS_KEY_DIA_MIN, g_dia_min);
+    g_dia_max  = userPref.getInt(USER_NVS_KEY_DIA_MAX, g_dia_max);
   }
 }
 
 static void save_settings_to_nvs() {
-  if (!userPrefReady) return;
+  // ensure preferences is opened for write; if not ready, try to begin now
+  if (!userPrefReady) {
+    if (userPref.begin(USER_NVS_NS, false)) {
+      userPrefReady = true;
+    } else {
+      // cannot open NVS, skip saving
+      return;
+    }
+  }
   userPref.putString(USER_NVS_KEY_PHONE, g_phone);
+  userPref.putInt(USER_NVS_KEY_SPO2_MIN, g_spo2_min);
+  userPref.putInt(USER_NVS_KEY_SPO2_MAX, g_spo2_max);
+  userPref.putInt(USER_NVS_KEY_HR_MIN, g_hr_min);
+  userPref.putInt(USER_NVS_KEY_HR_MAX, g_hr_max);
+  userPref.putInt(USER_NVS_KEY_SYS_MIN, g_sys_min);
+  userPref.putInt(USER_NVS_KEY_SYS_MAX, g_sys_max);
+  userPref.putInt(USER_NVS_KEY_DIA_MIN, g_dia_min);
+  userPref.putInt(USER_NVS_KEY_DIA_MAX, g_dia_max);
 }
 
 static const lv_font_t *pick_font_large() {
@@ -90,6 +187,7 @@ static void on_kp_back_from_edit(void) {
   if (g_saved_prev_scr) {
     lv_scr_load(g_saved_prev_scr);
     g_saved_prev_scr = nullptr;
+    g_current_edit = EDIT_NONE;
   }
 }
 
@@ -137,6 +235,133 @@ static void on_kp_next_phone(const char *text) {
   safe_load_saved_prev_scr();
 }
 
+static bool parse_int_str(const char *text, int &out) {
+  if (!text) return false;
+  char *endptr = nullptr;
+  long v = strtol(text, &endptr, 10);
+  if (endptr == text || *endptr != '\0') return false;
+  out = (int)v;
+  return true;
+}
+
+static void update_settings_label_int(lv_obj_t *lbl, int val, const char *none_text="(none)") {
+  if (!lbl) return;
+  char buf[32];
+  snprintf(buf, sizeof(buf), "%d", val);
+  lv_label_set_text(lbl, buf);
+}
+
+static void on_kp_next_threshold(const char *text) {
+  if (!text) text = "";
+  int v = 0;
+  if (!parse_int_str(text, v)) {
+    keypad_set_placeholder_text("Value must be numeric");
+    return;
+  }
+
+  // validate and assign based on current edit target
+  switch (g_current_edit) {
+    case EDIT_SPO2_MIN:
+      if (v < 50 || v > 100) { keypad_set_placeholder_text("SPO2 min must be 50-100"); return; }
+      if (v > g_spo2_max) { keypad_set_placeholder_text("Min cannot be > Max"); return; }
+      g_spo2_min = v;
+      update_settings_label_int(settings_label_spo2_min, g_spo2_min);
+      break;
+    case EDIT_SPO2_MAX:
+      if (v < 50 || v > 100) { keypad_set_placeholder_text("SPO2 max must be 50-100"); return; }
+      if (v < g_spo2_min) { keypad_set_placeholder_text("Max cannot be < Min"); return; }
+      g_spo2_max = v;
+      update_settings_label_int(settings_label_spo2_max, g_spo2_max);
+      break;
+    case EDIT_HR_MIN:
+      if (v < 30 || v > 220) { keypad_set_placeholder_text("HR min must be 30-220"); return; }
+      if (v > g_hr_max) { keypad_set_placeholder_text("Min cannot be > Max"); return; }
+      g_hr_min = v;
+      update_settings_label_int(settings_label_hr_min, g_hr_min);
+      break;
+    case EDIT_HR_MAX:
+      if (v < 30 || v > 220) { keypad_set_placeholder_text("HR max must be 30-220"); return; }
+      if (v < g_hr_min) { keypad_set_placeholder_text("Max cannot be < Min"); return; }
+      g_hr_max = v;
+      update_settings_label_int(settings_label_hr_max, g_hr_max);
+      break;
+    case EDIT_SYS_MIN:
+      if (v < 60 || v > 250) { keypad_set_placeholder_text("Sys min must be 60-250"); return; }
+      if (v > g_sys_max) { keypad_set_placeholder_text("Min cannot be > Max"); return; }
+      g_sys_min = v;
+      update_settings_label_int(settings_label_sys_min, g_sys_min);
+      break;
+    case EDIT_SYS_MAX:
+      if (v < 60 || v > 250) { keypad_set_placeholder_text("Sys max must be 60-250"); return; }
+      if (v < g_sys_min) { keypad_set_placeholder_text("Max cannot be < Min"); return; }
+      g_sys_max = v;
+      update_settings_label_int(settings_label_sys_max, g_sys_max);
+      break;
+    case EDIT_DIA_MIN:
+      if (v < 30 || v > 180) { keypad_set_placeholder_text("Dia min must be 30-180"); return; }
+      if (v > g_dia_max) { keypad_set_placeholder_text("Min cannot be > Max"); return; }
+      g_dia_min = v;
+      update_settings_label_int(settings_label_dia_min, g_dia_min);
+      break;
+    case EDIT_DIA_MAX:
+      if (v < 30 || v > 180) { keypad_set_placeholder_text("Dia max must be 30-180"); return; }
+      if (v < g_dia_min) { keypad_set_placeholder_text("Max cannot be < Min"); return; }
+      g_dia_max = v;
+      update_settings_label_int(settings_label_dia_max, g_dia_max);
+      break;
+    default:
+      // unknown target, ignore
+      break;
+  }
+
+  // persist and return
+  save_settings_to_nvs();
+  // update any summary labels on the settings main screen
+  if (settings_label_spo2_summary) {
+    char b[32]; snprintf(b, sizeof(b), "%d - %d", g_spo2_min, g_spo2_max);
+    lv_label_set_text(settings_label_spo2_summary, b);
+  }
+  if (settings_label_hr_summary) {
+    char b[32]; snprintf(b, sizeof(b), "%d - %d", g_hr_min, g_hr_max);
+    lv_label_set_text(settings_label_hr_summary, b);
+  }
+  if (settings_label_sys_summary) {
+    char b[32]; snprintf(b, sizeof(b), "%d - %d", g_sys_min, g_sys_max);
+    lv_label_set_text(settings_label_sys_summary, b);
+  }
+  if (settings_label_dia_summary) {
+    char b[32]; snprintf(b, sizeof(b), "%d - %d", g_dia_min, g_dia_max);
+    lv_label_set_text(settings_label_dia_summary, b);
+  }
+  safe_load_saved_prev_scr();
+  g_current_edit = EDIT_NONE;
+}
+
+static void open_keypad_for_threshold(EditTarget target, const char *placeholder) {
+  // remember previous screen so we can return correctly
+  g_prev_scr = lv_scr_act();
+  g_saved_prev_scr = g_prev_scr;
+  g_current_edit = target;
+  // set initial text based on target
+  char buf[32];
+  switch (target) {
+    case EDIT_SPO2_MIN: snprintf(buf, sizeof(buf), "%d", g_spo2_min); break;
+    case EDIT_SPO2_MAX: snprintf(buf, sizeof(buf), "%d", g_spo2_max); break;
+    case EDIT_HR_MIN:   snprintf(buf, sizeof(buf), "%d", g_hr_min); break;
+    case EDIT_HR_MAX:   snprintf(buf, sizeof(buf), "%d", g_hr_max); break;
+    case EDIT_SYS_MIN:  snprintf(buf, sizeof(buf), "%d", g_sys_min); break;
+    case EDIT_SYS_MAX:  snprintf(buf, sizeof(buf), "%d", g_sys_max); break;
+    case EDIT_DIA_MIN:  snprintf(buf, sizeof(buf), "%d", g_dia_min); break;
+    case EDIT_DIA_MAX:  snprintf(buf, sizeof(buf), "%d", g_dia_max); break;
+    default: buf[0] = '\0'; break;
+  }
+  keypad_init_screen(NULL, NULL, on_kp_back_from_edit, on_kp_next_threshold, "Save");
+  keypad_set_text(buf);
+  if (placeholder) keypad_set_placeholder_text(placeholder);
+  lv_obj_t *scr = keypad_get_screen();
+  if (scr) lv_scr_load(scr);
+}
+
 static void open_keypad_for_phone() {
   // remember previous screen so we can return correctly
   g_prev_scr = lv_scr_act();
@@ -178,7 +403,7 @@ static void build_settings_screen() {
 
   // content
   lv_obj_t *cont = lv_obj_create(settings_scr);
-  lv_obj_set_size(cont, lv_pct(100), 200);
+  lv_obj_set_size(cont, lv_pct(100), 260);
   lv_obj_align(cont, LV_ALIGN_TOP_MID, 0, 64);
   lv_obj_set_style_pad_all(cont, 8, 0);
   lv_obj_set_style_bg_color(cont, lv_color_white(), 0);
@@ -204,8 +429,134 @@ static void build_settings_screen() {
   lv_obj_t *ep_l = lv_label_create(ep);
   lv_label_set_text(ep_l, "Edit");
   lv_obj_center(ep_l);
+  // four main metric rows: each shows "min - max" summary and Edit button to open metric screen
+  auto make_metric_row = [&](const char *name, lv_obj_t **summary_lbl, lv_event_cb_t cb) {
+    lv_obj_t *lbl = lv_label_create(cont);
+    lv_label_set_text(lbl, name);
+    lv_obj_set_style_text_font(lbl, pick_font_small(), 0);
+    // vertical placement: find next Y by counting children? simple fixed offsets
+    static int row_y = 48;
+    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, 8, row_y);
 
-  // thresholds removed from settings (only phone remains)
+    *summary_lbl = lv_label_create(cont);
+    lv_label_set_text(*summary_lbl, "-- - --");
+    lv_obj_set_style_text_font(*summary_lbl, pick_font_small(), 0);
+    lv_obj_align(*summary_lbl, LV_ALIGN_TOP_LEFT, 120, row_y);
+
+    lv_obj_t *btn = lv_btn_create(cont);
+    lv_obj_set_size(btn, 80, 34);
+    lv_obj_align(btn, LV_ALIGN_TOP_RIGHT, -8, row_y-4);
+    lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *lblb = lv_label_create(btn);
+    lv_label_set_text(lblb, "Edit");
+    lv_obj_center(lblb);
+
+    row_y += 44;
+  };
+
+  make_metric_row("SPO2", &settings_label_spo2_summary, [](lv_event_t *e){ build_metric_screen(); if (spo2_scr) lv_scr_load(spo2_scr); });
+  make_metric_row("Heart Rate", &settings_label_hr_summary, [](lv_event_t *e){ build_metric_screen(); if (hr_scr) lv_scr_load(hr_scr); });
+  make_metric_row("Systolic", &settings_label_sys_summary, [](lv_event_t *e){ build_metric_screen(); if (sys_scr) lv_scr_load(sys_scr); });
+  make_metric_row("Diastolic", &settings_label_dia_summary, [](lv_event_t *e){ build_metric_screen(); if (dia_scr) lv_scr_load(dia_scr); });
+
+  // initialize summaries from loaded settings
+  if (settings_label_spo2_summary) { char b[32]; snprintf(b,sizeof(b),"%d - %d", g_spo2_min, g_spo2_max); lv_label_set_text(settings_label_spo2_summary, b); }
+  if (settings_label_hr_summary)   { char b[32]; snprintf(b,sizeof(b),"%d - %d", g_hr_min, g_hr_max); lv_label_set_text(settings_label_hr_summary, b); }
+  if (settings_label_sys_summary)  { char b[32]; snprintf(b,sizeof(b),"%d - %d", g_sys_min, g_sys_max); lv_label_set_text(settings_label_sys_summary, b); }
+  if (settings_label_dia_summary)  { char b[32]; snprintf(b,sizeof(b),"%d - %d", g_dia_min, g_dia_max); lv_label_set_text(settings_label_dia_summary, b); }
+}
+
+static void build_metric_screen() {
+  if (spo2_scr || hr_scr || sys_scr || dia_scr) return;
+
+  // Helper to build a simple metric screen with Min/Max rows
+  auto make_metric_screen = [&](lv_obj_t **out_scr, const char *title_text,
+                                lv_obj_t **lbl_min_out, lv_obj_t **lbl_max_out,
+                                EditTarget min_tgt, EditTarget max_tgt) {
+    if (*out_scr) return;
+    lv_obj_t *scr = lv_obj_create(nullptr);
+    lv_obj_set_style_bg_color(scr, lv_color_make(245, 252, 255), 0);
+    lv_obj_set_style_pad_all(scr, 12, 0);
+
+    lv_obj_t *h = lv_obj_create(scr);
+    lv_obj_set_size(h, lv_pct(100), 56);
+    lv_obj_set_style_bg_opa(h, LV_OPA_TRANSP, 0);
+    lv_obj_clear_flag(h, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *t = lv_label_create(h);
+    lv_label_set_text(t, title_text);
+    lv_obj_set_style_text_font(t, pick_font_mid(), 0);
+    lv_obj_align(t, LV_ALIGN_LEFT_MID, 0, -8);
+
+    lv_obj_t *bback = lv_btn_create(h);
+    lv_obj_set_size(bback, 92, 42);
+    lv_obj_align(bback, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_t *bbt = lv_label_create(bback);
+    lv_label_set_text(bbt, "Back");
+    lv_obj_center(bbt);
+    lv_obj_add_event_cb(bback, [](lv_event_t *ev){ if (lv_event_get_code(ev)==LV_EVENT_CLICKED) { if (settings_scr) lv_scr_load(settings_scr); } }, LV_EVENT_ALL, nullptr);
+
+    lv_obj_t *cont = lv_obj_create(scr);
+    lv_obj_set_size(cont, lv_pct(100), 200);
+    lv_obj_align(cont, LV_ALIGN_TOP_MID, 0, 64);
+    lv_obj_set_style_pad_all(cont, 8, 0);
+    lv_obj_set_style_bg_color(cont, lv_color_white(), 0);
+
+    // Min row
+    lv_obj_t *lbl_min = lv_label_create(cont);
+    lv_label_set_text(lbl_min, "Min:");
+    lv_obj_set_style_text_font(lbl_min, pick_font_small(), 0);
+    lv_obj_align(lbl_min, LV_ALIGN_TOP_LEFT, 8, 8);
+
+    *lbl_min_out = lv_label_create(cont);
+    lv_obj_set_style_text_font(*lbl_min_out, pick_font_small(), 0);
+    lv_obj_align(*lbl_min_out, LV_ALIGN_TOP_LEFT, 120, 8);
+
+    lv_obj_t *btn_min = lv_btn_create(cont);
+    lv_obj_set_size(btn_min, 100, 34);
+    lv_obj_align(btn_min, LV_ALIGN_TOP_RIGHT, -8, 4);
+    // allocate small struct to keep target and placeholder alive
+    MetricEditData *dmin = new MetricEditData();
+    dmin->target = min_tgt;
+    dmin->placeholder = "Enter min value";
+    lv_obj_add_event_cb(btn_min, metric_edit_event_cb, LV_EVENT_CLICKED, dmin);
+    lv_obj_t *lminb = lv_label_create(btn_min); lv_label_set_text(lminb, "Edit"); lv_obj_center(lminb);
+
+    // Max row
+    lv_obj_t *lbl_max = lv_label_create(cont);
+    lv_label_set_text(lbl_max, "Max:");
+    lv_obj_set_style_text_font(lbl_max, pick_font_small(), 0);
+    lv_obj_align(lbl_max, LV_ALIGN_TOP_LEFT, 8, 56);
+
+    *lbl_max_out = lv_label_create(cont);
+    lv_obj_set_style_text_font(*lbl_max_out, pick_font_small(), 0);
+    lv_obj_align(*lbl_max_out, LV_ALIGN_TOP_LEFT, 120, 56);
+
+    lv_obj_t *btn_max = lv_btn_create(cont);
+    lv_obj_set_size(btn_max, 100, 34);
+    lv_obj_align(btn_max, LV_ALIGN_TOP_RIGHT, -8, 52);
+    MetricEditData *dmax = new MetricEditData();
+    dmax->target = max_tgt;
+    dmax->placeholder = "Enter max value";
+    lv_obj_add_event_cb(btn_max, metric_edit_event_cb, LV_EVENT_CLICKED, dmax);
+    lv_obj_t *lmaxb = lv_label_create(btn_max); lv_label_set_text(lmaxb, "Edit"); lv_obj_center(lmaxb);
+
+    *out_scr = scr;
+  };
+
+  make_metric_screen(&spo2_scr, "SPO2 Settings", &settings_label_spo2_min, &settings_label_spo2_max, EDIT_SPO2_MIN, EDIT_SPO2_MAX);
+  make_metric_screen(&hr_scr, "Heart Rate Settings", &settings_label_hr_min, &settings_label_hr_max, EDIT_HR_MIN, EDIT_HR_MAX);
+  make_metric_screen(&sys_scr, "Systolic Settings", &settings_label_sys_min, &settings_label_sys_max, EDIT_SYS_MIN, EDIT_SYS_MAX);
+  make_metric_screen(&dia_scr, "Diastolic Settings", &settings_label_dia_min, &settings_label_dia_max, EDIT_DIA_MIN, EDIT_DIA_MAX);
+
+  // populate label values
+  if (settings_label_spo2_min) { char b[16]; snprintf(b,sizeof(b),"%d", g_spo2_min); lv_label_set_text(settings_label_spo2_min, b); }
+  if (settings_label_spo2_max) { char b[16]; snprintf(b,sizeof(b),"%d", g_spo2_max); lv_label_set_text(settings_label_spo2_max, b); }
+  if (settings_label_hr_min)   { char b[16]; snprintf(b,sizeof(b),"%d", g_hr_min); lv_label_set_text(settings_label_hr_min, b); }
+  if (settings_label_hr_max)   { char b[16]; snprintf(b,sizeof(b),"%d", g_hr_max); lv_label_set_text(settings_label_hr_max, b); }
+  if (settings_label_sys_min)  { char b[16]; snprintf(b,sizeof(b),"%d", g_sys_min); lv_label_set_text(settings_label_sys_min, b); }
+  if (settings_label_sys_max)  { char b[16]; snprintf(b,sizeof(b),"%d", g_sys_max); lv_label_set_text(settings_label_sys_max, b); }
+  if (settings_label_dia_min)  { char b[16]; snprintf(b,sizeof(b),"%d", g_dia_min); lv_label_set_text(settings_label_dia_min, b); }
+  if (settings_label_dia_max)  { char b[16]; snprintf(b,sizeof(b),"%d", g_dia_max); lv_label_set_text(settings_label_dia_max, b); }
 }
 
 static void build_ud_screen() {
