@@ -340,8 +340,19 @@ body {
 }
 .page-header-row h2,
 .overview-header h2 {
-  font-size:18px;
-  font-weight:bold;
+  /* collapse the H2 text but keep the inner span visible */
+  font-size: 0; /* hide normal text nodes (the English labels) */
+  font-weight: bold;
+}
+
+/* Show only the span inside the H2 (patient name) */
+.page-header-row h2 > span,
+.overview-header h2 > span {
+  font-size: 18px;
+  font-weight: bold;
+  color: #00548a;
+  display: inline-block;
+  line-height: 1.1;
 }
 .page-header-row select,
 .overview-header select {
