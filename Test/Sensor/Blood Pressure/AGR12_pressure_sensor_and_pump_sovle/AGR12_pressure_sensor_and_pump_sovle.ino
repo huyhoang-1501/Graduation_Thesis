@@ -2,10 +2,9 @@
 #include <Wire.h>
 
 // ================== KẾT NỐI L298N + PUMP + VALVE ==================
-const int IN1 = 25;   // Pump direction
-const int IN3 = 32;   // Valve direction
-const int ENA = 27;   // PWM Pump
-const int ENB = 14;   // PWM Valve
+
+const int ENA = 32;   // PWM Pump
+const int ENB = 33;   // PWM Valve
 
 const int pwmFreq = 1000;
 const int pwmRes  = 8;
@@ -32,8 +31,8 @@ uint16_t currentDelay = MEASURE_DELAY_MIN;
 
 // Tunable algorithm parameters (adjust at runtime via serial)
 // Tuned defaults (based on sample traces) — you can still change at runtime
-float SYS_RATIO = 0.95f;  // increased to move SYS detection closer to MAP
-float DIA_RATIO = 0.8f;  // tuned for this trace
+float SYS_RATIO = 0.5f;  // increased to move SYS detection closer to MAP
+float DIA_RATIO = 0.7f;  // tuned for this trace
 bool dumpSamplesNextRun = false; // if true, measurement will print CSV of samples
 
 // Height-based threshold ranges for SYS/DIA (use midpoint for crossing)
@@ -58,9 +57,8 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  pinMode(IN1, OUTPUT);
-  pinMode(IN3, OUTPUT);
-
+  // Using only PWM enable pins for speed control (ENA/ENB).
+  // Direction inputs removed; driver should be wired for fixed forward direction.
   ledcAttach(ENA, pwmFreq, pwmRes);
   ledcAttach(ENB, pwmFreq, pwmRes);
 
@@ -230,23 +228,21 @@ bool readPressure(float &pressure_kPa, float &pressure_mmHg, int16_t &raw) {
 
 // ====================== ĐIỀU KHIỂN BƠM & VAN ======================
 void startPump(int speed) {                 
-  digitalWrite(IN1, HIGH);
   ledcWrite(ENA, constrain(speed, 0, 255));
 }
 
 void stopPump() {
+  // stop PWM but keep direction pin state (fixed forward direction)
   ledcWrite(ENA, 0);
-  digitalWrite(IN1, LOW);
 }
 
 void openValve(int speed) {                 
-  digitalWrite(IN3, HIGH);
   ledcWrite(ENB, constrain(speed, 0, 255));
 }
 
 void closeValve() {
+  // stop PWM but keep direction pin state (fixed open direction)
   ledcWrite(ENB, 0);
-  digitalWrite(IN3, LOW);
 }
 
 void stopAll() {
