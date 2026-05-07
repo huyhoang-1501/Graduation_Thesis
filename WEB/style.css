@@ -607,3 +607,53 @@ body {
   /* Bottom navigation */
   /* bottom nav removed - mobile menu uses sidebar */
 }
+
+/* Mobile touch-friendly adjustments */
+@media (max-width: 768px) {
+  /* Increase touch target sizes and readable font sizes */
+  .main input[type="text"],
+  .main input[type="number"],
+  .main input[type="tel"],
+  .main input[type="date"],
+  .main select,
+  .patients-form input,
+  .phone-row input,
+  .filter-group input,
+  .filter-group select,
+  .input-group-login input {
+    min-height: 44px;
+    font-size: 15px;
+    padding: 10px 12px;
+    border-radius: 8px;
+  }
+
+  .patients-form button,
+  .phone-row button,
+  .filter-actions button,
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 15px;
+  }
+
+  /* Slightly larger labels for accessibility */
+  .filter-group label,
+  .settings-grid label,
+  .input-group-login label {
+    font-size: 15px;
+  }
+
+  /* Give more vertical breathing room on mobile */
+  .patients-form { gap: 12px; }
+  .history-filters, .alerts-filters { gap: 14px; }
+  .tab-header.single h2 { font-size: 20px; }
+
+  /* Ensure selects fill available width */
+  .page-header-row select,
+  .overview-header select {
+    width: 100%;
+  }
+}
