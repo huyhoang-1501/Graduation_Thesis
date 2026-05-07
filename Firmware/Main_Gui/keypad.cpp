@@ -75,6 +75,12 @@ static lv_obj_t* keypad_make_btn(lv_obj_t *parent, const char *label) {
   lv_obj_center(lab);
   lv_obj_set_style_text_color(lab, dark, 0);
   if (g_btn_font) lv_obj_set_style_text_font(lab, g_btn_font, 0);
+  // // Make numeric buttons (single-digit) and the CLR button a bit bigger for easier tapping
+  // if ((label[0] >= '0' && label[0] <= '9' && label[1] == '\0') || strcmp(label, "CLR") == 0) {
+  //   // Minimum size hints so the grid will allocate slightly more space
+  //   lv_obj_set_style_min_width(btn, 72, 0);
+  //   lv_obj_set_style_min_height(btn, 64, 0);
+  // }
 
   lv_obj_add_event_cb(btn, keypad_btn_event_cb, LV_EVENT_CLICKED, (void*)label);
   return btn;
@@ -154,8 +160,9 @@ void keypad_init_screen(const lv_font_t *btn_font,
   // Grid keypad
   lv_obj_t *cont = lv_obj_create(g_keypad_scr);
   // Tăng chiều cao vùng keypad để nút 0-9/CLR to hơn, dễ bấm hơn
-  lv_obj_set_size(cont, 460, 200);
-  lv_obj_align(cont, LV_ALIGN_BOTTOM_MID, 0, 0);
+  // Slightly increase keypad area height so numeric/CLR buttons appear larger
+  lv_obj_set_size(cont, 460, 215);
+  lv_obj_align(cont, LV_ALIGN_BOTTOM_MID, 0, 10);
   lv_obj_set_style_bg_opa(cont, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(cont, 0, 0);
   lv_obj_set_style_pad_all(cont, 0, 0);

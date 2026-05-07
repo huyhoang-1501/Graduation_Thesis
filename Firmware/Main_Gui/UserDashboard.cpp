@@ -422,7 +422,8 @@ static void build_settings_screen() {
   settings_label_phone = lv_label_create(cont);
   lv_label_set_text(settings_label_phone, g_phone[0] ? g_phone : "(none)");
   lv_obj_set_style_text_font(settings_label_phone, pick_font_small(), 0);
-  lv_obj_align(settings_label_phone, LV_ALIGN_TOP_LEFT, 80, 8);
+  // Align the phone value to match the metric summary labels (centered position)
+  lv_obj_align(settings_label_phone, LV_ALIGN_TOP_LEFT, 120, 8);
 
   // edit button stays on the top-right of the container (same vertical alignment as the label)
   lv_obj_t *ep = lv_btn_create(cont);
@@ -461,10 +462,10 @@ static void build_settings_screen() {
     row_y += 48;
   };
 
-  make_metric_row("SPO2", &settings_label_spo2_summary, [](lv_event_t *e){ build_metric_screen(); if (spo2_scr) lv_scr_load(spo2_scr); });
-  make_metric_row("Heart Rate", &settings_label_hr_summary, [](lv_event_t *e){ build_metric_screen(); if (hr_scr) lv_scr_load(hr_scr); });
-  make_metric_row("Systolic", &settings_label_sys_summary, [](lv_event_t *e){ build_metric_screen(); if (sys_scr) lv_scr_load(sys_scr); });
-  make_metric_row("Diastolic", &settings_label_dia_summary, [](lv_event_t *e){ build_metric_screen(); if (dia_scr) lv_scr_load(dia_scr); });
+  make_metric_row("SPO2:", &settings_label_spo2_summary, [](lv_event_t *e){ build_metric_screen(); if (spo2_scr) lv_scr_load(spo2_scr); });
+  make_metric_row("Heart Rate:", &settings_label_hr_summary, [](lv_event_t *e){ build_metric_screen(); if (hr_scr) lv_scr_load(hr_scr); });
+  make_metric_row("Systolic:", &settings_label_sys_summary, [](lv_event_t *e){ build_metric_screen(); if (sys_scr) lv_scr_load(sys_scr); });
+  make_metric_row("Diastolic:", &settings_label_dia_summary, [](lv_event_t *e){ build_metric_screen(); if (dia_scr) lv_scr_load(dia_scr); });
 
   // initialize summaries from loaded settings
   if (settings_label_spo2_summary) { char b[32]; snprintf(b,sizeof(b),"%d - %d", g_spo2_min, g_spo2_max); lv_label_set_text(settings_label_spo2_summary, b); }
@@ -657,10 +658,10 @@ static void build_ud_screen() {
     if (value_out) *value_out = val;
   };
 
-  make_card("SPO2", "%", 0, 0, lv_color_make(0, 140, 200), &label_spo2);
-  make_card("Heart Rate", "bpm", 1, 0, lv_color_make(220, 40, 40), &label_hr);
-  make_card("Systolic", "mmHg", 0, 1, lv_color_make(0, 160, 110), &label_sys);
-  make_card("Diastolic", "mmHg", 1, 1, lv_color_make(140, 90, 210), &label_dia);
+  make_card("SPO2:", "%", 0, 0, lv_color_make(0, 140, 200), &label_spo2);
+  make_card("Heart Rate:", "bpm", 1, 0, lv_color_make(220, 40, 40), &label_hr);
+  make_card("Systolic:", "mmHg", 0, 1, lv_color_make(0, 160, 110), &label_sys);
+  make_card("Diastolic:", "mmHg", 1, 1, lv_color_make(140, 90, 210), &label_dia);
 
   // Menu (hamburger) button in header to open settings screen
   lv_obj_t *btn_menu = lv_btn_create(header);
