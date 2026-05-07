@@ -107,7 +107,7 @@
           <h4 style="color:#2c3e50; margin-bottom:10px;">Khôi phục mật khẩu</h4>
           <div class="input-group-login">
             <label>Nhập Email</label>
-            <input type="text" id="reset-identifier" placeholder="Nhập tên đăng nhập hoặc email" autocomplete="username">
+            <input type="text" id="reset-identifier" placeholder="Nhập email cần khôi phục" autocomplete="username">
           </div>
           <div style="display:flex; gap:8px; margin-top:10px;">
             <button type="button" id="reset-btn" class="btn-login" style="background:#ef4444;">Gửi liên kết khôi phục</button>
@@ -118,7 +118,7 @@
         <!-- ĐĂNG KÝ (ẩn mặc định) -->
         <div id="register-form" style="display:none; margin-top:30px;">
           <h3 style="color:#2c3e50; margin-bottom:20px;">TẠO TÀI KHOẢN MỚI</h3>
-          <p style="font-size:14px; color:#374151;">Bạn có thể đăng ký bằng Email (ưu tiên) hoặc chỉ nhập Tên đăng nhập (không có email). Lưu ý: tài khoản chỉ có tên đăng nhập sẽ không thể khôi phục mật khẩu qua email.</p>
+          <p style="font-size:14px; color:#374151; text-align:center;">Đăng ký bằng Email (ưu tiên) hoặc Tên đăng nhập. Tài khoản chỉ có Tên đăng nhập không thể khôi phục mật khẩu qua email.</p>
           <div class="input-group-login">
             <label>Email hoặc Tên đăng nhập</label>
             <input type="text" id="identifier-register" placeholder="you@example.com hoặc user123" autocomplete="username">
@@ -216,7 +216,6 @@
         <!-- ========== OVERVIEW ========== -->
         <section id="page-overview" class="page active">
           <div class="overview-header">
-            <h2>Overview - <span id="ov-patient-name"></span></h2>
             <select id="ov-patient-select">
               <option value="" selected disabled>Chọn bệnh nhân...</option>
             </select>
@@ -298,7 +297,6 @@
         <!-- ========== HISTORY ========== -->
         <section id="page-history" class="page">
           <div class="page-header-row">
-            <h2>History - <span id="his-patient-name"></span></h2>
             <select id="his-patient-select">
               <option value="" selected disabled>Chọn bệnh nhân...</option>
             </select>
@@ -364,7 +362,6 @@
         <!-- ========== ALERTS ========== -->
         <section id="page-alerts" class="page">
           <div class="page-header-row">
-            <h2>Alerts - <span id="al-patient-name"></span></h2>
             <select id="al-patient-select">
               <option value="" selected disabled>Chọn bệnh nhân...</option>
             </select>
@@ -407,7 +404,6 @@
         <!-- ========== DEVICES / PATIENTS ========== -->
         <section id="page-patients" class="page">
           <div class="page-header-row">
-            <h2>Thiết bị / Bệnh nhân</h2>
           </div>
 
           <div class="placeholder-box">
@@ -461,7 +457,6 @@
         <!-- ========== SETTINGS ========== -->
             <section id="page-settings" class="page">
         <div class="page-header-row">
-          <h2>Cài đặt</h2>
           <select id="set-patient-select">
             <option value="" selected disabled>Chọn bệnh nhân...</option>
           </select>
