@@ -191,16 +191,22 @@ static void create_main_gui() {
   lv_obj_align(text_cont, LV_ALIGN_LEFT_MID, -10, 0);
 
   lv_obj_t *label_health = lv_label_create(text_cont);
-  lv_label_set_text(label_health, "Health Scape");
+  lv_label_set_text(label_health, "Health");
   lv_obj_set_style_text_color(label_health, primary, 0);
   lv_obj_set_style_text_font(label_health, pick_font_36_or_14(), 0);
   lv_obj_align(label_health, LV_ALIGN_TOP_LEFT, 0, 2);
+
+  lv_obj_t *label_guardian = lv_label_create(text_cont);
+  lv_label_set_text(label_guardian, "Guardian");
+  lv_obj_set_style_text_color(label_guardian, primary, 0);
+  lv_obj_set_style_text_font(label_guardian, pick_font_36_or_14(), 0);
+  lv_obj_align_to(label_guardian, label_health, LV_ALIGN_OUT_BOTTOM_LEFT, 0, -4);
 
   label_device_id = lv_label_create(text_cont);
   lv_label_set_text(label_device_id, "Device ID: --");
   lv_obj_set_style_text_color(label_device_id, dark, 0);
   lv_obj_set_style_text_font(label_device_id, pick_font_16_or_14(), 0);
-  lv_obj_align_to(label_device_id, label_health, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 10);
+  lv_obj_align_to(label_device_id, label_guardian, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 10);
 
   label_user_id = lv_label_create(text_cont);
   lv_label_set_text(label_user_id, "User ID: (chua nhap)");

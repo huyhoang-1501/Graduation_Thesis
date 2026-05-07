@@ -588,7 +588,7 @@ static void build_ud_screen() {
   lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_t *title = lv_label_create(header);
-  lv_label_set_text(title, "User Monitoring");
+  lv_label_set_text(title, "User - Health Guardian");
   lv_obj_set_style_text_color(title, primary, 0);
   lv_obj_set_style_text_font(title, pick_font_mid(), 0);
   lv_obj_align(title, LV_ALIGN_LEFT_MID, 0, -8);

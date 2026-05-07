@@ -1,6 +1,6 @@
 {
-  "name": "Health Scape Portal",
-  "short_name": "HealthScape",
+  "name": "Health Guardian Portal",
+  "short_name": "HealthGuardian",
   "description": "Dashboard giám sát sức khỏe - HCMUTE",
   "start_url": "/index.html",
   "display": "standalone",
