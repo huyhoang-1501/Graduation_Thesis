@@ -88,9 +88,11 @@ document.getElementById("show-login")?.addEventListener("click", e => {
 document.getElementById("register-btn")?.addEventListener("click", () => {
   const identifier = document.getElementById("identifier-register").value.trim();
   const pass = document.getElementById("password-register").value;
+  const passConfirm = document.getElementById("password-register-confirm").value;
 
   if (!identifier || !pass) return alert("Vui lòng nhập Tên đăng nhập/Email và mật khẩu!");
   if (pass.length < 6) return alert("Mật khẩu phải ≥ 6 ký tự!");
+  if (pass !== passConfirm) return alert("Mật khẩu và xác nhận mật khẩu không khớp.");
 
   let regEmail = "";
   let displayName = "";
@@ -112,24 +114,19 @@ document.getElementById("register-btn")?.addEventListener("click", () => {
       // update display name
       await userCred.user.updateProfile({ displayName });
 
-      // If this is a real email (not synthetic @local.app), send verification
-      if (!regEmail.endsWith('@local.app')) {
-        try {
+      // If registered with a real email, send verification email (non-blocking)
+      try {
+        if (!regEmail.endsWith('@local.app')) {
           await userCred.user.sendEmailVerification();
-          alert('Đăng ký thành công! Một email xác thực đã được gửi tới: ' + regEmail + '. Vui lòng kiểm tra hộp thư và xác thực trước khi đăng nhập.');
-          // sign out so user must verify before using the app
-          await auth.signOut();
-        } catch (err) {
-          console.error('Lỗi khi gửi email xác thực:', err);
-          alert('Đăng ký thành công nhưng không thể gửi email xác thực: ' + err.message);
+          // Inform user gently; do not block usage
+          alert('Đăng ký thành công! Một email xác thực đã được gửi (không bắt buộc). Bạn vẫn có thể đăng nhập.');
+        } else {
+          alert('Đăng ký thành công! Bạn có thể đăng nhập bằng tên đăng nhập và mật khẩu.');
         }
-      } else {
-        // synthetic local accounts do not support email delivery
-        alert('Đăng ký thành công! Bạn có thể đăng nhập bằng tên đăng nhập và mật khẩu.');
+      } catch (err) {
+        console.warn('Không gửi được email xác thực:', err);
+        alert('Đăng ký thành công! (Không gửi được email xác thực). Bạn vẫn có thể đăng nhập.');
       }
-
-      document.getElementById("register-form").style.display = "none";
-      document.getElementById("login-form").style.display = "block";
     })
     .catch(err => alert("Lỗi đăng ký: " + err.message));
 });
@@ -144,14 +141,7 @@ document.getElementById("username-signin-btn")?.addEventListener("click", () => 
 
   auth.signInWithEmailAndPassword(email, pass)
     .then((userCred) => {
-      // If this is a synthetic local account, allow login (no email delivery)
-      if (email.endsWith('@local.app')) return;
-
-      // For real emails ensure email has been verified
-      if (!userCred.user.emailVerified) {
-        alert('Vui lòng xác thực email trước khi đăng nhập. Một email xác thực đã được gửi khi bạn đăng ký.');
-        auth.signOut();
-      }
+      // Login successful. Email verification is not required; proceed.
     })
     .catch(err => {
       console.error('Sign-in error:', err);
@@ -238,25 +228,22 @@ document.getElementById("login-form")?.addEventListener("submit", function (e) {
     });
 });
 
+// show/hide password checkbox for register form
+document.getElementById('register-show-pass')?.addEventListener('change', (e) => {
+  const show = e.target.checked;
+  const p = document.getElementById('password-register');
+  const cp = document.getElementById('password-register-confirm');
+  if (p) p.type = show ? 'text' : 'password';
+  if (cp) cp.type = show ? 'text' : 'password';
+});
+
 // ========== ON AUTH STATE CHANGED ==========
 const loginSection = document.getElementById("login-section");
 const appRoot = document.getElementById("app");
 
 auth.onAuthStateChanged(user => {
   if (user) {
-    // If user exists, enforce email verification for real email accounts
-    const email = user.email || '';
-    const isLocal = email.endsWith('@local.app');
-    const isGoogle = (user.providerData || []).some(p => p.providerId === 'google.com');
-    const verified = !!user.emailVerified || isLocal || isGoogle;
-    if (!verified) {
-      // user signed in but hasn't verified email
-      alert('Tài khoản chưa được xác thực email. Vui lòng kiểm tra hộp thư và xác thực trước khi sử dụng.');
-      auth.signOut();
-      return;
-    }
-
-    // Đã đăng nhập
+    // Đã đăng nhập (email verification is not enforced)
     loginSection.classList.remove("show-flex");
     loginSection.classList.add("hidden");
     appRoot.classList.remove("hidden");
@@ -291,6 +278,38 @@ function showApp(user) {
   initDeviceBindingModule();
   initPatientsModule(); 
   initSettingsModule();
+
+  // If user's email is not verified, show a gentle banner with resend option (non-blocking)
+  try {
+    const email = user?.email || auth.currentUser?.email || '';
+    const isLocal = email.endsWith('@local.app');
+    if (!isLocal && !user.emailVerified) {
+      if (!document.getElementById('email-verify-banner')) {
+        const mainEl = document.querySelector('.main');
+        if (mainEl) {
+          const b = document.createElement('div');
+          b.id = 'email-verify-banner';
+          b.style.cssText = 'background:#fff3cd;border:1px solid #ffeeba;padding:10px;margin-bottom:10px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;gap:12px;';
+          b.innerHTML = `<div style="color:#7a4f01;">Email của bạn chưa được xác thực. Chúng tôi đã gửi email xác thực — bạn vẫn có thể dùng ứng dụng.</div><div><button id="resend-verify-btn" class="btn-ghost" style="margin-right:8px;">Gửi lại</button><button id="dismiss-verify-banner" class="btn-ghost">Đóng</button></div>`;
+          mainEl.insertBefore(b, mainEl.firstChild);
+          document.getElementById('resend-verify-btn')?.addEventListener('click', async () => {
+            try {
+              await auth.currentUser.sendEmailVerification();
+              alert('Email xác thực đã được gửi lại. Vui lòng kiểm tra hộp thư.');
+            } catch (err) {
+              alert('Lỗi khi gửi email xác thực: ' + err.message);
+            }
+          });
+          document.getElementById('dismiss-verify-banner')?.addEventListener('click', () => {
+            const el = document.getElementById('email-verify-banner');
+            if (el) el.remove();
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Error checking email verification status:', err);
+  }
 }
 
 // ========== MOBILE MENU (OFF-CANVAS SIDEBAR) ==========
