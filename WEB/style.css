@@ -168,18 +168,23 @@ body {
 .sidebar-header {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 0 10px 15px;
-  border-bottom: 1px solid rgba(255,255,255,0.2);
-  margin-bottom: 10px;
+  gap: 6px;
+  padding: 8px 12px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  margin-bottom: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  border-radius: 8px;
 }
 .sidebar-logo { font-weight: bold; font-size: 20px; }
-.sidebar-user div:first-child { font-weight: bold; }
+.sidebar-logo { font-weight: bold; font-size: 22px; color: #cfe7ff; letter-spacing: .2px; }
+.sidebar-user div:first-child { font-weight: 700; font-size: 18px; color:#ffffff; }
+.sidebar-user div:nth-child(2) { font-size: 13px; color: rgba(255,255,255,0.8); margin-top:2px; }
 .sidebar-user {
   /* allow user name/role to take more room when sidebar is wider */
   max-width: 260px;
   white-space: normal;
   word-break: break-word;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.25);
 }
 .sidebar-section-title {
   margin: 15px 10px 5px;
