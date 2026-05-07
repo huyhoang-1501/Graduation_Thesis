@@ -1,6 +1,6 @@
 {
-  "name": "Health Monitoring Portal",
-  "short_name": "HealthMon",
+  "name": "Health Scape Portal",
+  "short_name": "HealthScape",
   "description": "Dashboard giám sát sức khỏe - HCMUTE",
   "start_url": "/index.html",
   "display": "standalone",
