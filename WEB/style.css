@@ -562,13 +562,14 @@ body {
 
   .stat-card { width: 100%; }
   .panel { width: 100%; }
-
   /* Tables and forms adapt */
-  .phone-row { flex-direction: column; gap: 8px; }
-  .phone-row button { width: 100%; }
-
-  /* Ensure phone input expands full width on mobile and matches button width visually */
+  /* Inputs stack vertically but phone actions (save/delete) are shown in a single row */
+  .phone-row { flex-direction: column; gap: 8px; align-items: stretch; }
+  /* keep input full width */
   .phone-row input { width: 100%; }
+  /* phone action buttons grouped side-by-side similar to threshold-actions */
+  .phone-actions { display:flex; gap:10px; }
+  .phone-actions button { flex: 1; min-width: 120px; }
 
   /* Stack patient/device form controls on mobile for predictable layout */
   .patients-form { flex-direction: column; align-items: stretch; }
@@ -638,6 +639,22 @@ body {
     padding: 10px 12px;
     font-size: 15px;
   }
+
+  /* Reduce device binding and patient form control heights so they don't appear overly tall */
+  .patients-form input,
+  .patients-form select,
+  #bind-device-id,
+  #bind-pair-code,
+  #pt-name,
+  #pt-age,
+  #pt-sex {
+    height: 46px;
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  /* Ensure grouped phone action buttons are comfortable and equal-width */
+  .phone-actions button { min-height: 44px; }
 
   /* Slightly larger labels for accessibility */
   .filter-group label,
