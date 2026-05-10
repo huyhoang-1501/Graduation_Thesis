@@ -631,10 +631,10 @@ static void build_ud_screen() {
     lv_obj_t *card_obj = lv_obj_create(metrics);
     lv_obj_set_grid_cell(card_obj, LV_GRID_ALIGN_STRETCH, c, 1, LV_GRID_ALIGN_STRETCH, r, 1);
     lv_obj_set_style_radius(card_obj, 16, 0);
-    // remove visible white/colored border and make card background transparent
-    lv_obj_set_style_border_width(card_obj, 0, 0);
+    // match GuestMode card styling: visible border and white background
+    lv_obj_set_style_border_width(card_obj, 2, 0);
     lv_obj_set_style_border_color(card_obj, lv_color_make(200, 235, 250), 0);
-    lv_obj_set_style_bg_opa(card_obj, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_bg_color(card_obj, card, 0);
     lv_obj_set_style_shadow_width(card_obj, 0, 0);
     lv_obj_set_style_pad_all(card_obj, 10, 0);
     lv_obj_clear_flag(card_obj, LV_OBJ_FLAG_SCROLLABLE);
@@ -665,50 +665,55 @@ static void build_ud_screen() {
   make_card("Systolic:", "mmHg", 0, 1, lv_color_make(0, 160, 110), &label_sys);
   make_card("Diastolic:", "mmHg", 1, 1, lv_color_make(140, 90, 210), &label_dia);
 
-  // Menu (hamburger) button in header to open settings screen
-  lv_obj_t *btn_menu = lv_btn_create(header);
-  // make wider to fit the "Setting" label
-  lv_obj_set_size(btn_menu, 110, 42);
-  // place left of back button
-  lv_obj_align(btn_menu, LV_ALIGN_RIGHT_MID, -100, 0);
-  lv_obj_set_style_radius(btn_menu, 12, 0);
-  lv_obj_set_style_bg_color(btn_menu, lv_color_make(240, 240, 240), 0);
-  lv_obj_set_style_border_width(btn_menu, 0, 0);
-  lv_obj_add_event_cb(btn_menu, [](lv_event_t *e){ if (lv_event_get_code(e)==LV_EVENT_CLICKED) {
-    // lazy build then show settings screen
-    build_settings_screen();
-    if (settings_scr) lv_scr_load(settings_scr);
-  } }, LV_EVENT_ALL, nullptr);
-  lv_obj_t *menu_lbl = lv_label_create(btn_menu);
-  lv_label_set_text(menu_lbl, "Setting");
-  lv_obj_set_style_text_font(menu_lbl, pick_font_mid(), 0);
-  // make the "Setting" label text black instead of the default (was white)
-  lv_obj_set_style_text_color(menu_lbl, lv_color_make(0, 0, 0), 0);
-  lv_obj_center(menu_lbl);
-
-  // Footer with Start button (same visual as GuestMode Start)
-  lv_obj_t *footer = lv_obj_create(ud_scr);
-  lv_obj_set_size(footer, lv_pct(100), 48);
-  lv_obj_align(footer, LV_ALIGN_BOTTOM_MID, 0, 0);
-  lv_obj_set_style_bg_opa(footer, LV_OPA_TRANSP, 0);
-  lv_obj_clear_flag(footer, LV_OBJ_FLAG_SCROLLABLE);
-
+  // Move Start button into header (to the left of Back)
   if (!ud_btn_start) {
-    ud_btn_start = lv_btn_create(footer);
+    ud_btn_start = lv_btn_create(header);
     lv_obj_set_size(ud_btn_start, 92, 42);
-    lv_obj_align(ud_btn_start, LV_ALIGN_RIGHT_MID, -8, 0);
+    // place to the left of Back
+    lv_obj_align(ud_btn_start, LV_ALIGN_RIGHT_MID, -100, 0);
     lv_obj_set_style_radius(ud_btn_start, 14, 0);
     lv_obj_set_style_bg_color(ud_btn_start, lv_color_make(200, 255, 220), 0);
     lv_obj_set_style_bg_color(ud_btn_start, lv_color_make(150, 230, 180), LV_STATE_PRESSED);
-    // remove the extra border around the Start button
-    lv_obj_set_style_border_width(ud_btn_start, 0, 0);
-    lv_obj_set_style_border_color(ud_btn_start, lv_color_make(10, 120, 60), 0);
+    // add a darker green border to match GuestMode Start button
+    lv_obj_set_style_border_width(ud_btn_start, 2, 0);
+    lv_obj_set_style_border_color(ud_btn_start, lv_color_make(0, 120, 60), 0);
     lv_obj_set_style_shadow_width(ud_btn_start, 0, 0);
     lv_obj_t *lbl = lv_label_create(ud_btn_start);
     lv_label_set_text(lbl, "Start");
     lv_obj_set_style_text_color(lbl, lv_color_make(0, 40, 20), 0);
     lv_obj_set_style_text_font(lbl, pick_font_mid(), 0);
     lv_obj_center(lbl);
+  }
+
+  // Footer with Start button (same visual as GuestMode Start)
+  lv_obj_t *footer = lv_obj_create(ud_scr);
+  lv_obj_set_size(footer, lv_pct(100), 48);
+  lv_obj_align(footer, LV_ALIGN_BOTTOM_MID, 0, 0);
+  lv_obj_set_style_bg_opa(footer, LV_OPA_TRANSP, 0);
+  // ensure footer has no visible border (remove long rounded border)
+  lv_obj_set_style_border_width(footer, 0, 0);
+  lv_obj_set_style_border_color(footer, lv_color_make(0,0,0), 0);
+  lv_obj_clear_flag(footer, LV_OBJ_FLAG_SCROLLABLE);
+
+  // Create Setting button in footer (takes the previous Start location)
+  {
+    lv_obj_t *btn_menu = lv_btn_create(footer);
+    lv_obj_set_size(btn_menu, 110, 42);
+    lv_obj_align(btn_menu, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_set_style_radius(btn_menu, 12, 0);
+    lv_obj_set_style_bg_color(btn_menu, lv_color_make(240, 240, 240), 0);
+    // make the Setting button border a darker shade of its background (not purple)
+    lv_obj_set_style_border_width(btn_menu, 2, 0);
+    lv_obj_set_style_border_color(btn_menu, lv_color_make(200,200,200), 0);
+    lv_obj_add_event_cb(btn_menu, [](lv_event_t *e){ if (lv_event_get_code(e)==LV_EVENT_CLICKED) {
+      build_settings_screen();
+      if (settings_scr) lv_scr_load(settings_scr);
+    } }, LV_EVENT_ALL, nullptr);
+    lv_obj_t *menu_lbl = lv_label_create(btn_menu);
+    lv_label_set_text(menu_lbl, "Setting");
+    lv_obj_set_style_text_font(menu_lbl, pick_font_mid(), 0);
+    lv_obj_set_style_text_color(menu_lbl, lv_color_make(0, 0, 0), 0);
+    lv_obj_center(menu_lbl);
   }
 
 }

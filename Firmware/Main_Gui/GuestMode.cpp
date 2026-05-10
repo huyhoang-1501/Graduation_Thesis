@@ -121,6 +121,27 @@ static void build_guest_screen() {
   lv_obj_set_style_text_font(btn_back_label, pick_font_mid(), 0);
   lv_obj_center(btn_back_label);
 
+  // Add a Start button next to Back in the header
+  if (!btn_start) {
+    btn_start = lv_btn_create(header);
+    lv_obj_set_size(btn_start, 92, 42);
+    // place to the left of Back
+    lv_obj_align(btn_start, LV_ALIGN_RIGHT_MID, -100, 0);
+    lv_obj_set_style_radius(btn_start, 14, 0);
+    lv_obj_set_style_bg_color(btn_start, lv_color_make(200, 255, 220), 0);
+    lv_obj_set_style_bg_color(btn_start, lv_color_make(150, 230, 180), LV_STATE_PRESSED);
+    // add a darker green border to make the Start button stand out
+    lv_obj_set_style_border_width(btn_start, 2, 0);
+    lv_obj_set_style_border_color(btn_start, lv_color_make(0, 120, 60), 0);
+    lv_obj_set_style_shadow_width(btn_start, 0, 0);
+    lv_obj_add_event_cb(btn_start, start_btn_event_cb, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *lb = lv_label_create(btn_start);
+    lv_label_set_text(lb, "Start");
+    lv_obj_set_style_text_color(lb, lv_color_make(0, 40, 20), 0);
+    lv_obj_set_style_text_font(lb, pick_font_mid(), 0);
+    lv_obj_center(lb);
+  }
+
   lv_obj_t *metrics = lv_obj_create(guest_scr);
   lv_obj_set_size(metrics, lv_pct(100), 176);
   lv_obj_align(metrics, LV_ALIGN_TOP_MID, 0, 64);
@@ -182,29 +203,7 @@ static void build_guest_screen() {
 
   // Removed footer tip label to make room for Start button in footer
 
-  // Add a (non-functional) Start button in footer using the same visual style as the
-  // header Back button, placed at the left of the footer. This is inert by design.
-  if (!btn_start) {
-    btn_start = lv_btn_create(footer);
-    // Make Start button slightly larger for easier tapping
-    lv_obj_set_size(btn_start, 92, 42);
-    // Center vertically in footer at far-right to avoid extra whitespace below
-    lv_obj_align(btn_start, LV_ALIGN_RIGHT_MID, 0, 0);
-    lv_obj_set_style_radius(btn_start, 14, 0);
-    // Green background
-    lv_obj_set_style_bg_color(btn_start, lv_color_make(200, 255, 220), 0);
-    lv_obj_set_style_bg_color(btn_start, lv_color_make(150, 230, 180), LV_STATE_PRESSED);
-    lv_obj_set_style_border_width(btn_start, 2, 0);
-    lv_obj_set_style_border_color(btn_start, lv_color_make(10, 120, 60), 0);
-    lv_obj_set_style_shadow_width(btn_start, 0, 0);
-    // Intentionally do NOT add an event callback — button is inert for now
-    lv_obj_t *lb = lv_label_create(btn_start);
-    lv_label_set_text(lb, "Start");
-    // Dark text on light green background
-    lv_obj_set_style_text_color(lb, lv_color_make(0, 40, 20), 0);
-    lv_obj_set_style_text_font(lb, pick_font_mid(), 0);
-    lv_obj_center(lb);
-  }
+  // Footer intentionally has no Start button anymore; header holds the Start control.
 }
 
 static void refresh_values() {
