@@ -42,10 +42,12 @@ body {
       margin: 0 10px;               /* small side margin so rounded corners aren't off-screen */
       padding: 8px 10px;            /* tighten vertical space */
     overflow-y: auto;
+    overflow-x: hidden; /* prevent horizontal scroll if heading is long */
   }
   .login-header img { width:60px; height:60px; }
   .login-header h1 { font-size:14px; margin:1px 0; }
-  .login-title h2 { font-size:14px; margin:6px 0; }
+  /* keep the login title on a single line on narrow screens */
+  .login-title h2 { font-size:13px; margin:6px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
   .input-group-login { margin-bottom:4px; }
   .input-group-login input { padding:10px 8px; font-size:13px; min-height:44px; line-height:1.25; }
@@ -444,6 +446,10 @@ body {
   border-radius: 8px;
   border: 2px solid #e6e9ef;
   font-size: 14px;
+  line-height: 1.2;
+  min-height: 36px;      /* target height requested by user */
+  max-height: 40px;      /* keep compact look */
+  height: auto;
   background: #fff;
 }
 .patients-form button {
@@ -451,6 +457,15 @@ body {
   white-space: nowrap;
   padding: 10px 14px;
   border-radius: 8px;
+}
+
+/* Extra safety: ensure selects and inputs don't get forced to large heights by other rules */
+.patients-form input[type="text"],
+.patients-form input[type="number"],
+.patients-form input[type="tel"],
+.patients-form select {
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 
@@ -650,7 +665,7 @@ body {
   #pt-age,
   #pt-sex {
     height: auto;
-    min-height: 40px;
+    min-height: 36px;
     padding: 8px 10px;
     line-height: 1.2;
   }
@@ -663,6 +678,22 @@ body {
   .settings-grid label,
   .input-group-login label {
     font-size: 15px;
+  }
+
+  /* Make patients/device inputs match the alert phone input size and padding on mobile */
+  .patients-form input,
+  .patients-form select,
+  #bind-device-id,
+  #bind-pair-code,
+  #pt-name,
+  #pt-age,
+  #pt-sex,
+  #alert-phone {
+    padding: 6px 8px !important;
+    font-size: 13px !important;
+    min-height: 36px !important;
+    max-height: 40px !important;
+    line-height: 1.1 !important;
   }
 
   /* Give more vertical breathing room on mobile */
