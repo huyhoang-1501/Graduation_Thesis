@@ -401,12 +401,13 @@ static void build_settings_screen() {
   lv_obj_align(bback, LV_ALIGN_RIGHT_MID, 0, 0);
   lv_obj_t *bbt = lv_label_create(bback);
   lv_label_set_text(bbt, "Back");
+  lv_obj_set_style_text_font(bbt, pick_font_mid(), 0);
   lv_obj_center(bbt);
   lv_obj_add_event_cb(bback, [](lv_event_t *ev){ if (lv_event_get_code(ev)==LV_EVENT_CLICKED) { if (ud_scr) lv_scr_load(ud_scr); } }, LV_EVENT_ALL, nullptr);
 
   // content
   lv_obj_t *cont = lv_obj_create(settings_scr);
-  lv_obj_set_size(cont, lv_pct(100), 260);
+  lv_obj_set_size(cont, lv_pct(100), 240);
   lv_obj_align(cont, LV_ALIGN_TOP_MID, 0, 64);
   lv_obj_set_style_pad_all(cont, 8, 0);
   lv_obj_set_style_bg_color(cont, lv_color_white(), 0);
