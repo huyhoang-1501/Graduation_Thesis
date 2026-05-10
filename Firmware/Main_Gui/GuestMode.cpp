@@ -3,6 +3,8 @@
 #include <Arduino.h>
 #include <cstdio>
 #include <lvgl.h>
+#include "BPMeasure.h"
+#include "HR_Spo2Measure.h"
 
 static lv_obj_t *guest_scr = nullptr;
 static lv_obj_t *label_state = nullptr;
@@ -42,6 +44,32 @@ static const lv_font_t *pick_font_small() {
 static void back_btn_event_cb(lv_event_t *e) {
   if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
   if (g_back_callback) g_back_callback();
+}
+
+static lv_obj_t *btn_start = nullptr;
+
+static void on_bp_done(float sys, float dia, float map, float bpm) {
+  // This is called from lv_async_call context (UI safe)
+  char buf[32];
+  if (label_sys) {
+    if (sys <= 0.0f) lv_label_set_text(label_sys, "--");
+    else { snprintf(buf, sizeof(buf), "%.0f", sys); lv_label_set_text(label_sys, buf); }
+  }
+  if (label_dia) {
+    if (dia <= 0.0f) lv_label_set_text(label_dia, "--");
+    else { snprintf(buf, sizeof(buf), "%.0f", dia); lv_label_set_text(label_dia, buf); }
+  }
+  if (label_state) {
+    if (sys <= 0.0f) lv_label_set_text(label_state, "BP measurement failed");
+    else lv_label_set_text(label_state, "BP measurement done");
+  }
+}
+
+static void start_btn_event_cb(lv_event_t *e) {
+  if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+  if (label_state) lv_label_set_text(label_state, "Measuring BP...");
+  // Start BP measurement asynchronously; result will be updated via on_bp_done
+  BPMeasure_Start(on_bp_done);
 }
 
 static void build_guest_screen() {
@@ -151,11 +179,25 @@ static void build_guest_screen() {
   lv_obj_set_style_border_width(footer, 0, 0);
   lv_obj_clear_flag(footer, LV_OBJ_FLAG_SCROLLABLE);
 
-  lv_obj_t *tip = lv_label_create(footer);
-  lv_label_set_text(tip, "Guest mode: auto-start do SPO2, HR, BP ngay khi vao man hinh");
-  lv_obj_set_style_text_color(tip, lv_color_make(90, 120, 140), 0);
-  lv_obj_set_style_text_font(tip, pick_font_small(), 0);
-  lv_obj_center(tip);
+  // Removed footer tip label to make room for Start button in footer
+
+  // Add a Start button to manually kick off BP measurement and place it in footer
+  if (!btn_start) {
+    btn_start = lv_btn_create(footer);
+    lv_obj_set_size(btn_start, 92, 42);
+    lv_obj_align(btn_start, LV_ALIGN_LEFT_MID, 8, 0);
+    lv_obj_set_style_radius(btn_start, 14, 0);
+    lv_obj_set_style_bg_color(btn_start, lv_color_make(200, 255, 220), 0);
+    lv_obj_set_style_bg_color(btn_start, lv_color_make(180, 240, 200), LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(btn_start, 2, 0);
+    lv_obj_set_style_border_color(btn_start, lv_color_make(10, 120, 60), 0);
+    lv_obj_add_event_cb(btn_start, start_btn_event_cb, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *lb = lv_label_create(btn_start);
+    lv_label_set_text(lb, "Start");
+    lv_obj_set_style_text_color(lb, lv_color_make(0, 0, 0), 0); // Make Start text black
+    lv_obj_set_style_text_font(lb, pick_font_mid(), 0);
+    lv_obj_center(lb);
+  }
 }
 
 static void refresh_values() {
@@ -199,6 +241,15 @@ void GuestMode_Show(GuestBackCallback backCallback) {
     lv_label_set_text(label_dia, "--");
     lv_label_set_text(label_state, "Dang do sinh hieu...");
     lv_scr_load(guest_scr);
+    // ensure measurement modules initialized
+    BPMeasure_Init();
+    HR_Spo2Measure_Init();
+    // Optionally start spo2 measurement in background
+    HR_Spo2Measure_Start([](int spo2, int hr){
+      char buf[32];
+      if (label_spo2) { if (spo2<=0) lv_label_set_text(label_spo2, "--"); else { snprintf(buf, sizeof(buf), "%d", spo2); lv_label_set_text(label_spo2, buf); } }
+      if (label_hr) { if (hr<=0) lv_label_set_text(label_hr, "--"); else { snprintf(buf, sizeof(buf), "%d", hr); lv_label_set_text(label_hr, buf); } }
+    });
   }
 }
 

@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "BPMeasure.h"
+
 #include "keypad.h"
 #include "FirebaseSync.h"
 #include "freertos/FreeRTOS.h"
@@ -34,6 +36,7 @@ static const lv_font_t *g_back_font = NULL;
 
 static lv_obj_t *g_status_label = NULL;
 static bool g_inited = false;
+static lv_obj_t *g_start_btn = NULL;
 
 static void ensure_status_label() {
   lv_obj_t *scr = keypad_get_screen();
@@ -137,6 +140,20 @@ void UserMode_Show(void) {
   lv_obj_t *scr = keypad_get_screen();
   if (scr) {
     lv_scr_load(scr);
+    // create a Start button on the keypad screen (to trigger BP measurement)
+    // moved to bottom-left so it doesn't appear on the keypad area
+    if (!g_start_btn) {
+      g_start_btn = lv_btn_create(scr);
+      lv_obj_set_size(g_start_btn, 92, 42);
+      lv_obj_align(g_start_btn, LV_ALIGN_BOTTOM_LEFT, 8, -8);
+      lv_obj_set_style_radius(g_start_btn, 12, 0);
+      lv_obj_t *lbl = lv_label_create(g_start_btn);
+      lv_label_set_text(lbl, "Start");
+      lv_obj_set_style_text_color(lbl, lv_color_make(0,0,0), 0); // black text
+      if (g_btn_font) lv_obj_set_style_text_font(lbl, g_btn_font, 0);
+      lv_obj_center(lbl);
+      lv_obj_add_event_cb(g_start_btn, [](lv_event_t *e){ if (lv_event_get_code(e)!=LV_EVENT_CLICKED) return; UserMode_SetStatus("Measuring BP...", false); BPMeasure_Start([](float sys, float dia, float map, float bpm){ char buf[128]; if (sys>0) snprintf(buf,sizeof(buf),"SYS %.0f DIA %.0f BPM %.0f",sys,dia,bpm); else snprintf(buf,sizeof(buf),"BP failed"); size_t n = strlen(buf)+1; char *copy = (char*)malloc(n); if (copy) { memcpy(copy, buf, n); lv_async_call([](void* a){ UserMode_SetStatus(((char*)a), false); free(a); }, copy); } }); }, LV_EVENT_CLICKED, NULL);
+    }
   }
 }
 
