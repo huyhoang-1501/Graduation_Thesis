@@ -165,6 +165,9 @@ document.getElementById("forgot-password-link")?.addEventListener("click", (e) =
   if (loginForm) loginForm.style.display = 'none';
   if (registerForm) registerForm.style.display = 'none';
   if (resetForm) resetForm.style.display = 'block';
+  // Update main title to indicate reset mode
+  const titleEl = document.querySelector('.login-title h2');
+  if (titleEl) titleEl.textContent = 'KHÔI PHỤC MẬT KHẨU';
 });
 
 document.getElementById("reset-cancel-btn")?.addEventListener("click", () => {
@@ -173,6 +176,9 @@ document.getElementById("reset-cancel-btn")?.addEventListener("click", () => {
   if (resetForm) resetForm.style.display = 'none';
   const loginForm = document.getElementById("login-form");
   if (loginForm) loginForm.style.display = 'block';
+  // Restore main title
+  const titleEl = document.querySelector('.login-title h2');
+  if (titleEl) titleEl.textContent = 'ĐĂNG NHẬP';
 });
 
 // (removed explicit back button - reset flow returns to login automatically)
@@ -199,6 +205,9 @@ document.getElementById("reset-btn")?.addEventListener("click", async () => {
     if (resetForm) resetForm.style.display = 'none';
     const loginForm = document.getElementById("login-form");
     if (loginForm) loginForm.style.display = 'block';
+    // Restore main title after successful send
+    const titleEl = document.querySelector('.login-title h2');
+    if (titleEl) titleEl.textContent = 'ĐĂNG NHẬP';
   } catch (err) {
     console.error('Lỗi khi gửi email khôi phục:', err);
     // Friendly messages for common errors
