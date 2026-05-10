@@ -37,6 +37,7 @@ static lv_obj_t *spo2_scr = nullptr;
 static lv_obj_t *hr_scr = nullptr;
 static lv_obj_t *sys_scr = nullptr;
 static lv_obj_t *dia_scr = nullptr;
+static lv_obj_t *ud_btn_start = nullptr;
 
 // forward declare metric screen builder
 static void build_metric_screen();
@@ -630,9 +631,10 @@ static void build_ud_screen() {
     lv_obj_t *card_obj = lv_obj_create(metrics);
     lv_obj_set_grid_cell(card_obj, LV_GRID_ALIGN_STRETCH, c, 1, LV_GRID_ALIGN_STRETCH, r, 1);
     lv_obj_set_style_radius(card_obj, 16, 0);
-    lv_obj_set_style_border_width(card_obj, 2, 0);
+    // remove visible white/colored border and make card background transparent
+    lv_obj_set_style_border_width(card_obj, 0, 0);
     lv_obj_set_style_border_color(card_obj, lv_color_make(200, 235, 250), 0);
-    lv_obj_set_style_bg_color(card_obj, card, 0);
+    lv_obj_set_style_bg_opa(card_obj, LV_OPA_TRANSP, 0);
     lv_obj_set_style_shadow_width(card_obj, 0, 0);
     lv_obj_set_style_pad_all(card_obj, 10, 0);
     lv_obj_clear_flag(card_obj, LV_OBJ_FLAG_SCROLLABLE);
@@ -683,6 +685,31 @@ static void build_ud_screen() {
   // make the "Setting" label text black instead of the default (was white)
   lv_obj_set_style_text_color(menu_lbl, lv_color_make(0, 0, 0), 0);
   lv_obj_center(menu_lbl);
+
+  // Footer with Start button (same visual as GuestMode Start)
+  lv_obj_t *footer = lv_obj_create(ud_scr);
+  lv_obj_set_size(footer, lv_pct(100), 48);
+  lv_obj_align(footer, LV_ALIGN_BOTTOM_MID, 0, 0);
+  lv_obj_set_style_bg_opa(footer, LV_OPA_TRANSP, 0);
+  lv_obj_clear_flag(footer, LV_OBJ_FLAG_SCROLLABLE);
+
+  if (!ud_btn_start) {
+    ud_btn_start = lv_btn_create(footer);
+    lv_obj_set_size(ud_btn_start, 92, 42);
+    lv_obj_align(ud_btn_start, LV_ALIGN_RIGHT_MID, -8, 0);
+    lv_obj_set_style_radius(ud_btn_start, 14, 0);
+    lv_obj_set_style_bg_color(ud_btn_start, lv_color_make(200, 255, 220), 0);
+    lv_obj_set_style_bg_color(ud_btn_start, lv_color_make(150, 230, 180), LV_STATE_PRESSED);
+    // remove the extra border around the Start button
+    lv_obj_set_style_border_width(ud_btn_start, 0, 0);
+    lv_obj_set_style_border_color(ud_btn_start, lv_color_make(10, 120, 60), 0);
+    lv_obj_set_style_shadow_width(ud_btn_start, 0, 0);
+    lv_obj_t *lbl = lv_label_create(ud_btn_start);
+    lv_label_set_text(lbl, "Start");
+    lv_obj_set_style_text_color(lbl, lv_color_make(0, 40, 20), 0);
+    lv_obj_set_style_text_font(lbl, pick_font_mid(), 0);
+    lv_obj_center(lbl);
+  }
 
 }
 

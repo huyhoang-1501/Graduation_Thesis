@@ -173,28 +173,35 @@ static void build_guest_screen() {
   make_card("Diastolic", "mmHg", 1, 1, lv_color_make(140, 90, 210), &label_dia);
 
   lv_obj_t *footer = lv_obj_create(guest_scr);
-  lv_obj_set_size(footer, lv_pct(100), 22);
-  lv_obj_align(footer, LV_ALIGN_BOTTOM_MID, 0, -2);
+  // Footer height adjusted so button fits without extra blank space below
+  lv_obj_set_size(footer, lv_pct(100), 48);
+  lv_obj_align(footer, LV_ALIGN_BOTTOM_MID, 0, 0);
   lv_obj_set_style_bg_opa(footer, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(footer, 0, 0);
   lv_obj_clear_flag(footer, LV_OBJ_FLAG_SCROLLABLE);
 
   // Removed footer tip label to make room for Start button in footer
 
-  // Add a Start button to manually kick off BP measurement and place it in footer
+  // Add a (non-functional) Start button in footer using the same visual style as the
+  // header Back button, placed at the left of the footer. This is inert by design.
   if (!btn_start) {
     btn_start = lv_btn_create(footer);
+    // Make Start button slightly larger for easier tapping
     lv_obj_set_size(btn_start, 92, 42);
-    lv_obj_align(btn_start, LV_ALIGN_LEFT_MID, 8, 0);
+    // Center vertically in footer at far-right to avoid extra whitespace below
+    lv_obj_align(btn_start, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_set_style_radius(btn_start, 14, 0);
+    // Green background
     lv_obj_set_style_bg_color(btn_start, lv_color_make(200, 255, 220), 0);
-    lv_obj_set_style_bg_color(btn_start, lv_color_make(180, 240, 200), LV_STATE_PRESSED);
+    lv_obj_set_style_bg_color(btn_start, lv_color_make(150, 230, 180), LV_STATE_PRESSED);
     lv_obj_set_style_border_width(btn_start, 2, 0);
     lv_obj_set_style_border_color(btn_start, lv_color_make(10, 120, 60), 0);
-    lv_obj_add_event_cb(btn_start, start_btn_event_cb, LV_EVENT_CLICKED, nullptr);
+    lv_obj_set_style_shadow_width(btn_start, 0, 0);
+    // Intentionally do NOT add an event callback — button is inert for now
     lv_obj_t *lb = lv_label_create(btn_start);
     lv_label_set_text(lb, "Start");
-    lv_obj_set_style_text_color(lb, lv_color_make(0, 0, 0), 0); // Make Start text black
+    // Dark text on light green background
+    lv_obj_set_style_text_color(lb, lv_color_make(0, 40, 20), 0);
     lv_obj_set_style_text_font(lb, pick_font_mid(), 0);
     lv_obj_center(lb);
   }
