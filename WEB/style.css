@@ -640,7 +640,8 @@ body {
     font-size: 15px;
   }
 
-  /* Reduce device binding and patient form control heights so they don't appear overly tall */
+  /* Make patient/device form controls compact but touch-friendly on mobile.
+     Use auto height so inputs don't look like large textareas; keep a sensible minimum. */
   .patients-form input,
   .patients-form select,
   #bind-device-id,
@@ -648,9 +649,10 @@ body {
   #pt-name,
   #pt-age,
   #pt-sex {
-    height: 46px;
-    min-height: 44px;
-    padding: 10px 12px;
+    height: auto;
+    min-height: 40px;
+    padding: 8px 10px;
+    line-height: 1.2;
   }
 
   /* Ensure grouped phone action buttons are comfortable and equal-width */
@@ -668,9 +670,13 @@ body {
   .history-filters, .alerts-filters { gap: 14px; }
   .tab-header.single h2 { font-size: 20px; }
 
-  /* Ensure selects fill available width */
+  /* Page header selects: don't force full width on mobile — keep them just large enough for their content
+     but allow wrapping for very narrow viewports. This prevents the select from stretching across unrelated sections. */
   .page-header-row select,
   .overview-header select {
-    width: 100%;
+    display: inline-block;
+    width: auto;
+    max-width: 320px; /* reasonable cap so it won't grow too wide */
+    min-width: 160px; /* keep a usable touch target */
   }
 }

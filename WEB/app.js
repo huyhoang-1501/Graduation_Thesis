@@ -72,6 +72,9 @@ document.getElementById("show-register")?.addEventListener("click", e => {
   // Ensure reset page is hidden when opening register
   const rf = document.getElementById("reset-form");
   if (rf) rf.style.display = "none";
+  // Update the big title to reflect current pane (mobile/desktop)
+  const titleEl = document.querySelector('.login-title h2');
+  if (titleEl) titleEl.textContent = 'ĐĂNG KÝ';
 });
 
 document.getElementById("show-login")?.addEventListener("click", e => {
@@ -81,6 +84,9 @@ document.getElementById("show-login")?.addEventListener("click", e => {
   // Ensure reset page is hidden when returning to login
   const rf = document.getElementById("reset-form");
   if (rf) rf.style.display = "none";
+  // Restore main title
+  const titleEl = document.querySelector('.login-title h2');
+  if (titleEl) titleEl.textContent = 'ĐĂNG NHẬP';
 });
 
 // ========== REGISTER (username -> synthetic email)
