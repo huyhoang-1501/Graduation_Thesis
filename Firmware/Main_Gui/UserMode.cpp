@@ -4,13 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "BPMeasure.h"
-
+#include <stdlib.h>
 #include "keypad.h"
 #include "FirebaseSync.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include <stdlib.h>
 
 typedef struct {
   char userId[16];

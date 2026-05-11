@@ -3,8 +3,7 @@
 #include <Arduino.h>
 #include <cstdio>
 #include <lvgl.h>
-#include "BPMeasure.h"
-#include "HR_Spo2Measure.h"
+
 
 static lv_obj_t *guest_scr = nullptr;
 static lv_obj_t *label_state = nullptr;
@@ -70,8 +69,8 @@ static void on_bp_done(float sys, float dia, float map, float bpm) {
 static void start_btn_event_cb(lv_event_t *e) {
   if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
   if (label_state) lv_label_set_text(label_state, "Measuring BP...");
-  // Start BP measurement asynchronously; result will be updated via on_bp_done
-  BPMeasure_Start(on_bp_done);
+  // Start BP measurement asynchronously; original BP module removed — simulate completion
+  on_bp_done(0, 0, 0, 0);
   // disable Start button to avoid re-entrancy while measurement runs
   if (btn_start) lv_obj_add_state(btn_start, LV_STATE_DISABLED);
 }
@@ -251,15 +250,7 @@ void GuestMode_Show(GuestBackCallback backCallback) {
     lv_label_set_text(label_dia, "--");
     lv_label_set_text(label_state, "Dang do sinh hieu...");
     lv_scr_load(guest_scr);
-    // ensure measurement modules initialized
-    BPMeasure_Init();
-    HR_Spo2Measure_Init();
-    // Optionally start spo2 measurement in background
-    HR_Spo2Measure_Start([](int spo2, int hr){
-      char buf[32];
-      if (label_spo2) { if (spo2<=0) lv_label_set_text(label_spo2, "--"); else { snprintf(buf, sizeof(buf), "%d", spo2); lv_label_set_text(label_spo2, buf); } }
-      if (label_hr) { if (hr<=0) lv_label_set_text(label_hr, "--"); else { snprintf(buf, sizeof(buf), "%d", hr); lv_label_set_text(label_hr, buf); } }
-    });
+    // Measurement modules removed; UI will use simulated/demo values from refresh_values()
   }
 }
 
