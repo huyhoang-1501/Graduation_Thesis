@@ -63,6 +63,8 @@ static void on_bp_done(float sys, float dia, float map, float bpm) {
     if (sys <= 0.0f) lv_label_set_text(label_state, "BP measurement failed");
     else lv_label_set_text(label_state, "BP measurement done");
   }
+  // Re-enable Start button when measurement finished
+  if (btn_start) lv_obj_clear_state(btn_start, LV_STATE_DISABLED);
 }
 
 static void start_btn_event_cb(lv_event_t *e) {
@@ -70,6 +72,8 @@ static void start_btn_event_cb(lv_event_t *e) {
   if (label_state) lv_label_set_text(label_state, "Measuring BP...");
   // Start BP measurement asynchronously; result will be updated via on_bp_done
   BPMeasure_Start(on_bp_done);
+  // disable Start button to avoid re-entrancy while measurement runs
+  if (btn_start) lv_obj_add_state(btn_start, LV_STATE_DISABLED);
 }
 
 static void build_guest_screen() {
