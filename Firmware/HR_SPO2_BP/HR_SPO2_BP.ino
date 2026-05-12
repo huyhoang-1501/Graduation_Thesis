@@ -20,7 +20,7 @@ int32_t heartRate;
 int8_t validHeartRate;
 
 // operation mode: 0 = idle, 1 = MAX301 (continuous), 2 = AGR12
-int operationMode = 2;
+// single-behavior firmware: MAX301 runs continuously; AGR12 BP measurement runs only on 'start'
 
 // ================== KẾT NỐI L298N + PUMP + VALVE ==================
 
@@ -108,38 +108,34 @@ void loop() {
     cmd.trim();
     cmd.toLowerCase();
     if (cmd == "start") {
-      if (operationMode == 1) {
-        Serial.println("Mode 1 (MAX) runs continuously; no 'start' needed.");
-      } else {
-        measureBloodPressure();
-      }
+      // trigger AGR12 blood pressure measurement on demand
+      measureBloodPressure();
     }
     else if (cmd == "stop") {
+      // stop pumps/valve (if BP in progress)
       stopAll();
-      operationMode = 0; // go to idle
-      Serial.println("Đã dừng tất cả. Mode set to 0 (idle).");
+      Serial.println("Đã dừng tất cả.");
     }
-    else if (cmd.startsWith("mode ")) {
-      String mv = cmd.substring(5);
-      mv.trim();
-      if (mv == "0") {
-        operationMode = 0;
-        Serial.println("Operation mode set to 0 (idle)");
-      } else if (mv == "1" || mv == "max") {
-        operationMode = 1;
-        Serial.println("Operation mode set to 1 (MAX - continuous)");
-      } else if (mv == "2" || mv == "agr") {
-        operationMode = 2;
-        Serial.println("Operation mode set to 2 (AGR)");
-      } else {
-        Serial.println("Unknown mode. Use 'mode 0', 'mode 1' or 'mode 2'");
-      }
+    else {
+      Serial.println("Unknown command. Use 'start' to measure BP or 'stop' to stop pumps.");
     }
   }
 
   // If in MAX continuous mode, perform one measurement cycle per loop
-  if (operationMode == 1) {
+  // MAX301 runs continuously: perform one measurement cycle per loop and display every 5s
+  {
+    static unsigned long lastDisplay = 0;
+    // keep measuring continuously, but only show values every 5 seconds
     Max30102_hr_spo2();
+    if (millis() - lastDisplay >= 5000) {
+      lastDisplay = millis();
+      Serial.print("HR = ");
+      Serial.print(heartRate);
+      Serial.print(" bpm");
+      Serial.print(" | SpO2 = ");
+      Serial.print(spo2);
+      Serial.println(" %");
+    }
     // small delay to avoid tight-looping
     delay(200);
   }
@@ -295,13 +291,8 @@ void Max30102_hr_spo2()
     &validHeartRate
   );
 
-  Serial.print("HR = ");
-  Serial.print(heartRate);
-  Serial.print(" bpm");
+  // store results in globals (do not print here) — printing will be rate-limited by caller
 
-  Serial.print(" | SpO2 = ");
-  Serial.print(spo2);
-  Serial.println(" %");
 
 }
 
