@@ -47,33 +47,7 @@ static void back_btn_event_cb(lv_event_t *e) {
 
 static lv_obj_t *btn_start = nullptr;
 
-static void on_bp_done(float sys, float dia, float map, float bpm) {
-  // This is called from lv_async_call context (UI safe)
-  char buf[32];
-  if (label_sys) {
-    if (sys <= 0.0f) lv_label_set_text(label_sys, "--");
-    else { snprintf(buf, sizeof(buf), "%.0f", sys); lv_label_set_text(label_sys, buf); }
-  }
-  if (label_dia) {
-    if (dia <= 0.0f) lv_label_set_text(label_dia, "--");
-    else { snprintf(buf, sizeof(buf), "%.0f", dia); lv_label_set_text(label_dia, buf); }
-  }
-  if (label_state) {
-    if (sys <= 0.0f) lv_label_set_text(label_state, "BP measurement failed");
-    else lv_label_set_text(label_state, "BP measurement done");
-  }
-  // Re-enable Start button when measurement finished
-  if (btn_start) lv_obj_clear_state(btn_start, LV_STATE_DISABLED);
-}
-
-static void start_btn_event_cb(lv_event_t *e) {
-  if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-  if (label_state) lv_label_set_text(label_state, "Measuring BP...");
-  // Start BP measurement asynchronously; original BP module removed — simulate completion
-  on_bp_done(0, 0, 0, 0);
-  // disable Start button to avoid re-entrancy while measurement runs
-  if (btn_start) lv_obj_add_state(btn_start, LV_STATE_DISABLED);
-}
+// Start button is decorative in Guest mode; no event handler is attached.
 
 static void build_guest_screen() {
   if (guest_scr) return;
@@ -137,7 +111,7 @@ static void build_guest_screen() {
     lv_obj_set_style_border_width(btn_start, 2, 0);
     lv_obj_set_style_border_color(btn_start, lv_color_make(0, 120, 60), 0);
     lv_obj_set_style_shadow_width(btn_start, 0, 0);
-    lv_obj_add_event_cb(btn_start, start_btn_event_cb, LV_EVENT_CLICKED, nullptr);
+    // Decorative Start button: do not attach any event handler here.
     lv_obj_t *lb = lv_label_create(btn_start);
     lv_label_set_text(lb, "Start");
     lv_obj_set_style_text_color(lb, lv_color_make(0, 40, 20), 0);
@@ -210,32 +184,12 @@ static void build_guest_screen() {
 }
 
 static void refresh_values() {
+  // Guest mode uses no sensor data by design — keep metric displays empty.
   if (!guest_scr) return;
-
-  uint32_t t = millis() / 1000;
-  int spo2 = 97 + (int)((t % 7 == 0) ? 1 : 0) - (int)((t % 13 == 0) ? 1 : 0);
-  int hr   = 74 + (int)((t * 7) % 9) - 4;
-  int sys  = 116 + (int)((t * 5) % 11) - 5;
-  int dia  = 76 + (int)((t * 3) % 9) - 4;
-
-  if (spo2 < 92) spo2 = 92;
-  if (spo2 > 100) spo2 = 100;
-  if (hr < 55) hr = 55;
-  if (hr > 130) hr = 130;
-  if (sys < 90) sys = 90;
-  if (sys > 160) sys = 160;
-  if (dia < 55) dia = 55;
-  if (dia > 110) dia = 110;
-
-  char buf[24];
-  snprintf(buf, sizeof(buf), "%d", spo2);
-  lv_label_set_text(label_spo2, buf);
-  snprintf(buf, sizeof(buf), "%d", hr);
-  lv_label_set_text(label_hr, buf);
-  snprintf(buf, sizeof(buf), "%d", sys);
-  lv_label_set_text(label_sys, buf);
-  snprintf(buf, sizeof(buf), "%d", dia);
-  lv_label_set_text(label_dia, buf);
+  if (label_spo2) lv_label_set_text(label_spo2, "");
+  if (label_hr)   lv_label_set_text(label_hr, "");
+  if (label_sys)  lv_label_set_text(label_sys, "");
+  if (label_dia)  lv_label_set_text(label_dia, "");
 }
 
 void GuestMode_Show(GuestBackCallback backCallback) {
@@ -244,10 +198,11 @@ void GuestMode_Show(GuestBackCallback backCallback) {
   g_active = true;
   g_start_ms = millis();
   if (guest_scr) {
-    lv_label_set_text(label_spo2, "--");
-    lv_label_set_text(label_hr, "--");
-    lv_label_set_text(label_sys, "--");
-    lv_label_set_text(label_dia, "--");
+    // Leave metric displays empty; state keeps initial message
+    lv_label_set_text(label_spo2, "");
+    lv_label_set_text(label_hr, "");
+    lv_label_set_text(label_sys, "");
+    lv_label_set_text(label_dia, "");
     lv_label_set_text(label_state, "Dang do sinh hieu...");
     lv_scr_load(guest_scr);
     // Measurement modules removed; UI will use simulated/demo values from refresh_values()

@@ -666,6 +666,12 @@ static void build_ud_screen() {
   make_card("Systolic:", "mmHg", 0, 1, lv_color_make(0, 160, 110), &label_sys);
   make_card("Diastolic:", "mmHg", 1, 1, lv_color_make(140, 90, 210), &label_dia);
 
+  // Do not show any sensor values in dashboard until sensors are added.
+  if (label_spo2) lv_label_set_text(label_spo2, "");
+  if (label_hr)   lv_label_set_text(label_hr, "");
+  if (label_sys)  lv_label_set_text(label_sys, "");
+  if (label_dia)  lv_label_set_text(label_dia, "");
+
   // Move Start button into header (to the left of Back)
   if (!ud_btn_start) {
     ud_btn_start = lv_btn_create(header);
@@ -720,32 +726,12 @@ static void build_ud_screen() {
 }
 
 static void refresh_values() {
+  // Dashboard intentionally does not display live metric values until sensors are wired.
   if (!ud_scr) return;
-
-  uint32_t t = millis() / 1000;
-  int spo2 = 97 + (int)((t % 7 == 0) ? 1 : 0) - (int)((t % 13 == 0) ? 1 : 0);
-  int hr   = 74 + (int)((t * 7) % 9) - 4;
-  int sys  = 116 + (int)((t * 5) % 11) - 5;
-  int dia  = 76 + (int)((t * 3) % 9) - 4;
-
-  if (spo2 < 92) spo2 = 92;
-  if (spo2 > 100) spo2 = 100;
-  if (hr < 55) hr = 55;
-  if (hr > 130) hr = 130;
-  if (sys < 90) sys = 90;
-  if (sys > 160) sys = 160;
-  if (dia < 55) dia = 55;
-  if (dia > 110) dia = 110;
-
-  char buf[24];
-  snprintf(buf, sizeof(buf), "%d", spo2);
-  lv_label_set_text(label_spo2, buf);
-  snprintf(buf, sizeof(buf), "%d", hr);
-  lv_label_set_text(label_hr, buf);
-  snprintf(buf, sizeof(buf), "%d", sys);
-  lv_label_set_text(label_sys, buf);
-  snprintf(buf, sizeof(buf), "%d", dia);
-  lv_label_set_text(label_dia, buf);
+  if (label_spo2) lv_label_set_text(label_spo2, "");
+  if (label_hr)   lv_label_set_text(label_hr, "");
+  if (label_sys)  lv_label_set_text(label_sys, "");
+  if (label_dia)  lv_label_set_text(label_dia, "");
 }
 
 void UserDashboard_Show(UserDashboardBackCallback backCallback) {
@@ -754,23 +740,18 @@ void UserDashboard_Show(UserDashboardBackCallback backCallback) {
   g_active = true;
   g_start_ms = millis();
   if (ud_scr) {
-    lv_label_set_text(label_spo2, "--");
-    lv_label_set_text(label_hr, "--");
-    lv_label_set_text(label_sys, "--");
-    lv_label_set_text(label_dia, "--");
-    if (settings_label_phone) lv_label_set_text(settings_label_phone, g_phone[0] ? g_phone : "(none)");
+    // Keep metric displays empty until real sensors are hooked up
+    if (label_spo2) lv_label_set_text(label_spo2, "");
+    if (label_hr)   lv_label_set_text(label_hr, "");
+    if (label_sys)  lv_label_set_text(label_sys, "");
+    if (label_dia)  lv_label_set_text(label_dia, "");
     lv_scr_load(ud_scr);
   }
 }
 
 void UserDashboard_Loop() {
   if (!g_active || !ud_scr) return;
-
-  uint32_t elapsed = millis() - g_start_ms;
-  if (elapsed < 2500) {
-    return;
-  }
-
+  // No sensor data yet; keep displays empty.
   refresh_values();
 }
 
