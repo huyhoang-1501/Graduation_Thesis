@@ -7,6 +7,8 @@
 
 #include "keypad.h"
 #include <Preferences.h>
+// Sensor and BP API
+#include "HR_SPO2_BP.h"
 
 static lv_obj_t *ud_scr = nullptr;
 static lv_obj_t *label_spo2 = nullptr;
@@ -690,6 +692,13 @@ static void build_ud_screen() {
     lv_obj_set_style_text_color(lbl, lv_color_make(0, 40, 20), 0);
     lv_obj_set_style_text_font(lbl, pick_font_mid(), 0);
     lv_obj_center(lbl);
+    // Attach event: trigger non-blocking BP measure and disable button while running
+    lv_obj_add_event_cb(ud_btn_start, [](lv_event_t *e){
+      if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+      lv_obj_add_state(ud_btn_start, LV_STATE_DISABLED);
+      // start background BP task
+      startMeasureBloodPressureAsync();
+    }, LV_EVENT_CLICKED, nullptr);
   }
 
   // Footer with Start button (same visual as GuestMode Start)
@@ -726,12 +735,31 @@ static void build_ud_screen() {
 }
 
 static void refresh_values() {
-  // Dashboard intentionally does not display live metric values until sensors are wired.
   if (!ud_scr) return;
-  if (label_spo2) lv_label_set_text(label_spo2, "");
-  if (label_hr)   lv_label_set_text(label_hr, "");
-  if (label_sys)  lv_label_set_text(label_sys, "");
-  if (label_dia)  lv_label_set_text(label_dia, "");
+  char buf[32];
+  // SpO2
+  if (label_spo2) {
+    if (spo2 > 30 && spo2 <= 100) snprintf(buf, sizeof(buf), "%d", spo2);
+    else snprintf(buf, sizeof(buf), "--");
+    lv_label_set_text(label_spo2, buf);
+  }
+  // Heart rate
+  if (label_hr) {
+    if (heartRate > 20 && heartRate < 300) snprintf(buf, sizeof(buf), "%d", heartRate);
+    else snprintf(buf, sizeof(buf), "--");
+    lv_label_set_text(label_hr, buf);
+  }
+  // SYS/DIA
+  if (label_sys) {
+    if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
+    else snprintf(buf, sizeof(buf), "--");
+    lv_label_set_text(label_sys, buf);
+  }
+  if (label_dia) {
+    if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
+    else snprintf(buf, sizeof(buf), "--");
+    lv_label_set_text(label_dia, buf);
+  }
 }
 
 void UserDashboard_Show(UserDashboardBackCallback backCallback) {
@@ -751,7 +779,29 @@ void UserDashboard_Show(UserDashboardBackCallback backCallback) {
 
 void UserDashboard_Loop() {
   if (!g_active || !ud_scr) return;
-  // No sensor data yet; keep displays empty.
+
+  static bool wasMeasuring = false;
+  bool measuring = isBPMeasuring();
+  if (measuring && !wasMeasuring) {
+    wasMeasuring = true;
+  } else if (!measuring && wasMeasuring) {
+    // just finished - update SYS/DIA and re-enable Start
+    if (label_sys) {
+      char buf[32];
+      if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
+      else snprintf(buf, sizeof(buf), "--");
+      lv_label_set_text(label_sys, buf);
+    }
+    if (label_dia) {
+      char buf[32];
+      if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
+      else snprintf(buf, sizeof(buf), "--");
+      lv_label_set_text(label_dia, buf);
+    }
+    if (ud_btn_start) lv_obj_clear_state(ud_btn_start, LV_STATE_DISABLED);
+    wasMeasuring = false;
+  }
+
   refresh_values();
 }
 

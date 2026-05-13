@@ -228,12 +228,11 @@ void GuestMode_Show(GuestBackCallback backCallback) {
   g_active = true;
   g_start_ms = millis();
   if (guest_scr) {
-    // Leave metric displays empty; state keeps initial message
+    // Leave metric displays empty
     lv_label_set_text(label_spo2, "");
     lv_label_set_text(label_hr, "");
     lv_label_set_text(label_sys, "");
     lv_label_set_text(label_dia, "");
-    lv_label_set_text(label_state, "Dang do sinh hieu...");
     lv_scr_load(guest_scr);
     // Measurement modules removed; UI will use simulated/demo values from refresh_values()
   }
