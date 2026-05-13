@@ -4,7 +4,7 @@ MAX30105 particleSensor;
 
 #define MAX301_I2C_ADDR 0x57 // 7-bit I2C address for MAX30102/05
 
-#define BUFFER_SIZE 100
+#define BUFFER_SIZE 64
 
 uint32_t irBuffer[BUFFER_SIZE];
 uint32_t redBuffer[BUFFER_SIZE];
@@ -14,6 +14,10 @@ int32_t spo2;
 int8_t validSPO2;
 int32_t heartRate;
 int8_t validHeartRate;
+
+// last BP results exposed to other modules
+float lastSYS = 0.0f;
+float lastDIA = 0.0f;
 
 // ========== SMOOTHING & LED CONTROL FOR MAX301 ==========
 const float HR_EMA_ALPHA = 0.28f;    // lower = smoother, higher = more responsive
@@ -28,9 +32,8 @@ float lastPrintedSpO2 = 0.0f;
 // Display interval (matching existing behavior)
 const unsigned long DISPLAY_INTERVAL_MS = 5000UL;
 
-// LED amplitude control (maps to setPulseAmplitude{Red,IR} 0..255)
-const uint8_t ledAmp[] = {0, 30, 60, 90, 120, 150, 180, 255};
-int ledIndex = 2; // start at index ~60
+// LED amplitude (single value to save RAM)
+uint8_t ledAmpVal = 60; // initial LED amplitude (approx 60)
 
 // ================== KẾT NỐI L298N + PUMP + VALVE ==================
 
@@ -52,17 +55,24 @@ const uint8_t  MAX_RETRIES       = 5;
 // Pump/pressure targets and timeouts
 const float TARGET_PRESSURE_MMHG = 180.0f;           // desired inflation pressure
 const float MIN_PROCEED_PRESSURE_MMHG = 160.0f;     // if target not reached, allow proceed if >= this
-const unsigned long PUMP_TIMEOUT_MS = 20000UL;     // timeout for pump inflation (ms)
+const unsigned long PUMP_TIMEOUT_MS = 30000UL;     // timeout for pump inflation (ms)
 // Final deflation target (was 5 mmHg) - can be adjusted (e.g., 10 mmHg for faster runs)
 const float FINAL_DEFLATION_MMHG = 10.0f;
 
-#define MAX_SAMPLES 250
+#define MAX_SAMPLES 180
 
 float pressureArr[MAX_SAMPLES];
 float oscArr[MAX_SAMPLES];
 float oscSignedArr[MAX_SAMPLES];
 unsigned long timeArr[MAX_SAMPLES];
 int sampleCount = 0;
+
+// Large temporary arrays moved to static memory to avoid stack pressure
+static float env[MAX_SAMPLES];
+static float envSm[MAX_SAMPLES];
+static int peakIdx[MAX_SAMPLES];
+// intervals for BPM calculation (ms)
+static float intervalsArr[MAX_SAMPLES];
 
 // Adaptive delay
 uint16_t currentDelay = MEASURE_DELAY_MIN;
@@ -93,6 +103,10 @@ void i2c_init();
 int requestFromWithRetry(uint8_t addr, uint8_t numBytes, uint8_t retries, uint16_t timeoutMs);
 void Max30102_hr_spo2();
 
+// MAX301 task forward declaration and handle (created at setup)
+static TaskHandle_t max301TaskHandle = NULL;
+static void max301_task_entry(void *pvParameters);
+
 // ====================== SETUP (migrated) ======================
 void hrspo2bp_setup() {
   Serial.begin(115200);
@@ -111,15 +125,20 @@ void hrspo2bp_setup() {
   } else {
     Serial.println("MAX301 initialized");
     particleSensor.setup();
-    // initialise amplitudes from mapping
-    particleSensor.setPulseAmplitudeRed(ledAmp[ledIndex]);
-    particleSensor.setPulseAmplitudeIR(ledAmp[ledIndex]);
+    // initialise amplitudes
+    particleSensor.setPulseAmplitudeRed(ledAmpVal);
+    particleSensor.setPulseAmplitudeIR(ledAmpVal);
   }
 
   Serial.println("=== HỆ THỐNG ĐO HUYẾT ÁP AGR12 ĐÃ KHỞI ĐỘNG ===");
   Serial.println("Gõ 'start' để bắt đầu đo\n");
 
   stopAll();
+
+  // start MAX301 sampling task (non-blocking)
+  if (max301TaskHandle == NULL) {
+    xTaskCreate(max301_task_entry, "MAX301", 4096, NULL, 1, &max301TaskHandle);
+  }
 }
 
 // ====================== LOOP (migrated) ======================
@@ -145,18 +164,18 @@ void hrspo2bp_loop() {
       Serial.println("Đã dừng tất cả.");
     }
     else if (cmd == "u") {
-      // increase LED amplitude
-      if (ledIndex < (int)(sizeof(ledAmp)/sizeof(ledAmp[0])) - 1) ledIndex++;
-      particleSensor.setPulseAmplitudeRed(ledAmp[ledIndex]);
-      particleSensor.setPulseAmplitudeIR(ledAmp[ledIndex]);
-      Serial.print("LED amplitude increased to index "); Serial.println(ledIndex);
+      // increase LED amplitude (step)
+      ledAmpVal = (uint8_t)min(255, ledAmpVal + 30);
+      particleSensor.setPulseAmplitudeRed(ledAmpVal);
+      particleSensor.setPulseAmplitudeIR(ledAmpVal);
+      Serial.print("LED amplitude increased to "); Serial.println(ledAmpVal);
     }
     else if (cmd == "d") {
-      // decrease LED amplitude
-      if (ledIndex > 0) ledIndex--;
-      particleSensor.setPulseAmplitudeRed(ledAmp[ledIndex]);
-      particleSensor.setPulseAmplitudeIR(ledAmp[ledIndex]);
-      Serial.print("LED amplitude decreased to index "); Serial.println(ledIndex);
+      // decrease LED amplitude (step)
+      ledAmpVal = (uint8_t)max(0, ledAmpVal - 30);
+      particleSensor.setPulseAmplitudeRed(ledAmpVal);
+      particleSensor.setPulseAmplitudeIR(ledAmpVal);
+      Serial.print("LED amplitude decreased to "); Serial.println(ledAmpVal);
     }
     else {
       Serial.println("Unknown command. Use 'start' to measure BP or 'stop' to stop pumps.");
@@ -166,33 +185,38 @@ void hrspo2bp_loop() {
     while (Serial.available()) Serial.read();
   }
 
-  // If in MAX continuous mode, perform one measurement cycle per loop
-  // MAX301 runs continuously: perform one measurement cycle per loop and display every 5s
-  {
-    static unsigned long lastDisplay = 0;
-    // keep measuring continuously, but only show values every DISPLAY_INTERVAL_MS
+  // NOTE: MAX301 continuous sampling runs in its own FreeRTOS task to avoid blocking UI.
+}
+
+// ===== MAX301 sampling task (runs separately so UI is not blocked) =====
+static void max301_task_entry(void *pvParameters) {
+  (void)pvParameters;
+  unsigned long lastDisplay = 0;
+  while (1) {
     Max30102_hr_spo2();
-    if (millis() - lastDisplay >= DISPLAY_INTERVAL_MS) {
-      lastDisplay = millis();
 
-      // Basic validity checks (keep the same ranges used elsewhere)
-      bool hrValid = (heartRate >= 30 && heartRate <= 220);
-      bool spO2Valid = (spo2 >= 50 && spo2 <= 100);
+    // Basic validity checks
+    bool hrValid = (heartRate >= 30 && heartRate <= 220);
+    bool spO2Valid = (spo2 >= 50 && spo2 <= 100);
 
-      // update EMA values when valid
-      if (hrValid) {
-        if (emaHr <= 0.0f) emaHr = heartRate;
-        else emaHr = HR_EMA_ALPHA * heartRate + (1.0f - HR_EMA_ALPHA) * emaHr;
-      }
-      if (spO2Valid) {
-        if (emaSpO2 <= 0.0f) emaSpO2 = spo2;
-        else emaSpO2 = SPO2_EMA_ALPHA * spo2 + (1.0f - SPO2_EMA_ALPHA) * emaSpO2;
-      }
+    // update EMA values when valid
+    if (hrValid) {
+      if (emaHr <= 0.0f) emaHr = heartRate;
+      else emaHr = HR_EMA_ALPHA * heartRate + (1.0f - HR_EMA_ALPHA) * emaHr;
+    }
+    if (spO2Valid) {
+      if (emaSpO2 <= 0.0f) emaSpO2 = spo2;
+      else emaSpO2 = SPO2_EMA_ALPHA * spo2 + (1.0f - SPO2_EMA_ALPHA) * emaSpO2;
+    }
+
+    unsigned long now = millis();
+    if (now - lastDisplay >= DISPLAY_INTERVAL_MS) {
+      lastDisplay = now;
 
       float displayHr = (emaHr > 0.0f) ? emaHr : (hrValid ? (float)heartRate : 0.0f);
       float displaySpO2 = (emaSpO2 > 0.0f) ? emaSpO2 : (spO2Valid ? (float)spo2 : 0.0f);
 
-      // Apply deadband so very small fluctuations aren't printed
+      // Apply deadband
       if (displayHr > 0.0f && fabs(displayHr - lastPrintedHr) < HR_DISPLAY_DEADBAND) displayHr = lastPrintedHr;
       if (displaySpO2 > 0.0f && fabs(displaySpO2 - lastPrintedSpO2) < SPO2_DISPLAY_DEADBAND) displaySpO2 = lastPrintedSpO2;
 
@@ -206,16 +230,16 @@ void hrspo2bp_loop() {
         Serial.print(displaySpO2, 1);
         lastPrintedSpO2 = displaySpO2;
       } else Serial.print("--");
-      Serial.print(" %   LED:"); Serial.print(ledIndex);
+      Serial.print(" %   LED:"); Serial.print(ledAmpVal);
       Serial.println();
 
-      // Simple heuristic warning
       if ((displayHr < 30.0f) && (spo2 >= 50.0 && spo2 <= 100.0)) {
         Serial.println("Warning: HR invalid but SpO2 OK. Check finger placement and contact.");
       }
     }
-    // small delay to avoid tight-looping
-    delay(200);
+
+    // small delay to yield CPU and avoid tight-looping
+    vTaskDelay(pdMS_TO_TICKS(50));
   }
 }
 
@@ -374,6 +398,31 @@ void Max30102_hr_spo2()
 
 }
 
+// ===== Background BP task support (non-blocking wrapper) =====
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+static TaskHandle_t bpTaskHandle = NULL;
+
+static void bp_task_entry(void *pvParameters) {
+  (void)pvParameters;
+  // call the blocking measurement
+  measureBloodPressure();
+  // mark task as finished
+  bpTaskHandle = NULL;
+  vTaskDelete(NULL);
+}
+
+void startMeasureBloodPressureAsync() {
+  if (bpTaskHandle != NULL) return; // already running
+  // create task with moderate stack size and low priority
+  xTaskCreate(bp_task_entry, "BPTask", 4096, NULL, 1, &bpTaskHandle);
+}
+
+bool isBPMeasuring() {
+  return bpTaskHandle != NULL;
+}
+
 // ====================== ĐIỀU KHIỂN BƠM & VAN ======================
 void startPump(int speed) {
   ledcWrite(ENA, constrain(speed, 0, 255));
@@ -412,8 +461,9 @@ void measureBloodPressure() {
 
   // ================== BƠM ==================
   Serial.println("Đang bơm lên 180 mmHg...");
-  startPump(250);
+  // ensure valve closed before pumping and run pump at max speed to reach target
   closeValve();
+  startPump(255);
 
   unsigned long startTime = millis();
 
@@ -491,8 +541,6 @@ void measureBloodPressure() {
   }
 
   // ===== BUILD A SMOOTHED ENVELOPE =====
-  float env[MAX_SAMPLES];
-  float envSm[MAX_SAMPLES];
   const int envWin = 4; // window half-width for local max envelope
   // ignore a few initial samples to avoid transient spikes right after deflation starts
   const int IGNORE_FIRST = 3;
@@ -610,7 +658,7 @@ void measureBloodPressure() {
   if (!(DIA > 0 && DIA < 500)) DIA = 0.0f;
 
   // ===== BPM CALCULATION =====
-  int peakIdx[MAX_SAMPLES];
+  // peakIdx is now a static global to avoid stack usage
   int peakCount = 0;
   // adaptive threshold: avoid tiny absolute thresholds on quiet traces
   float peakThreshold = max(0.08f * maxEnv, 0.4f);
@@ -624,7 +672,6 @@ void measureBloodPressure() {
   float BPM = 0.0f;
   if (peakCount >= 2) {
     // build intervals (ms) and ignore unusually short intervals (<300ms)
-    double intervalsArr[MAX_SAMPLES];
     int intervalsCnt = 0;
     const unsigned long minIntervalMs = 300; // reject beats faster than 200 BPM
     for (int k = 1; k < peakCount; k++) {
@@ -633,7 +680,7 @@ void measureBloodPressure() {
       if (t1 > t0) {
         unsigned long dt = t1 - t0;
         if (dt >= minIntervalMs) {
-          intervalsArr[intervalsCnt++] = (double)dt;
+          intervalsArr[intervalsCnt++] = (float)dt;
         }
       }
     }
@@ -642,13 +689,13 @@ void measureBloodPressure() {
       for (int a = 0; a < intervalsCnt - 1; a++) {
         int mi = a;
         for (int b = a + 1; b < intervalsCnt; b++) if (intervalsArr[b] < intervalsArr[mi]) mi = b;
-        if (mi != a) { double tmp = intervalsArr[a]; intervalsArr[a] = intervalsArr[mi]; intervalsArr[mi] = tmp; }
+        if (mi != a) { float tmp = intervalsArr[a]; intervalsArr[a] = intervalsArr[mi]; intervalsArr[mi] = tmp; }
       }
-      double medianMs;
+      float medianMs;
       if (intervalsCnt % 2 == 1) medianMs = intervalsArr[intervalsCnt/2];
-      else medianMs = 0.5 * (intervalsArr[intervalsCnt/2 - 1] + intervalsArr[intervalsCnt/2]);
-      double b = 60000.0 / medianMs;
-      if (isfinite(b) && b > 30.0 && b < 220.0) BPM = (float)b;
+      else medianMs = 0.5f * (intervalsArr[intervalsCnt/2 - 1] + intervalsArr[intervalsCnt/2]);
+      float b = 60000.0f / medianMs;
+      if (isfinite(b) && b > 30.0f && b < 220.0f) BPM = (float)b;
     }
   }
 
@@ -668,8 +715,11 @@ void measureBloodPressure() {
                 SYS_MIN_RATIO, SYS_MAX_RATIO, DIA_MIN_RATIO, DIA_MAX_RATIO, sysTargetRatio, diaTargetRatio);
   Serial.printf("(maxEnv=%.4f maxIndex=%d)\n", maxEnv, maxIndex);
   Serial.println("\n===== KẾT QUẢ =====");
-  Serial.printf("SYS: %.1f mmHg\n", SYS);
-  Serial.printf("DIA: %.1f mmHg\n", DIA);
+  // publish results for UI
+  lastSYS = SYS;
+  lastDIA = DIA;
+  Serial.printf("SYS: %.1f mmHg\n", lastSYS);
+  Serial.printf("DIA: %.1f mmHg\n", lastDIA);
   Serial.printf("MAP: %.1f mmHg\n", MAP);
   if (isfinite(BPM) && BPM > 0.0f) Serial.printf("BPM: %.1f\n", BPM);
   else Serial.println("BPM: N/A");

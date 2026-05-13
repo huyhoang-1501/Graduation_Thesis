@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <lvgl.h>
 
+#include "HR_SPO2_BP.h"
+
 
 static lv_obj_t *guest_scr = nullptr;
 static lv_obj_t *label_state = nullptr;
@@ -76,7 +78,7 @@ static void build_guest_screen() {
   lv_obj_align(title, LV_ALIGN_LEFT_MID, 0, -10);
 
   label_state = lv_label_create(header);
-  lv_label_set_text(label_state, "Dang do sinh hieu...");
+  lv_label_set_text(label_state, "");
   lv_obj_set_style_text_color(label_state, accentR, 0);
   lv_obj_set_style_text_font(label_state, pick_font_small(), 0);
   lv_obj_align(label_state, LV_ALIGN_LEFT_MID, 0, 14);
@@ -111,7 +113,15 @@ static void build_guest_screen() {
     lv_obj_set_style_border_width(btn_start, 2, 0);
     lv_obj_set_style_border_color(btn_start, lv_color_make(0, 120, 60), 0);
     lv_obj_set_style_shadow_width(btn_start, 0, 0);
-    // Decorative Start button: do not attach any event handler here.
+      // Decorative Start button: attach event handler to trigger BP measurement
+      lv_obj_add_event_cb(btn_start, [](lv_event_t *e){
+        if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+        // disable the button to prevent re-entry
+        lv_obj_add_state(btn_start, LV_STATE_DISABLED);
+        if (label_state) lv_label_set_text(label_state, "Dang do huyet ap...");
+        // trigger non-blocking background measurement
+        startMeasureBloodPressureAsync();
+      }, LV_EVENT_CLICKED, nullptr);
     lv_obj_t *lb = lv_label_create(btn_start);
     lv_label_set_text(lb, "Start");
     lv_obj_set_style_text_color(lb, lv_color_make(0, 40, 20), 0);
@@ -184,12 +194,32 @@ static void build_guest_screen() {
 }
 
 static void refresh_values() {
-  // Guest mode uses no sensor data by design — keep metric displays empty.
+  // Update metric displays from sensor globals (MAX301 and BP results)
   if (!guest_scr) return;
-  if (label_spo2) lv_label_set_text(label_spo2, "");
-  if (label_hr)   lv_label_set_text(label_hr, "");
-  if (label_sys)  lv_label_set_text(label_sys, "");
-  if (label_dia)  lv_label_set_text(label_dia, "");
+  char buf[32];
+  // SpO2
+  if (label_spo2) {
+    if (spo2 > 30 && spo2 <= 100) snprintf(buf, sizeof(buf), "%d", spo2);
+    else snprintf(buf, sizeof(buf), "--");
+    lv_label_set_text(label_spo2, buf);
+  }
+  // Heart rate
+  if (label_hr) {
+    if (heartRate > 20 && heartRate < 300) snprintf(buf, sizeof(buf), "%d", heartRate);
+    else snprintf(buf, sizeof(buf), "--");
+    lv_label_set_text(label_hr, buf);
+  }
+  // SYS/DIA are updated by BP run; keep current values
+  if (label_sys) {
+    if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
+    else snprintf(buf, sizeof(buf), "--");
+    lv_label_set_text(label_sys, buf);
+  }
+  if (label_dia) {
+    if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
+    else snprintf(buf, sizeof(buf), "--");
+    lv_label_set_text(label_dia, buf);
+  }
 }
 
 void GuestMode_Show(GuestBackCallback backCallback) {
@@ -212,18 +242,38 @@ void GuestMode_Show(GuestBackCallback backCallback) {
 void GuestMode_Loop() {
   if (!g_active || !guest_scr) return;
 
+  static bool wasMeasuring = false;
+
   uint32_t elapsed = millis() - g_start_ms;
   if (elapsed < 2500) {
-    if (label_state) {
-      uint32_t phase = (elapsed / 400) % 3;
-      if (phase == 0) lv_label_set_text(label_state, "Dang do sinh hieu.");
-      else if (phase == 1) lv_label_set_text(label_state, "Dang do sinh hieu..");
-      else lv_label_set_text(label_state, "Dang do sinh hieu...");
-    }
     return;
   }
 
-  if (label_state) lv_label_set_text(label_state, "Da cap nhat du lieu suc khoe");
+  // monitor background BP measurement state and update UI when finished
+  bool measuring = isBPMeasuring();
+  if (measuring && !wasMeasuring) {
+    // just started
+    wasMeasuring = true;
+  } else if (!measuring && wasMeasuring) {
+    // just finished
+    // update SYS/DIA labels
+    if (label_sys) {
+      char buf[32];
+      if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
+      else snprintf(buf, sizeof(buf), "--");
+      lv_label_set_text(label_sys, buf);
+    }
+    if (label_dia) {
+      char buf[32];
+      if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
+      else snprintf(buf, sizeof(buf), "--");
+      lv_label_set_text(label_dia, buf);
+    }
+    // re-enable Start button
+    lv_obj_clear_state(btn_start, LV_STATE_DISABLED);
+    wasMeasuring = false;
+  }
+  // no persistent status text
   refresh_values();
 }
 

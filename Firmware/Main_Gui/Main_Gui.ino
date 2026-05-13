@@ -22,6 +22,8 @@
 #include "UserMode.h"
 #include "FirebaseSync.h"
 #include "UserDashboard.h"
+// HR/SpO2 and BP module
+#include "HR_SPO2_BP.h"
 
 // ================= DISPLAY =================
 static const uint16_t SCREEN_WIDTH  = 480;
@@ -31,7 +33,8 @@ static const uint16_t SCREEN_HEIGHT = 320;
 TFT_eSPI tft;
 
 // ================= LVGL BUFFER =================
-static const uint16_t LVGL_DRAW_BUF_LINES = 24;
+// Reduced draw buffer lines to save ~11 KB of RAM (was 24)
+static const uint16_t LVGL_DRAW_BUF_LINES = 14;
 static lv_color_t buf1[SCREEN_WIDTH * LVGL_DRAW_BUF_LINES];
 static lv_disp_draw_buf_t draw_buf;
 
@@ -545,6 +548,9 @@ void setup() {
     lastMillis_batt = millis();
   }
 
+  // HR/SpO2 and BP module init
+  hrspo2bp_setup();
+
   // LVGL init
   lv_init();
 
@@ -604,6 +610,9 @@ void setup() {
 void loop() {
   lv_timer_handler();
   delay(1);
+
+  // Run HR/SpO2 background loop (updates spo2/heartRate)
+  hrspo2bp_loop();
 
   power_save_task();
   GuestMode_Loop();
