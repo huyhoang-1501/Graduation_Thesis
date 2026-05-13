@@ -57,6 +57,13 @@ const uint16_t MEASURE_DELAY_MIN = 200;
 const uint16_t MEASURE_DELAY_MAX = 500;
 const uint8_t  MAX_RETRIES       = 5;
 
+// Pump/pressure targets and timeouts
+const float TARGET_PRESSURE_MMHG = 180.0f;           // desired inflation pressure
+const float MIN_PROCEED_PRESSURE_MMHG = 160.0f;     // if target not reached, allow proceed if >= this
+const unsigned long PUMP_TIMEOUT_MS = 20000UL;     // timeout for pump inflation (ms)
+// Final deflation target (was 5 mmHg) - can be adjusted (e.g., 10 mmHg for faster runs)
+const float FINAL_DEFLATION_MMHG = 10.0f;
+
 #define MAX_SAMPLES 250
 
 float pressureArr[MAX_SAMPLES];
@@ -73,6 +80,9 @@ uint16_t currentDelay = MEASURE_DELAY_MIN;
 float SYS_RATIO = 0.5f;  // increased to move SYS detection closer to MAP
 float DIA_RATIO = 0.7f;  // tuned for this trace
 bool dumpSamplesNextRun = false; // if true, measurement will print CSV of samples
+
+// Early-accept settings: if we have this many samples after MAP, skip final rapid deflation
+const int MIN_POST_MAP_SAMPLES = 5;
 
 // Height-based threshold ranges for SYS/DIA (use midpoint for crossing)
 const float SYS_MIN_RATIO = 0.40f; // 40% of max envelope
@@ -416,13 +426,22 @@ void measureBloodPressure() {
 
   unsigned long startTime = millis();
 
-  while (pressure_mmHg < 180.0) {
-    if (millis() - startTime > 20000) {
+  while (pressure_mmHg < TARGET_PRESSURE_MMHG) {
+    // handle pump timeout — allow a reduced inflation fallback
+    if (millis() - startTime > PUMP_TIMEOUT_MS) {
       Serial.println("Timeout bơm!");
-      openValve(220);
-      delay(4000);
-      stopAll();
-      return;
+      if (pressure_mmHg >= MIN_PROCEED_PRESSURE_MMHG) {
+        Serial.printf("Reached %.1f mmHg which is >= %.1f mmHg (min). Proceeding with reduced inflation...\n",
+                      pressure_mmHg, MIN_PROCEED_PRESSURE_MMHG);
+        stopPump();
+        break; // continue measurement with current pressure
+      } else {
+        Serial.println("Inflation insufficient (< minimum). Aborting measurement.");
+        openValve(220);
+        delay(4000);
+        stopAll();
+        return;
+      }
     }
 
     if (readPressure(pressure_kPa, pressure_mmHg, raw)) {
@@ -466,22 +485,20 @@ void measureBloodPressure() {
     delay(40); // ~25Hz sampling
   }
 
-  // ================== XẢ NHANH ==================
-  Serial.println("Xả nhanh phần còn lại...");
-  openValve(245);
-
-  while (pressure_mmHg > 5) {
-    readPressure(pressure_kPa, pressure_mmHg, raw);
-    delay(30);
-  }
-
-  stopAll();
-
-  // ================== XỬ LÝ DỮ LIỆU ==================
+  // ================== BUILD ENVELOPE AND DECIDE EARLY-ACCEPT ==================
   if (sampleCount < 50) {
     Serial.println("Không đủ dữ liệu!");
+    // still perform a quick rapid-deflate to safe state
+    Serial.printf("Xả nhanh phần còn lại (abort) tới %.1f mmHg ...\n", FINAL_DEFLATION_MMHG);
+    openValve(245);
+    while (pressure_mmHg > FINAL_DEFLATION_MMHG) {
+      readPressure(pressure_kPa, pressure_mmHg, raw);
+      delay(30);
+    }
+    stopAll();
     return;
   }
+
   // ===== BUILD A SMOOTHED ENVELOPE =====
   float env[MAX_SAMPLES];
   float envSm[MAX_SAMPLES];
@@ -518,6 +535,16 @@ void measureBloodPressure() {
     if (envSm[i] > maxEnv) { maxEnv = envSm[i]; maxIndex = i; }
   }
   float MAP = pressureArr[maxIndex];
+
+  // Always perform final rapid-deflation to ~5 mmHg before processing results
+  int postMapSamples = sampleCount - 1 - maxIndex; // kept for logging
+  Serial.printf("Xả nhanh phần còn lại (bắt buộc) tới %.1f mmHg ...\n", FINAL_DEFLATION_MMHG);
+  openValve(245);
+  while (pressure_mmHg > FINAL_DEFLATION_MMHG) {
+    readPressure(pressure_kPa, pressure_mmHg, raw);
+    delay(30);
+  }
+  stopAll();
 
   // ===== FIND SYS and DIA via height-based threshold band (midpoint crossing) =====
   float SYS = 0.0f;
@@ -644,6 +671,8 @@ void measureBloodPressure() {
     dumpSamplesNextRun = false;
     Serial.println("-- end dump --");
   }
+  // final deflation was performed above
+  Serial.printf("NOTE: final deflation to %.1f mmHg was performed (postMapSamples=%d)\n", FINAL_DEFLATION_MMHG, postMapSamples);
   Serial.printf("Using SYS band=%.2f-%.2f DIA band=%.2f-%.2f (targets: %.3f, %.3f)\n",
                 SYS_MIN_RATIO, SYS_MAX_RATIO, DIA_MIN_RATIO, DIA_MAX_RATIO, sysTargetRatio, diaTargetRatio);
   Serial.printf("(maxEnv=%.4f maxIndex=%d)\n", maxEnv, maxIndex);
