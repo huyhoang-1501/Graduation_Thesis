@@ -19,6 +19,24 @@ int8_t validSPO2;
 int32_t heartRate;
 int8_t validHeartRate;
 
+// ========== SMOOTHING & LED CONTROL FOR MAX301 ==========
+// Exponential moving averages to smooth HR/SpO2 readings
+const float HR_EMA_ALPHA = 0.28f;    // lower = smoother, higher = more responsive
+const float SPO2_EMA_ALPHA = 0.45f;  // increased to make SpO2 respond faster
+float emaHr = 0.0f;
+float emaSpO2 = 0.0f;
+// Display deadbands to avoid jitter
+const float HR_DISPLAY_DEADBAND = 0.6f;   // bpm
+const float SPO2_DISPLAY_DEADBAND = 0.1f; // percent
+float lastPrintedHr = 0.0f;
+float lastPrintedSpO2 = 0.0f;
+// Display interval (matching existing behavior)
+const unsigned long DISPLAY_INTERVAL_MS = 5000UL;
+
+// LED amplitude control (maps to setPulseAmplitude{Red,IR} 0..255)
+const uint8_t ledAmp[] = {0, 30, 60, 90, 120, 150, 180, 255};
+int ledIndex = 2; // start at index ~60
+
 // operation mode: 0 = idle, 1 = MAX301 (continuous), 2 = AGR12
 // single-behavior firmware: MAX301 runs continuously; AGR12 BP measurement runs only on 'start'
 
@@ -91,8 +109,9 @@ void setup() {
   } else {
     Serial.println("MAX301 initialized");
     particleSensor.setup();
-    particleSensor.setPulseAmplitudeRed(0x0A);
-    particleSensor.setPulseAmplitudeIR(0x0A);
+    // initialise amplitudes from mapping
+    particleSensor.setPulseAmplitudeRed(ledAmp[ledIndex]);
+    particleSensor.setPulseAmplitudeIR(ledAmp[ledIndex]);
   }
 
   Serial.println("=== HỆ THỐNG ĐO HUYẾT ÁP AGR12 ĐÃ KHỞI ĐỘNG ===");
@@ -103,38 +122,95 @@ void setup() {
 
 // ====================== LOOP ======================
 void loop() {
+  static bool bpInProgress = false;
   if (Serial.available()) {
     String cmd = Serial.readStringUntil('\n');
     cmd.trim();
     cmd.toLowerCase();
     if (cmd == "start") {
       // trigger AGR12 blood pressure measurement on demand
-      measureBloodPressure();
+      if (!bpInProgress) {
+        bpInProgress = true;
+        measureBloodPressure();
+        bpInProgress = false;
+      } else {
+        Serial.println("BP measurement already in progress...");
+      }
     }
     else if (cmd == "stop") {
       // stop pumps/valve (if BP in progress)
       stopAll();
       Serial.println("Đã dừng tất cả.");
     }
+    else if (cmd == "u") {
+      // increase LED amplitude
+      if (ledIndex < (int)(sizeof(ledAmp)/sizeof(ledAmp[0])) - 1) ledIndex++;
+      particleSensor.setPulseAmplitudeRed(ledAmp[ledIndex]);
+      particleSensor.setPulseAmplitudeIR(ledAmp[ledIndex]);
+      Serial.print("LED amplitude increased to index "); Serial.println(ledIndex);
+    }
+    else if (cmd == "d") {
+      // decrease LED amplitude
+      if (ledIndex > 0) ledIndex--;
+      particleSensor.setPulseAmplitudeRed(ledAmp[ledIndex]);
+      particleSensor.setPulseAmplitudeIR(ledAmp[ledIndex]);
+      Serial.print("LED amplitude decreased to index "); Serial.println(ledIndex);
+    }
     else {
       Serial.println("Unknown command. Use 'start' to measure BP or 'stop' to stop pumps.");
     }
+
+    // flush any extra serial characters to avoid repeated 'start' triggers
+    while (Serial.available()) Serial.read();
   }
 
   // If in MAX continuous mode, perform one measurement cycle per loop
   // MAX301 runs continuously: perform one measurement cycle per loop and display every 5s
   {
     static unsigned long lastDisplay = 0;
-    // keep measuring continuously, but only show values every 5 seconds
+    // keep measuring continuously, but only show values every DISPLAY_INTERVAL_MS
     Max30102_hr_spo2();
-    if (millis() - lastDisplay >= 5000) {
+    if (millis() - lastDisplay >= DISPLAY_INTERVAL_MS) {
       lastDisplay = millis();
+
+      // Basic validity checks (keep the same ranges used elsewhere)
+      bool hrValid = (heartRate >= 30 && heartRate <= 220);
+      bool spO2Valid = (spo2 >= 50 && spo2 <= 100);
+
+      // update EMA values when valid
+      if (hrValid) {
+        if (emaHr <= 0.0f) emaHr = heartRate;
+        else emaHr = HR_EMA_ALPHA * heartRate + (1.0f - HR_EMA_ALPHA) * emaHr;
+      }
+      if (spO2Valid) {
+        if (emaSpO2 <= 0.0f) emaSpO2 = spo2;
+        else emaSpO2 = SPO2_EMA_ALPHA * spo2 + (1.0f - SPO2_EMA_ALPHA) * emaSpO2;
+      }
+
+      float displayHr = (emaHr > 0.0f) ? emaHr : (hrValid ? (float)heartRate : 0.0f);
+      float displaySpO2 = (emaSpO2 > 0.0f) ? emaSpO2 : (spO2Valid ? (float)spo2 : 0.0f);
+
+      // Apply deadband so very small fluctuations aren't printed
+      if (displayHr > 0.0f && fabs(displayHr - lastPrintedHr) < HR_DISPLAY_DEADBAND) displayHr = lastPrintedHr;
+      if (displaySpO2 > 0.0f && fabs(displaySpO2 - lastPrintedSpO2) < SPO2_DISPLAY_DEADBAND) displaySpO2 = lastPrintedSpO2;
+
       Serial.print("HR = ");
-      Serial.print(heartRate);
-      Serial.print(" bpm");
-      Serial.print(" | SpO2 = ");
-      Serial.print(spo2);
-      Serial.println(" %");
+      if (displayHr >= 30.0f) {
+        Serial.print(displayHr, 1);
+        lastPrintedHr = displayHr;
+      } else Serial.print("--");
+      Serial.print(" bpm | SpO2 = ");
+      if (displaySpO2 >= 50.0f && displaySpO2 <= 100.0f) {
+        Serial.print(displaySpO2, 1);
+        lastPrintedSpO2 = displaySpO2;
+      } else Serial.print("--");
+      Serial.print(" %   LED:"); Serial.print(ledIndex);
+      Serial.println();
+
+      // Simple heuristic warning
+      if ((displayHr < 30.0f) && (spo2 >= 50.0 && spo2 <= 100.0)) {
+        Serial.println("Warning: HR invalid but SpO2 OK. Check finger placement and contact.");
+      }
     }
     // small delay to avoid tight-looping
     delay(200);
