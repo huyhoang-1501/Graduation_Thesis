@@ -1,8 +1,4 @@
-#include <Arduino.h>
-#include <Wire.h>
-// MAX301 support
-#include "MAX30105.h"
-#include "spo2_algorithm.h"
+#include "HR_SPO2_BP.h"
 
 MAX30105 particleSensor;
 
@@ -20,31 +16,6 @@ int32_t heartRate;
 int8_t validHeartRate;
 
 // ========== SMOOTHING & LED CONTROL FOR MAX301 ==========
-// Exponential moving averages to smooth HR/SpO2 readings
-const float HR_EMA_ALPHA = 0.28f;    // lower = smoother, higher = more responsive
-#include <Arduino.h>
-#include <Wire.h>
-// MAX301 support
-#include "MAX30105.h"
-#include "spo2_algorithm.h"
-
-MAX30105 particleSensor;
-
-#define MAX301_I2C_ADDR 0x57 // 7-bit I2C address for MAX30102/05
-
-#define BUFFER_SIZE 100
-
-uint32_t irBuffer[BUFFER_SIZE];
-uint32_t redBuffer[BUFFER_SIZE];
-
-int32_t bufferLength = BUFFER_SIZE;
-int32_t spo2;
-int8_t validSPO2;
-int32_t heartRate;
-int8_t validHeartRate;
-
-// ========== SMOOTHING & LED CONTROL FOR MAX301 ==========
-// Exponential moving averages to smooth HR/SpO2 readings
 const float HR_EMA_ALPHA = 0.28f;    // lower = smoother, higher = more responsive
 const float SPO2_EMA_ALPHA = 0.45f;  // increased to make SpO2 respond faster
 float emaHr = 0.0f;
@@ -60,9 +31,6 @@ const unsigned long DISPLAY_INTERVAL_MS = 5000UL;
 // LED amplitude control (maps to setPulseAmplitude{Red,IR} 0..255)
 const uint8_t ledAmp[] = {0, 30, 60, 90, 120, 150, 180, 255};
 int ledIndex = 2; // start at index ~60
-
-// operation mode: 0 = idle, 1 = MAX301 (continuous), 2 = AGR12
-// single-behavior firmware: MAX301 runs continuously; AGR12 BP measurement runs only on 'start'
 
 // ================== KẾT NỐI L298N + PUMP + VALVE ==================
 
@@ -113,8 +81,7 @@ const float SYS_MAX_RATIO = 0.60f; // 60% of max envelope
 const float DIA_MIN_RATIO = 0.65f; // 65% of max envelope
 const float DIA_MAX_RATIO = 0.85f; // 85% of max envelope
 
-// ================== PROTOTYPES ==================
-bool readPressure(float &pressure_kPa, float &pressure_mmHg, int16_t &raw);
+// ================== PROTOTYPES (internal) ==================
 void startPump(int speed = 200);
 void stopPump();
 void openValve(int speed = 60);
@@ -123,9 +90,11 @@ void stopAll();
 void measureBloodPressure();
 void i2c_recovery();
 void i2c_init();
+int requestFromWithRetry(uint8_t addr, uint8_t numBytes, uint8_t retries, uint16_t timeoutMs);
+void Max30102_hr_spo2();
 
-// ====================== SETUP ======================
-void setup() {
+// ====================== SETUP (migrated) ======================
+void hrspo2bp_setup() {
   Serial.begin(115200);
   delay(1000);
 
@@ -153,8 +122,8 @@ void setup() {
   stopAll();
 }
 
-// ====================== LOOP ======================
-void loop() {
+// ====================== LOOP (migrated) ======================
+void hrspo2bp_loop() {
   static bool bpInProgress = false;
   if (Serial.available()) {
     String cmd = Serial.readStringUntil('\n');
@@ -264,6 +233,7 @@ void i2c_recovery() {
   i2c_init();
   delay(200);
 }
+
 // Helper: Wire.requestFrom with small retry+timeout, returns available byte count
 int requestFromWithRetry(uint8_t addr, uint8_t numBytes, uint8_t retries, uint16_t timeoutMs)
 {
@@ -402,11 +372,10 @@ void Max30102_hr_spo2()
 
   // store results in globals (do not print here) — printing will be rate-limited by caller
 
-
 }
 
 // ====================== ĐIỀU KHIỂN BƠM & VAN ======================
-void startPump(int speed) {                 
+void startPump(int speed) {
   ledcWrite(ENA, constrain(speed, 0, 255));
 }
 
@@ -415,7 +384,7 @@ void stopPump() {
   ledcWrite(ENA, 0);
 }
 
-void openValve(int speed) {                 
+void openValve(int speed) {
   ledcWrite(ENB, constrain(speed, 0, 255));
 }
 
@@ -428,7 +397,6 @@ void stopAll() {
   stopPump();
   closeValve();
 }
-// (statistics removed)
 
 // ====================== ĐO HUYẾT ÁP ======================
 void measureBloodPressure() {
