@@ -119,20 +119,20 @@ void UserMode_Init(const lv_font_t *btn_font,
                g_back_font,
                on_keypad_back_internal,
                on_keypad_view_internal,
-               "VIEW");
+               "ENTER");
     g_inited = true;
   }
 
-  keypad_set_placeholder_text("Nhap User ID 5 so da dang ky tren web/app...");
+  keypad_set_placeholder_text("Nhap User ID 5 so da dang ky...");
   ensure_status_label();
 }
 
 void UserMode_Show(void) {
   if (!g_inited) return;
   keypad_set_text("");
-  keypad_set_placeholder_text("Nhap User ID 5 so da dang ky tren web/app...");
+  keypad_set_placeholder_text("Nhap User ID 5 so da dang ky...");
   ensure_status_label();
-  UserMode_SetStatus("Nhap User ID 5 so da tao tren web/app", false);
+  UserMode_SetStatus("Nhap User ID 5 so da tao", false);
 
   lv_obj_t *scr = keypad_get_screen();
   if (scr) {

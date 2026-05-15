@@ -224,7 +224,7 @@ static void create_main_gui() {
   lv_obj_align_to(label_guest_hint, label_user_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 6);
 
   lv_obj_t *label_user_hint = lv_label_create(text_cont);
-  lv_label_set_text(label_user_hint, "User: nhap ID de dong bo web/app");
+  lv_label_set_text(label_user_hint, "User: nhap ID de dong bo");
   lv_label_set_long_mode(label_user_hint, LV_LABEL_LONG_WRAP);
   lv_obj_set_width(label_user_hint, 230);
   lv_obj_set_style_text_color(label_user_hint, lv_color_make(70, 110, 130), 0);
