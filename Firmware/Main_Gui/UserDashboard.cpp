@@ -600,7 +600,7 @@ static void build_ud_screen() {
 
   lv_obj_t *btn_back = lv_btn_create(header);
   lv_obj_set_size(btn_back, 92, 42);
-  lv_obj_align(btn_back, LV_ALIGN_RIGHT_MID, 0, 0);
+  lv_obj_align(btn_back, LV_ALIGN_RIGHT_MID, 10, 0);
   lv_obj_set_style_radius(btn_back, 14, 0);
   lv_obj_set_style_bg_color(btn_back, lv_color_make(210, 245, 255), 0);
   lv_obj_set_style_bg_color(btn_back, lv_color_make(190, 235, 255), LV_STATE_PRESSED);
@@ -615,7 +615,7 @@ static void build_ud_screen() {
   lv_obj_set_style_text_font(btn_back_label, pick_font_mid(), 0);
   lv_obj_center(btn_back_label);
 
-  // Metrics area (similar to guest)
+  // Metrics area (two stacked cards per column like GuestMode)
   lv_obj_t *metrics = lv_obj_create(ud_scr);
   lv_obj_set_size(metrics, lv_pct(100), 176);
   lv_obj_align(metrics, LV_ALIGN_TOP_MID, 0, 64);
@@ -627,14 +627,31 @@ static void build_ud_screen() {
   lv_obj_clear_flag(metrics, LV_OBJ_FLAG_SCROLLABLE);
 
   static lv_coord_t col[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t row[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t row[] = {LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
   lv_obj_set_grid_dsc_array(metrics, col, row);
 
-  auto make_card = [&](const char *title_text, const char *unit_text, lv_coord_t c, lv_coord_t r, lv_color_t title_color, lv_obj_t **value_out) {
-    lv_obj_t *card_obj = lv_obj_create(metrics);
-    lv_obj_set_grid_cell(card_obj, LV_GRID_ALIGN_STRETCH, c, 1, LV_GRID_ALIGN_STRETCH, r, 1);
+  lv_obj_t *left_col = lv_obj_create(metrics);
+  lv_obj_set_grid_cell(left_col, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_flex_flow(left_col, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_all(left_col, 0, 0);
+  lv_obj_set_style_pad_row(left_col, 10, 0);
+  lv_obj_clear_flag(left_col, LV_OBJ_FLAG_SCROLLABLE);
+  // remove any visible border for the left frame
+  lv_obj_set_style_border_width(left_col, 0, 0);
+
+  lv_obj_t *right_col = lv_obj_create(metrics);
+  lv_obj_set_grid_cell(right_col, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_flex_flow(right_col, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_all(right_col, 0, 0);
+  lv_obj_set_style_pad_row(right_col, 10, 0);
+  lv_obj_clear_flag(right_col, LV_OBJ_FLAG_SCROLLABLE);
+  // remove any visible border for the right frame
+  lv_obj_set_style_border_width(right_col, 0, 0);
+
+  auto make_card = [&](lv_obj_t *parent, const char *title_text, const char *unit_text, lv_color_t title_color, lv_obj_t **value_out) {
+    lv_obj_t *card_obj = lv_obj_create(parent);
+    lv_obj_set_size(card_obj, lv_pct(100), 80);
     lv_obj_set_style_radius(card_obj, 16, 0);
-    // match GuestMode card styling: visible border and white background
     lv_obj_set_style_border_width(card_obj, 2, 0);
     lv_obj_set_style_border_color(card_obj, lv_color_make(200, 235, 250), 0);
     lv_obj_set_style_bg_color(card_obj, card, 0);
@@ -663,10 +680,13 @@ static void build_ud_screen() {
     if (value_out) *value_out = val;
   };
 
-  make_card("SPO2:", "%", 0, 0, lv_color_make(0, 140, 200), &label_spo2);
-  make_card("Heart Rate:", "bpm", 1, 0, lv_color_make(220, 40, 40), &label_hr);
-  make_card("Systolic:", "mmHg", 0, 1, lv_color_make(0, 160, 110), &label_sys);
-  make_card("Diastolic:", "mmHg", 1, 1, lv_color_make(140, 90, 210), &label_dia);
+  // Left column: Heart Rate (top), SPO2 (bottom)
+  make_card(left_col, "Heart Rate:", "bpm", lv_color_make(220, 40, 40), &label_hr);
+  make_card(left_col, "SPO2:", "%", lv_color_make(0, 140, 200), &label_spo2);
+
+  // Right column: Systolic (top), Diastolic (bottom)
+  make_card(right_col, "Systolic:", "mmHg", lv_color_make(0, 160, 110), &label_sys);
+  make_card(right_col, "Diastolic:", "mmHg", lv_color_make(140, 90, 210), &label_dia);
 
   // Do not show any sensor values in dashboard until sensors are added.
   if (label_spo2) lv_label_set_text(label_spo2, "");
@@ -679,7 +699,7 @@ static void build_ud_screen() {
     ud_btn_start = lv_btn_create(header);
     lv_obj_set_size(ud_btn_start, 92, 42);
     // place to the left of Back
-    lv_obj_align(ud_btn_start, LV_ALIGN_RIGHT_MID, -100, 0);
+    lv_obj_align(ud_btn_start, LV_ALIGN_RIGHT_MID, -90, 0);
     lv_obj_set_style_radius(ud_btn_start, 14, 0);
     lv_obj_set_style_bg_color(ud_btn_start, lv_color_make(200, 255, 220), 0);
     lv_obj_set_style_bg_color(ud_btn_start, lv_color_make(150, 230, 180), LV_STATE_PRESSED);
@@ -715,7 +735,7 @@ static void build_ud_screen() {
   {
     lv_obj_t *btn_menu = lv_btn_create(footer);
     lv_obj_set_size(btn_menu, 110, 42);
-    lv_obj_align(btn_menu, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_align(btn_menu, LV_ALIGN_RIGHT_MID, 10, 0);
     lv_obj_set_style_radius(btn_menu, 12, 0);
     lv_obj_set_style_bg_color(btn_menu, lv_color_make(240, 240, 240), 0);
     // make the Setting button border a darker shade of its background (not purple)
