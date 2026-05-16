@@ -35,6 +35,9 @@ function renderAlertsWithFilters() {
   keys.forEach(alertId => {
     const a = currentAlertsData[alertId];
     if (!a) return;
+    // Exclude legacy/system types that we no longer show or filter: DEVICE_OFFLINE, BP_HIGH, BP_LOW
+    const excludedTypes = { DEVICE_OFFLINE: true, BP_HIGH: true, BP_LOW: true };
+    if (a.type && excludedTypes[a.type]) return;
 
     if (typeFilter !== "all" && a.type !== typeFilter) return;
     if (sevFilter !== "all" && a.severity !== sevFilter) return;
