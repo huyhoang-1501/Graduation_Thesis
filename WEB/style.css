@@ -498,10 +498,35 @@ body {
 
 /* SETTINGS GRID */
 .settings-grid {
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
-  gap:10px;
-  margin-top:10px;
+  display: grid;
+  /* two columns layout for clean rows (HR, BP Sys, BP Dia, SpO2) */
+  /* 4 columns on wide screens to show two visual rows (top/bottom) */
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* Collapse to single column on narrow screens */
+@media (max-width: 1000px) {
+  .settings-grid {
+    /* two columns on medium screens */
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+}
+
+/* Mobile: keep two columns so each row shows a pair (max/min) as requested */
+@media (max-width: 640px) {
+  .settings-grid {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+    gap: 8px;
+  }
+}
+
+/* Very small phones: single column */
+@media (max-width: 380px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .settings-grid label {
   font-size:12px;
@@ -619,8 +644,23 @@ body {
   .patients-form select { width: 100%; }
   .patients-form button { width: 100%; }
 
+  /* Device actions: keep device buttons side-by-side on mobile while inputs stack */
+  .device-actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+  .device-actions button {
+    flex: 1 1 0;
+    width: auto; /* override full-width rule */
+    min-width: 0;
+  }
+
   .history-filters, .alerts-filters { flex-direction: column; align-items: flex-start; }
   .filter-actions { width: 100%; display: flex; gap: 8px; }
+
+  /* Hide Export CSV on mobile to simplify the UI */
+  #his-export-btn { display: none; }
 
   .sidebar-user { max-width: none; word-break: normal; white-space: normal; }
   /* mobile: make sidebar header bigger like UTE sample */

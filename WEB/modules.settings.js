@@ -5,6 +5,10 @@ function initSettingsModule() {
   const thHrMax   = document.getElementById("th-hr-max");
   const thBpSys   = document.getElementById("th-bp-sys-max");
   const thBpDia   = document.getElementById("th-bp-dia-max");
+  const thBpSysMin = document.getElementById("th-bp-sys-min");
+  const thBpDiaMin = document.getElementById("th-bp-dia-min");
+  const thSpo2Min = document.getElementById("th-spo2-min");
+  const thSpo2Max = document.getElementById("th-spo2-max");
   const thSaveBtn = document.getElementById("threshold-save-btn");
   const thDelBtn  = document.getElementById("threshold-delete-btn");
   const thStatus  = document.getElementById("threshold-status");
@@ -14,7 +18,7 @@ function initSettingsModule() {
   const phoneDelBtn  = document.getElementById("phone-delete-btn");
   const phoneStatus  = document.getElementById("phone-status");
 
-  if (!thHrMin || !thHrMax || !thBpSys || !thBpDia || !phoneInput) return;
+  if (!thHrMin || !thHrMax || !thBpSys || !thBpDia || !thBpSysMin || !thBpDiaMin || !thSpo2Min || !thSpo2Max || !phoneInput) return;
 
   function getSelectedPatientId() {
     const selectedPid = currentPatientId
@@ -44,7 +48,13 @@ function initSettingsModule() {
         thHrMin.value = th.hrMin ?? "";
         thHrMax.value = th.hrMax ?? "";
         thBpSys.value = th.bpSysMax ?? "";
-        thBpDia.value = th.bsSysMin ?? ""; // field name theo schema: bsSysMin
+        // bp min/max
+        thBpSysMin.value = th.bpSysMin ?? "";
+        thBpDia.value = th.bpDiaMax ?? "";
+        thBpDiaMin.value = th.bpDiaMin ?? "";
+        // SpO2 thresholds
+        thSpo2Min.value = th.spo2Min ?? "";
+        thSpo2Max.value = th.spo2Max ?? "";
         thStatus.textContent = "Đã tải ngưỡng (nếu có) cho bệnh nhân " + pid;
         thStatus.style.color = "#6b7280";
       });
@@ -62,10 +72,14 @@ function initSettingsModule() {
     }
 
     const th = {
-      hrMin:   thHrMin.value ? Number(thHrMin.value) : null,
-      hrMax:   thHrMax.value ? Number(thHrMax.value) : null,
+      hrMin:    thHrMin.value ? Number(thHrMin.value) : null,
+      hrMax:    thHrMax.value ? Number(thHrMax.value) : null,
       bpSysMax: thBpSys.value ? Number(thBpSys.value) : null,
-      bsSysMin: thBpDia.value ? Number(thBpDia.value) : null
+      bpSysMin: thBpSysMin.value ? Number(thBpSysMin.value) : null,
+      bpDiaMax: thBpDia.value ? Number(thBpDia.value) : null,
+      bpDiaMin: thBpDiaMin.value ? Number(thBpDiaMin.value) : null,
+      spo2Min:  thSpo2Min.value ? Number(thSpo2Min.value) : null,
+      spo2Max:  thSpo2Max.value ? Number(thSpo2Max.value) : null
     };
 
     db.ref("settings/" + pid + "/thresholds")
@@ -90,7 +104,11 @@ function initSettingsModule() {
         thHrMin.value = "";
         thHrMax.value = "";
         thBpSys.value = "";
+        thBpSysMin.value = "";
         thBpDia.value = "";
+        thBpDiaMin.value = "";
+        thSpo2Min.value = "";
+        thSpo2Max.value = "";
         thStatus.textContent = "Đã xóa ngưỡng cho bệnh nhân " + pid;
         thStatus.style.color = "#6b7280";
       })

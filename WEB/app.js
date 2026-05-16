@@ -522,7 +522,9 @@ function initDeviceBindingModule() {
   pairCodeInput.setAttribute("maxlength", "5");
 
   pairCodeInput.placeholder = "Mã 5 số cho User mode";
-  statusEl.textContent = "Bước 1: Nhập DEVICE ID (ưu tiên UTE-2026, hoặc DEV-...). Bước 2: Tạo mã User mode 5 số và nhập mã đó trên thiết bị.";
+  // Show both steps together (previous code overwrote the first assignment)
+  statusEl.innerHTML = "Bước 1: Nhập DEVICE ID. Ví dụ: UTE-2026 hoặc DEV-XXXXXXXX. Sau đó bấm Lưu DEVICE ID để tạo mã User mode.<br>" +
+                       "Bước 2: Tạo mã User mode 5 số và nhập mã đó trên thiết bị.";
   statusEl.style.color = "#6b7280";
 
   createBtn.addEventListener("click", async () => {
@@ -531,12 +533,12 @@ function initDeviceBindingModule() {
     const ownerUid = getCurrentUserUid();
 
     if (!deviceId) {
-      alert("Vui lòng nhập DEVICE ID (ví dụ: UTE-2026).");
+      alert("Vui lòng nhập DEVICE ID.");
       return;
     }
 
     if (!isValidDeviceId(deviceId)) {
-      alert("DEVICE ID không hợp lệ. Định dạng mong muốn: UTE-2026 hoặc DEV-XXXXXXXX.");
+      alert("DEVICE ID không hợp lệ.");
       return;
     }
 

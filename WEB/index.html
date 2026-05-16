@@ -407,7 +407,7 @@
           <div class="placeholder-box">
             <p><strong>Flow đơn giản cho người dùng:</strong></p>
             <p style="margin-top:8px; color:#374151;">
-              <strong>Guest mode:</strong> đo tại chỗ trên thiết bị, không cần web.<br>
+              <strong>Guest mode:</strong> đo tại chỗ trên thiết bị.<br>
               <strong>User mode:</strong> tạo Mã ID trên dashboard, sau đó nhập đúng Mã ID đó trên thiết bị để đồng bộ.
             </p>
           </div>
@@ -415,14 +415,16 @@
           <div class="placeholder-box">
             <p>Nhập DEVICE ID cho User mode:</p>
             <div class="patients-form">
-              <input type="text" id="bind-device-id" placeholder="DEVICE ID (ví dụ: DEV-6C068C8E720)">
+              <input type="text" id="bind-device-id" placeholder="DEVICE ID (vd: UTE-2026 hoặc DEV-XXXXXXXX)" autocomplete="off">
               <input type="text" id="bind-pair-code" placeholder="Mã 5 số để nhập trên thiết bị" inputmode="numeric" pattern="[0-9]*" maxlength="5" autocomplete="off">
-              <button class="btn-primary" id="device-create-btn">
-                <i class="fas fa-microchip"></i> Lưu DEVICE ID
-              </button>
-              <button class="btn-secondary" id="device-link-btn">
-                <i class="fas fa-link"></i> Xác nhận Mã ID
-              </button>
+              <div class="device-actions">
+                <button class="btn-primary" id="device-create-btn">
+                  <i class="fas fa-microchip"></i> Lưu DEVICE ID
+                </button>
+                <button class="btn-secondary" id="device-link-btn">
+                  <i class="fas fa-link"></i> Xác nhận Mã ID
+                </button>
+              </div>
             </div>
             <small id="device-bind-status" class="phone-status-text">
               Bước 1: Nhập DEVICE ID dạng DEV-... Bước 2: Tạo mã User mode 5 số và nhập mã đó trên thiết bị.
@@ -461,24 +463,60 @@
         </div>
 
         <div class="placeholder-box">
-        <p>Ngưỡng cảnh báo (demo UI):</p>
+        <p>Ngưỡng cảnh báo:</p>
         <div class="settings-grid">
-          <div>
-            <label>HR min</label>
-            <input type="number" id="th-hr-min" value="50">
-          </div>
+          <!-- Desktop: 4 columns -> two visual rows
+               Row A (top): HR max, HR min, SpO2 max, SpO2 min
+               Row B (bottom): BP Sys max, BP Sys min, BP Dia max, BP Dia min -->
+
+          <!-- HR max -->
           <div>
             <label>HR max</label>
-            <input type="number" id="th-hr-max" value="100">
+            <input type="number" id="th-hr-max">
           </div>
+
+          <!-- HR min -->
+          <div>
+            <label>HR min</label>
+            <input type="number" id="th-hr-min">
+          </div>
+
+          <!-- SpO2 max -->
+          <div>
+            <label>SpO₂ max</label>
+            <input type="number" id="th-spo2-max">
+          </div>
+
+          <!-- SpO2 min -->
+          <div>
+            <label>SpO₂ min</label>
+            <input type="number" id="th-spo2-min">
+          </div>
+
+          <!-- BP Sys max -->
           <div>
             <label>BP Sys max</label>
-            <input type="number" id="th-bp-sys-max" value="140">
+            <input type="number" id="th-bp-sys-max">
           </div>
+
+          <!-- BP Sys min -->
+          <div>
+            <label>BP Sys min</label>
+            <input type="number" id="th-bp-sys-min">
+          </div>
+
+          <!-- BP Dia max -->
           <div>
             <label>BP Dia max</label>
-            <input type="number" id="th-bp-dia-max" value="90">
+            <input type="number" id="th-bp-dia-max">
           </div>
+
+          <!-- BP Dia min -->
+          <div>
+            <label>BP Dia min</label>
+            <input type="number" id="th-bp-dia-min">
+          </div>
+
         </div>
 
         <!-- NÚT LƯU / XÓA NGƯỠNG -->
