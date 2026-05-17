@@ -359,6 +359,22 @@ body {
   gap:8px;
 }
 
+/* Make filter groups distribute space evenly so the three "Tất cả" boxes match width */
+.alerts-filters .filter-group,
+.history-filters .filter-group {
+  flex: 1 1 0;
+  min-width: 0; /* allow flex items to shrink below their content width */
+}
+
+/* Ensure inputs/selects expand to fill their group's width */
+.alerts-filters .filter-group input,
+.alerts-filters .filter-group select,
+.history-filters .filter-group input,
+.history-filters .filter-group select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 /* HISTORY TABLE */
 .history-layout .panel-full {
   margin-top:8px;
@@ -745,6 +761,13 @@ body {
   .settings-grid label,
   .input-group-login label {
     font-size: 15px;
+  }
+
+  /* History date range: make the "đến" text match the label style on mobile */
+  .history-filters .filter-group span {
+    font-size: 15px;
+    font-weight: bold;
+    color: #333;
   }
 
   /* Make patients/device inputs match the alert phone input size and padding on mobile */

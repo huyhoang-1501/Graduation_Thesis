@@ -36,7 +36,8 @@ void setup() {
   Serial.println("DFPlayer OK");
 
   // Am luong 0 -> 30
-  player.volume(25);
+  // Đặt âm lượng lớn nhất (30)
+  player.volume(30);
 
   delay(2000);
 
@@ -45,7 +46,7 @@ void setup() {
   // Phat file:
   // /01/001.mp3
   player.playFolder(1, 1);
-  Serial.println("Commands: n=next  p=prev  s=stop  +=vol  -=vol");
+  Serial.println("Commands: n=next  p=prev  s=stop");
 }
 
 void loop() {
@@ -60,17 +61,6 @@ void loop() {
     } else if (c == 's') {
       player.stop();
       Serial.println("Stop");
-    } else if (c == '+') {
-      // increase volume
-      int v = player.readVolume();
-      v = min(30, v + 1);
-      player.volume(v);
-      Serial.print("Volume: "); Serial.println(v);
-    } else if (c == '-') {
-      int v = player.readVolume();
-      v = max(0, v - 1);
-      player.volume(v);
-      Serial.print("Volume: "); Serial.println(v);
     }
   }
 }
