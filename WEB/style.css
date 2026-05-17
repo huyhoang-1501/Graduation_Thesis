@@ -359,11 +359,12 @@ body {
   gap:8px;
 }
 
-/* Make filter groups distribute space evenly so the three "Tất cả" boxes match width */
+/* Make filter groups distribute space evenly so the three "Tất cả" boxes match width.
+   Use a sensible base width so groups are equal on desktop but still shrink on small screens. */
 .alerts-filters .filter-group,
 .history-filters .filter-group {
-  flex: 1 1 0;
-  min-width: 0; /* allow flex items to shrink below their content width */
+  flex: 1 1 220px; /* grow/shrink with a preferred base width */
+  min-width: 140px; /* prevent becoming too small on narrow viewports */
 }
 
 /* Ensure inputs/selects expand to fill their group's width */
@@ -764,10 +765,12 @@ body {
   }
 
   /* History date range: make the "đến" text match the label style on mobile */
+  /* make the "đến" text match the normal label style (not bold) on mobile */
   .history-filters .filter-group span {
-    font-size: 15px;
-    font-weight: bold;
-    color: #333;
+    font-size: 13px;
+    font-weight: normal;
+    color: #374151;
+    align-self: center; /* keep it visually aligned with date inputs */
   }
 
   /* Make patients/device inputs match the alert phone input size and padding on mobile */
