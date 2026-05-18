@@ -179,13 +179,11 @@ static void firebase_push_impl() {
   String battStr = (g_battery_percent >= 0) ? String(g_battery_percent) : String("null");
   String payload = String("{\"deviceId\":\"") + deviceId +
                    "\",\"status\":\"online\",\"batteryPercent\":" + battStr +
-                   ",\"mode\":\"user\",\"updatedAt\":{\".sv\":\"timestamp\"}}";
+                   ",\"mode\":\"user\",\"lastSeen\":{\".sv\":\"timestamp\"},\"updatedAt\":{\".sv\":\"timestamp\"}}";
 
+  // Push device info to /devices/<deviceId>. Do NOT update patients/<userId> here
+  // (we intentionally send device-level info without depending on userId).
   bool ok = firebase_patch(String("devices/") + deviceId, payload);
-  if (ok && userId && userId[0]) {
-    String patientPayload = String("{\"status\":\"online\",\"updatedAt\":{\".sv\":\"timestamp\"}}");
-    firebase_patch(String("patients/") + userId, patientPayload);
-  }
 }
 
 bool FirebaseSync_ValidateUserId(const char *userId, char *errMsg, size_t errMsgSize) {
@@ -202,31 +200,11 @@ bool FirebaseSync_ValidateUserId(const char *userId, char *errMsg, size_t errMsg
     return false;
   }
 
-  // Yeu cau: day trang thai + pin len Firebase truoc.
+  // Yêu cầu: đẩy trạng thái + pin lên Firebase trước.
   FirebaseSync_PushStatusAndBattery();
 
-  String body;
-  if (!firebase_get(String("patients/") + userId, body)) {
-    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "Khong doc duoc Firebase");
-    return false;
-  }
-
-  body.trim();
-  if (body == "null") {
-    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "User ID chua dang ky tren Web");
-    return false;
-  }
-
-  String expectDevice = String("\"deviceId\":\"") + deviceId + "\"";
-  if (body.indexOf(expectDevice) < 0) {
-    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "User ID nay khong gan voi %s", deviceId);
-    return false;
-  }
-
-  String bindPayload = String("{\"patientId\":\"") + userId +
-                       "\",\"linked\":true,\"status\":\"linked\",\"updatedAt\":{\".sv\":\"timestamp\"}}";
-  firebase_patch(String("devices/") + deviceId, bindPayload);
-
+  // Tạm thời BỎ QUA việc kiểm tra xem `userId` có được gắn với `deviceId` trên Firebase
+  // và BỎ QUA việc ghép (binding). Trả về OK trực tiếp.
   if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "OK");
   return true;
 }

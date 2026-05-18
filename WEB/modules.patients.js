@@ -68,7 +68,7 @@ function initPatientsModule() {
     }
 
     if (!isValidDeviceId(deviceId)) {
-      statusEl.textContent = "DEVICE ID không hợp lệ (UTE-2026 hoặc DEV-...).";
+      statusEl.textContent = "DEVICE ID không hợp lệ.";
       statusEl.style.color = "#dc2626";
       return;
     }
@@ -134,6 +134,10 @@ function initPatientsModule() {
   });
 }
 
+// Global device listener state to keep Overview in sync with /devices/<deviceId>
+window._currentDeviceRef = null;
+window._currentDeviceListener = null;
+
 function showOverviewForPatient(patientId) {
   const pCache = patientsCache[patientId];
   if (!pCache || (pCache.ownerUid && pCache.ownerUid !== getCurrentUserUid())) {
@@ -166,6 +170,47 @@ function showOverviewForPatient(patientId) {
 
   const tabTitle = document.getElementById("main-tab-title");
   if (tabTitle) tabTitle.textContent = "TỔNG QUAN";
+
+  // Attach realtime listener to /devices/<deviceId> for this patient (if any)
+  try {
+    // detach previous listener
+    if (window._currentDeviceRef && window._currentDeviceListener) {
+      window._currentDeviceRef.off('value', window._currentDeviceListener);
+      window._currentDeviceRef = null;
+      window._currentDeviceListener = null;
+    }
+
+    const deviceId = pCache.deviceId || null;
+    if (deviceId) {
+      const devRef = db.ref("devices/" + deviceId);
+      window._currentDeviceRef = devRef;
+      window._currentDeviceListener = devRef.on('value', snap => {
+        const d = snap.val() || {};
+
+        // battery
+        const battEl = document.getElementById("ov-battery");
+        if (battEl) battEl.textContent = (d.batteryPercent != null) ? (d.batteryPercent + " %") : "-- %";
+
+        // last seen
+        const lastEl = document.getElementById("ov-lastseen");
+        if (lastEl) {
+          if (d.lastSeen) lastEl.textContent = new Date(d.lastSeen).toLocaleString();
+        }
+
+        // device status badge
+        const badge = document.getElementById("ov-device-badge");
+        if (badge) {
+          const status = (d.status || 'offline');
+          badge.textContent = status.toUpperCase();
+          badge.classList.remove("badge-online","badge-offline","badge-stale");
+          if (status === 'online') badge.classList.add("badge-online");
+          else badge.classList.add("badge-offline");
+        }
+      });
+    }
+  } catch (e) {
+    console.error('device listener error', e);
+  }
 
   // 1) Load thông tin bệnh nhân
   db.ref("patients/" + patientId).once("value").then(snap => {

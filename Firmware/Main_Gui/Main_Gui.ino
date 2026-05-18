@@ -143,7 +143,7 @@ static const char *FIREBASE_DB_URL = "https://graduation-thesis-3a3df-default-rt
 static const uint32_t FIREBASE_PUSH_INTERVAL_MS = 5000;
 
 // If true, disable all Firebase push/loop/init calls to allow disconnecting WiFi temporarily.
-static const bool DISABLE_FIREBASE_PUSH = true;
+static const bool DISABLE_FIREBASE_PUSH = false;
 
 static void on_user_mode_back() {
   MainUi_ShowMainScreen();

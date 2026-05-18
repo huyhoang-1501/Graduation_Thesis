@@ -332,6 +332,39 @@ body {
   font-size:13px;
 }
 
+/* Responsive controls in overview (Device ID + view button) */
+.ov-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap; /* allow wrapping on narrow screens */
+}
+.ov-controls select { min-width: 160px; }
+#ov-device-id-input {
+  flex: 1 1 140px; /* grow to fill available space but keep a sensible base */
+  min-width: 120px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  background: #fff;
+}
+#ov-view-device-btn {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .ov-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ov-controls select { width: 100%; min-width: 0; }
+  #ov-device-id-input { width: 100%; }
+  #ov-view-device-btn { width: 100%; }
+}
+
 /* HISTORY + ALERTS FILTERS */
 .history-filters,
 .alerts-filters {

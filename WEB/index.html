@@ -214,10 +214,14 @@
         <!-- ========== OVERVIEW ========== -->
         <section id="page-overview" class="page active">
           <div class="overview-header">
-            <select id="ov-patient-select">
-              <option value="" selected disabled>Chọn bệnh nhân...</option>
-            </select>
-          </div>
+              <div class="ov-controls">
+                <select id="ov-patient-select">
+                  <option value="" selected disabled>Chọn bệnh nhân...</option>
+                </select>
+                <input id="ov-device-id-input" type="text" placeholder="Nhập DEVICE ID ..." autocomplete="off">
+                <button id="ov-view-device-btn" class="btn-primary">Xem thiết bị</button>
+              </div>
+            </div>
 
           <div class="overview-container">
             <!-- Row 1: cards -->
@@ -267,7 +271,7 @@
                 <div class="device-body">
                   <div>Last seen: <span id="ov-lastseen">--</span></div>
                   <div>Pin: <span id="ov-battery">-- %</span></div>
-                  <div>Network: <span id="ov-network">--</span></div>
+                  <!-- Network display removed: device pushes no longer include network field -->
                   <div>Data freshness: <span id="ov-freshness">--</span></div>
                 </div>
               </div>
@@ -421,21 +425,14 @@
 
           <div class="placeholder-box">
             <p>Nhập DEVICE ID cho User mode:</p>
-            <div class="patients-form">
-              <input type="text" id="bind-device-id" placeholder="DEVICE ID (vd: UTE-2026 hoặc DEV-XXXXXXXX)" autocomplete="off">
-              <input type="text" id="bind-pair-code" placeholder="Mã 5 số để nhập trên thiết bị" inputmode="numeric" pattern="[0-9]*" maxlength="5" autocomplete="off">
-              <div class="device-actions">
-                <button class="btn-primary" id="device-create-btn">
-                  <i class="fas fa-microchip"></i> Lưu DEVICE ID
-                </button>
-                <button class="btn-secondary" id="device-link-btn">
-                  <i class="fas fa-link"></i> Xác nhận Mã ID
-                </button>
-              </div>
-            </div>
-            <small id="device-bind-status" class="phone-status-text">
-              Bước 1: Nhập DEVICE ID dạng DEV-... Bước 2: Tạo mã User mode 5 số và nhập mã đó trên thiết bị.
-            </small>
+             <div class="patients-form">
+               <input type="text" id="bind-pair-code" placeholder="Mã 5 số cho User mode" inputmode="numeric" pattern="[0-9]*" maxlength="5" autocomplete="off">
+               <div class="device-actions">
+                 <button class="btn-secondary" id="device-link-btn">
+                   <i class="fas fa-link"></i> Xác nhận Mã ID
+                 </button>
+               </div>
+             </div>
           </div>
 
           <div class="placeholder-box">

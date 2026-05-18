@@ -294,6 +294,60 @@ function showApp(user) {
   initPatientsModule(); 
   initSettingsModule();
 
+  // Wire "View device by ID" button in Overview header
+  const viewBtn = document.getElementById('ov-view-device-btn');
+  const devInput = document.getElementById('ov-device-id-input');
+  if (viewBtn && devInput) {
+    viewBtn.addEventListener('click', () => {
+      const raw = devInput.value || '';
+      const deviceId = normalizeDeviceId(raw);
+      if (!deviceId) return alert('Vui lòng nhập DEVICE ID hợp lệ.');
+      showDeviceById(deviceId);
+    });
+  }
+
+
+// Show device-level info without requiring ownership. Detaches previous listener.
+function showDeviceById(deviceId) {
+  try {
+    if (window._currentDeviceRef && window._currentDeviceListener) {
+      window._currentDeviceRef.off('value', window._currentDeviceListener);
+      window._currentDeviceRef = null;
+      window._currentDeviceListener = null;
+    }
+
+    const devRef = db.ref('devices/' + deviceId);
+    window._currentDeviceRef = devRef;
+    window._currentDeviceListener = devRef.on('value', snap => {
+      const d = snap.val() || {};
+      // battery
+      const battEl = document.getElementById('ov-battery');
+      if (battEl) battEl.textContent = (d.batteryPercent != null) ? (d.batteryPercent + ' %') : '-- %';
+      // last seen
+      const lastEl = document.getElementById('ov-lastseen');
+      if (lastEl) {
+        if (d.lastSeen) lastEl.textContent = new Date(d.lastSeen).toLocaleString();
+        else lastEl.textContent = '--';
+      }
+      // badge
+      const badge = document.getElementById('ov-device-badge');
+      if (badge) {
+        const status = (d.status || 'offline');
+        badge.textContent = status.toUpperCase();
+        badge.classList.remove('badge-online','badge-offline','badge-stale');
+        if (status === 'online') badge.classList.add('badge-online');
+        else badge.classList.add('badge-offline');
+      }
+    });
+
+    // Clear patient selector selection to indicate device view
+    const ovSel = document.getElementById('ov-patient-select');
+    if (ovSel) ovSel.value = '';
+  } catch (err) {
+    console.error('showDeviceById error', err);
+    alert('Lỗi khi đọc device từ Firebase.');
+  }
+}
   // If user's email is not verified, show a gentle banner with resend option (non-blocking)
   try {
     const email = user?.email || auth.currentUser?.email || '';
@@ -499,14 +553,8 @@ function initDeviceBindingModule() {
   const linkBtn = document.getElementById("device-link-btn");
   const statusEl = document.getElementById("device-bind-status");
 
-  if (!deviceIdInput || !pairCodeInput || !createBtn || !linkBtn || !statusEl) return;
-
-  // DEVICE ID nhập theo dạng UTE-2026 hoặc DEV-... (không giới hạn 5 số)
-  deviceIdInput.addEventListener("input", (e) => {
-    e.target.value = normalizeDeviceId(e.target.value);
-  });
-  deviceIdInput.removeAttribute("inputmode");
-  deviceIdInput.removeAttribute("maxlength");
+  // require at least pairCode input and the action button
+  if (!pairCodeInput || !linkBtn) return;
 
   // User mode ID chỉ 5 số
   pairCodeInput.addEventListener("beforeinput", (e) => {
@@ -520,132 +568,152 @@ function initDeviceBindingModule() {
   });
   pairCodeInput.setAttribute("inputmode", "numeric");
   pairCodeInput.setAttribute("maxlength", "5");
-
   pairCodeInput.placeholder = "Mã 5 số cho User mode";
-  // Show both steps together (previous code overwrote the first assignment)
-  statusEl.innerHTML = "Bước 1: Nhập DEVICE ID. Ví dụ: UTE-2026 hoặc DEV-XXXXXXXX. Sau đó bấm Lưu DEVICE ID để tạo mã User mode.<br>" +
-                       "Bước 2: Tạo mã User mode 5 số và nhập mã đó trên thiết bị.";
-  statusEl.style.color = "#6b7280";
 
-  createBtn.addEventListener("click", async () => {
-    const deviceId = normalizeDeviceId(deviceIdInput.value);
+  // If deviceIdInput and createBtn exist (legacy layout), keep full behavior
+  if (deviceIdInput && createBtn) {
+    // DEVICE ID input normalization
+    deviceIdInput.addEventListener("input", (e) => {
+      e.target.value = normalizeDeviceId(e.target.value);
+    });
+    deviceIdInput.removeAttribute("inputmode");
+    deviceIdInput.removeAttribute("maxlength");
+
+    // show concise instructions only if statusEl present
+    if (statusEl) {
+      statusEl.innerHTML = "Tạo mã User mode 5 số để nhập trên thiết bị.";
+      statusEl.style.color = "#6b7280";
+    }
+
+    createBtn.addEventListener("click", async () => {
+      const deviceId = normalizeDeviceId(deviceIdInput.value);
+      let patientId = normalizeUserModeId(pairCodeInput.value);
+      const ownerUid = getCurrentUserUid();
+
+      if (!deviceId) return alert("Vui lòng nhập DEVICE ID.");
+      if (!isValidDeviceId(deviceId)) return alert("DEVICE ID không hợp lệ.");
+      if (patientId.length !== 5) patientId = makeUserModeId();
+      if (!ownerUid) return alert("Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.");
+
+      deviceIdInput.value = deviceId;
+      pairCodeInput.value = patientId;
+
+      try {
+        const deviceSnap = await db.ref("devices/" + deviceId).once("value");
+        const oldDevice = deviceSnap.val();
+        if (oldDevice?.ownerUid && oldDevice.ownerUid !== ownerUid) {
+          return alert("Mã thiết bị này đang thuộc tài khoản khác.");
+        }
+
+        await db.ref("devices/" + deviceId).set({
+          deviceId,
+          ownerUid,
+          patientId,
+          status: "ready_for_user_mode",
+          linked: true,
+          mode: "user",
+          createdAt: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        const patientSnap = await db.ref("patients/" + patientId).once("value");
+        const oldPatient = patientSnap.val();
+        if (oldPatient?.ownerUid && oldPatient.ownerUid !== ownerUid) {
+          return alert("Mã bệnh nhân này đang thuộc tài khoản khác.");
+        }
+
+        await db.ref("patients/" + patientId).set({
+          name: oldPatient?.name || ("Bệnh nhân " + patientId.slice(-4)),
+          age: oldPatient?.age || "",
+          sex: oldPatient?.sex || "Nam",
+          deviceId,
+          ownerUid,
+          mode: "user",
+          status: oldPatient?.status || "offline",
+          updatedAt: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        if (statusEl) {
+          statusEl.textContent = "Đã lưu DEVICE ID " + deviceId + " và tạo mã User mode: " + patientId + ". Hãy nhập mã 5 số này trên thiết bị.";
+          statusEl.style.color = "#16a34a";
+        } else {
+          alert("Đã tạo mã User mode: " + patientId + ".");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Lỗi tạo thiết bị: " + err.message);
+      }
+    });
+
+    linkBtn.addEventListener("click", async () => {
+      const deviceId = normalizeDeviceId(deviceIdInput.value);
+      const patientId = normalizeUserModeId(pairCodeInput.value);
+
+      if (!deviceId) return alert("Hãy nhập DEVICE ID trước.");
+      if (!isValidDeviceId(deviceId)) return alert("DEVICE ID không hợp lệ.");
+      if (patientId.length !== 5) return alert("Mã User mode phải đúng 5 số. Hãy bấm Lưu DEVICE ID để tạo mã.");
+
+      const ownerUid = getCurrentUserUid();
+
+      try {
+        const deviceSnap = await db.ref("devices/" + deviceId).once("value");
+        const deviceData = deviceSnap.val();
+        if (!deviceData) return alert("Mã chưa được tạo trên dashboard.");
+        if (deviceData.ownerUid && deviceData.ownerUid !== ownerUid) return alert("Mã này thuộc tài khoản khác.");
+
+        await db.ref("devices/" + deviceId).update({
+          ownerUid,
+          patientId,
+          status: "linked",
+          linked: true,
+          mode: "user",
+          updatedAt: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        pairCodeInput.value = patientId;
+        if (statusEl) {
+          statusEl.textContent = "Đã xác nhận User mode cho ID " + patientId + ". Thiết bị sẽ đẩy dữ liệu lên dashboard của tài khoản này.";
+          statusEl.style.color = "#2563eb";
+        } else {
+          alert("Đã xác nhận User mode cho ID " + patientId + ".");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Lỗi xác nhận thiết bị: " + err.message);
+      }
+    });
+
+    return; // legacy flow handled
+  }
+
+  // Simplified flow: no deviceId input present -> clicking the button will create/generate a 5-digit User mode ID
+  linkBtn.addEventListener("click", async () => {
     let patientId = normalizeUserModeId(pairCodeInput.value);
     const ownerUid = getCurrentUserUid();
 
-    if (!deviceId) {
-      alert("Vui lòng nhập DEVICE ID.");
-      return;
-    }
-
-    if (!isValidDeviceId(deviceId)) {
-      alert("DEVICE ID không hợp lệ.");
-      return;
-    }
-
-    if (patientId.length !== 5) {
-      patientId = makeUserModeId();
-    }
-
-    if (!ownerUid) {
-      alert("Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.");
-      return;
-    }
-
-    deviceIdInput.value = deviceId;
-    pairCodeInput.value = patientId;
+    if (!ownerUid) return alert("Vui lòng đăng nhập để tạo mã.");
+    if (patientId.length !== 5) patientId = makeUserModeId();
 
     try {
-      const deviceSnap = await db.ref("devices/" + deviceId).once("value");
-      const oldDevice = deviceSnap.val();
-      if (oldDevice?.ownerUid && oldDevice.ownerUid !== ownerUid) {
-        alert("Mã thiết bị này đang thuộc tài khoản khác.");
-        return;
-      }
-
-      await db.ref("devices/" + deviceId).set({
-        deviceId,
-        ownerUid,
-        patientId,
-        status: "ready_for_user_mode",
-        linked: true,
-        mode: "user",
-        createdAt: firebase.database.ServerValue.TIMESTAMP
-      });
-
       const patientSnap = await db.ref("patients/" + patientId).once("value");
       const oldPatient = patientSnap.val();
-      if (oldPatient?.ownerUid && oldPatient.ownerUid !== ownerUid) {
-        alert("Mã bệnh nhân này đang thuộc tài khoản khác.");
-        return;
-      }
+      if (oldPatient?.ownerUid && oldPatient.ownerUid !== ownerUid) return alert("Mã này thuộc tài khoản khác.");
 
       await db.ref("patients/" + patientId).set({
         name: oldPatient?.name || ("Bệnh nhân " + patientId.slice(-4)),
         age: oldPatient?.age || "",
         sex: oldPatient?.sex || "Nam",
-        deviceId,
+        deviceId: "",
         ownerUid,
         mode: "user",
         status: oldPatient?.status || "offline",
-        updatedAt: firebase.database.ServerValue.TIMESTAMP
-      });
-
-      statusEl.textContent = "Đã lưu DEVICE ID " + deviceId + " và tạo mã User mode: " + patientId + ". Hãy nhập mã 5 số này trên thiết bị.";
-      statusEl.style.color = "#16a34a";
-    } catch (err) {
-      console.error(err);
-      alert("Lỗi tạo thiết bị: " + err.message);
-    }
-  });
-
-  linkBtn.addEventListener("click", async () => {
-    const deviceId = normalizeDeviceId(deviceIdInput.value);
-    const patientId = normalizeUserModeId(pairCodeInput.value);
-
-    if (!deviceId) {
-      alert("Hãy nhập DEVICE ID trước.");
-      return;
-    }
-
-    if (!isValidDeviceId(deviceId)) {
-      alert("DEVICE ID không hợp lệ. Định dạng mong muốn: UTE-2026 hoặc DEV-XXXXXXXX.");
-      return;
-    }
-
-    if (patientId.length !== 5) {
-      alert("Mã User mode phải đúng 5 số. Hãy bấm Lưu DEVICE ID để tạo mã.");
-      return;
-    }
-
-    const ownerUid = getCurrentUserUid();
-
-    try {
-      const deviceSnap = await db.ref("devices/" + deviceId).once("value");
-      const deviceData = deviceSnap.val();
-      if (!deviceData) {
-        alert("Mã chưa được tạo trên dashboard.");
-        return;
-      }
-      if (deviceData.ownerUid && deviceData.ownerUid !== ownerUid) {
-        alert("Mã này thuộc tài khoản khác.");
-        return;
-      }
-
-      await db.ref("devices/" + deviceId).update({
-        ownerUid,
-        patientId,
-        status: "linked",
-        linked: true,
-        mode: "user",
-        updatedAt: firebase.database.ServerValue.TIMESTAMP
+        createdAt: firebase.database.ServerValue.TIMESTAMP
       });
 
       pairCodeInput.value = patientId;
-      statusEl.textContent = "Đã xác nhận User mode cho ID " + patientId + ". Thiết bị sẽ đẩy dữ liệu lên dashboard của tài khoản này.";
-      statusEl.style.color = "#2563eb";
+      alert("Đã tạo Mã User mode: " + patientId + ". Hãy nhập mã này trên thiết bị.");
     } catch (err) {
       console.error(err);
-      alert("Lỗi xác nhận thiết bị: " + err.message);
+      alert("Lỗi khi tạo mã: " + err.message);
     }
   });
 }
