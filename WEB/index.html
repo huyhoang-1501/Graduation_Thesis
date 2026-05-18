@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title> Health Monitoring - Portal</title>
+  <title>Health Guardian - Portal</title>
   <link rel="icon" href="image/potral.png" type="image/png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#2563eb">
@@ -43,7 +43,7 @@
     <div class="login-container">
       <div class="login-header">
         <img src="image/healthcare.png?v=3" alt="Healthcare Logo">
-        <h1>HEALTH MONITORING</h1>
+        <h1>HEALTH GUARDIAN</h1>
         <p>HỆ THỐNG THEO DÕI SỨC KHỎE</p>
       </div>
 
@@ -76,7 +76,6 @@
             HOẶC
           </div>
 
-
           <button type="submit" class="btn-login" id="google-signin-btn"
                   style="background:#4285F4;">
             <i class="fab fa-google" style="margin-right:15px;"></i>
@@ -84,7 +83,7 @@
           </button>
 
           <p style="margin-top:12px; text-align:center;">
-            <a href="#" id="forgot-password-link" style="color:#e11d48; font-weight:bold; text-decoration:underline;">Quên mật khẩu?</a>
+            <a href="#" id="forgot-password-link" style="color:#e11d48; font-weight:bold; text-decoration:underline; font-size:13px;">Quên mật khẩu?</a>
           </p>
 
           <p style="margin-top:25px; font-size:15px; color:#555;">
@@ -104,10 +103,9 @@
 
         <!-- RESET PASSWORD (đã tách ra, ẩn mặc định) -->
         <div id="reset-form" style="display:none; margin-top:20px;">
-          <h4 style="color:#2c3e50; margin-bottom:10px;">Khôi phục mật khẩu</h4>
           <div class="input-group-login">
             <label>Nhập Email</label>
-            <input type="text" id="reset-identifier" placeholder="Nhập tên đăng nhập hoặc email" autocomplete="username">
+            <input type="text" id="reset-identifier" placeholder="Nhập email cần khôi phục" autocomplete="username">
           </div>
           <div style="display:flex; gap:8px; margin-top:10px;">
             <button type="button" id="reset-btn" class="btn-login" style="background:#ef4444;">Gửi liên kết khôi phục</button>
@@ -116,9 +114,9 @@
         </div>
 
         <!-- ĐĂNG KÝ (ẩn mặc định) -->
-        <div id="register-form" style="display:none; margin-top:30px;">
-          <h3 style="color:#2c3e50; margin-bottom:20px;">TẠO TÀI KHOẢN MỚI</h3>
-          <p style="font-size:14px; color:#374151;">Bạn có thể đăng ký bằng Email (ưu tiên) hoặc chỉ nhập Tên đăng nhập (không có email). Lưu ý: tài khoản chỉ có tên đăng nhập sẽ không thể khôi phục mật khẩu qua email.</p>
+        <div id="register-form" style="display:none; margin-top:18px;">
+          <h3 style="color:#2c3e50; margin-bottom:8px;">TẠO TÀI KHOẢN MỚI</h3>
+          <p style="font-size:14px; color:#374151; text-align:left; margin-top:4px; margin-bottom:8px;">Đăng ký bằng Email hoặc Tên đăng nhập. Tài khoản tạo bằng Tên đăng nhập không thể khôi phục mật khẩu thông qua Email.</p>
           <div class="input-group-login">
             <label>Email hoặc Tên đăng nhập</label>
             <input type="text" id="identifier-register" placeholder="you@example.com hoặc user123" autocomplete="username">
@@ -129,6 +127,15 @@
                    placeholder="Tạo mật khẩu" required minlength="6"
                    autocomplete="new-password">
           </div>
+          <div class="input-group-login">
+            <label>Xác nhận mật khẩu</label>
+            <input type="password" id="password-register-confirm" placeholder="Nhập lại mật khẩu" required minlength="6" autocomplete="new-password">
+          </div>
+          <div style="margin-top:6px; font-size:13px; color:#374151;">
+            <label style="cursor:pointer;"><input type="checkbox" id="register-show-pass" style="margin-right:8px;"> Hiện mật khẩu</label>
+          </div>
+
+          <!-- phone input removed to simplify registration for elderly users -->
           <button type="button" id="register-btn" class="btn-login"
                   style="background:#27ae60;">
             Đăng ký ngay
@@ -168,10 +175,10 @@
       <!-- SIDEBAR -->
       <aside class="sidebar">
         <div class="sidebar-header">
-          <div class="sidebar-logo">Health Monitoring</div>
+          <div class="sidebar-logo">Health Guardian</div>
           <div class="sidebar-user">
             <div id="sidebar-user-name">Người dùng</div>
-            <div id="sidebar-user-role">Caregiver</div>
+            <div id="sidebar-user-role">Người giám sát</div>
           </div>
         </div>
 
@@ -207,7 +214,6 @@
         <!-- ========== OVERVIEW ========== -->
         <section id="page-overview" class="page active">
           <div class="overview-header">
-            <h2>Overview - <span id="ov-patient-name">--</span></h2>
             <select id="ov-patient-select">
               <option value="" selected disabled>Chọn bệnh nhân...</option>
             </select>
@@ -289,7 +295,6 @@
         <!-- ========== HISTORY ========== -->
         <section id="page-history" class="page">
           <div class="page-header-row">
-            <h2>History - <span id="his-patient-name">--</span></h2>
             <select id="his-patient-select">
               <option value="" selected disabled>Chọn bệnh nhân...</option>
             </select>
@@ -355,7 +360,6 @@
         <!-- ========== ALERTS ========== -->
         <section id="page-alerts" class="page">
           <div class="page-header-row">
-            <h2>Alerts - <span id="al-patient-name">--</span></h2>
             <select id="al-patient-select">
               <option value="" selected disabled>Chọn bệnh nhân...</option>
             </select>
@@ -367,9 +371,16 @@
               <select id="al-type">
                 <option value="all">Tất cả</option>
                 <option value="HR_HIGH">HR High</option>
-                <option value="BP_HIGH">BP High</option>
-                <option value="BP_LOW">BP Low</option>
-                <option value="DEVICE_OFFLINE">Device Offline</option>
+                <option value="HR_MAX">HR Max</option>
+                <option value="HR_MIN">HR Min</option>
+                <option value="SPO2_MAX">SpO₂ Max</option>
+                <option value="SPO2_MIN">SpO₂ Min</option>
+                <!-- BP High removed -->
+                <option value="BP_SYS_MAX">BP Sys Max</option>
+                <option value="BP_SYS_MIN">BP Sys Min</option>
+                <option value="BP_DIA_MAX">BP Dia Max</option>
+                <option value="BP_DIA_MIN">BP Dia Min</option>
+                <!-- BP Low removed -->
               </select>
             </div>
             <div class="filter-group">
@@ -398,13 +409,12 @@
         <!-- ========== DEVICES / PATIENTS ========== -->
         <section id="page-patients" class="page">
           <div class="page-header-row">
-            <h2>Thiết bị / Bệnh nhân</h2>
           </div>
 
           <div class="placeholder-box">
             <p><strong>Flow đơn giản cho người dùng:</strong></p>
             <p style="margin-top:8px; color:#374151;">
-              <strong>Guest mode:</strong> đo tại chỗ trên thiết bị, không cần web.<br>
+              <strong>Guest mode:</strong> đo tại chỗ trên thiết bị.<br>
               <strong>User mode:</strong> tạo Mã ID trên dashboard, sau đó nhập đúng Mã ID đó trên thiết bị để đồng bộ.
             </p>
           </div>
@@ -412,14 +422,16 @@
           <div class="placeholder-box">
             <p>Nhập DEVICE ID cho User mode:</p>
             <div class="patients-form">
-              <input type="text" id="bind-device-id" placeholder="DEVICE ID (ví dụ: DEV-6C068C8E720)">
+              <input type="text" id="bind-device-id" placeholder="DEVICE ID (vd: UTE-2026 hoặc DEV-XXXXXXXX)" autocomplete="off">
               <input type="text" id="bind-pair-code" placeholder="Mã 5 số để nhập trên thiết bị" inputmode="numeric" pattern="[0-9]*" maxlength="5" autocomplete="off">
-              <button class="btn-primary" id="device-create-btn">
-                <i class="fas fa-microchip"></i> Lưu DEVICE ID
-              </button>
-              <button class="btn-secondary" id="device-link-btn">
-                <i class="fas fa-link"></i> Xác nhận Mã ID
-              </button>
+              <div class="device-actions">
+                <button class="btn-primary" id="device-create-btn">
+                  <i class="fas fa-microchip"></i> Lưu DEVICE ID
+                </button>
+                <button class="btn-secondary" id="device-link-btn">
+                  <i class="fas fa-link"></i> Xác nhận Mã ID
+                </button>
+              </div>
             </div>
             <small id="device-bind-status" class="phone-status-text">
               Bước 1: Nhập DEVICE ID dạng DEV-... Bước 2: Tạo mã User mode 5 số và nhập mã đó trên thiết bị.
@@ -452,31 +464,66 @@
         <!-- ========== SETTINGS ========== -->
             <section id="page-settings" class="page">
         <div class="page-header-row">
-          <h2>Cài đặt</h2>
           <select id="set-patient-select">
             <option value="" selected disabled>Chọn bệnh nhân...</option>
           </select>
         </div>
 
         <div class="placeholder-box">
-        <p>Ngưỡng cảnh báo (demo UI):</p>
+        <p>Ngưỡng cảnh báo:</p>
         <div class="settings-grid">
-          <div>
-            <label>HR min</label>
-            <input type="number" id="th-hr-min" value="50">
-          </div>
+          <!-- Desktop: 4 columns -> two visual rows
+               Row A (top): HR max, HR min, SpO2 max, SpO2 min
+               Row B (bottom): BP Sys max, BP Sys min, BP Dia max, BP Dia min -->
+
+          <!-- HR max -->
           <div>
             <label>HR max</label>
-            <input type="number" id="th-hr-max" value="100">
+            <input type="number" id="th-hr-max">
           </div>
+
+          <!-- HR min -->
+          <div>
+            <label>HR min</label>
+            <input type="number" id="th-hr-min">
+          </div>
+
+          <!-- SpO2 max -->
+          <div>
+            <label>SpO₂ max</label>
+            <input type="number" id="th-spo2-max">
+          </div>
+
+          <!-- SpO2 min -->
+          <div>
+            <label>SpO₂ min</label>
+            <input type="number" id="th-spo2-min">
+          </div>
+
+          <!-- BP Sys max -->
           <div>
             <label>BP Sys max</label>
-            <input type="number" id="th-bp-sys-max" value="140">
+            <input type="number" id="th-bp-sys-max">
           </div>
+
+          <!-- BP Sys min -->
+          <div>
+            <label>BP Sys min</label>
+            <input type="number" id="th-bp-sys-min">
+          </div>
+
+          <!-- BP Dia max -->
           <div>
             <label>BP Dia max</label>
-            <input type="number" id="th-bp-dia-max" value="90">
+            <input type="number" id="th-bp-dia-max">
           </div>
+
+          <!-- BP Dia min -->
+          <div>
+            <label>BP Dia min</label>
+            <input type="number" id="th-bp-dia-min">
+          </div>
+
         </div>
 
         <!-- NÚT LƯU / XÓA NGƯỠNG -->
@@ -495,12 +542,14 @@
             type="tel"
             id="alert-phone"
             placeholder="Nhập số điện thoại (vd: 0901234567)">
-          <button class="btn-primary" id="phone-save-btn">
-            Lưu
-          </button>
-          <button class="btn-secondary" id="phone-delete-btn">
-            Xóa
-          </button>
+          <div class="phone-actions">
+            <button class="btn-primary" id="phone-save-btn">
+              Lưu
+            </button>
+            <button class="btn-secondary" id="phone-delete-btn">
+              Xóa
+            </button>
+          </div>
         </div>
 
         <small id="phone-status" class="phone-status-text"></small>

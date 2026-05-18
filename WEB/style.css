@@ -42,10 +42,12 @@ body {
       margin: 0 10px;               /* small side margin so rounded corners aren't off-screen */
       padding: 8px 10px;            /* tighten vertical space */
     overflow-y: auto;
+    overflow-x: hidden; /* prevent horizontal scroll if heading is long */
   }
   .login-header img { width:60px; height:60px; }
   .login-header h1 { font-size:14px; margin:1px 0; }
-  .login-title h2 { font-size:14px; margin:6px 0; }
+  /* keep the login title on a single line on narrow screens */
+  .login-title h2 { font-size:18px; margin:6px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
   .input-group-login { margin-bottom:4px; }
   .input-group-login input { padding:10px 8px; font-size:13px; min-height:44px; line-height:1.25; }
@@ -76,8 +78,12 @@ body {
 
 .login-title h2 {
   color: #006a9b;
-  font-size: 24px;
-  margin: 20px 0 25px;
+  /* responsive, constrained heading so it won't wrap on narrow screens */
+  font-size: clamp(18px, 4.5vw, 24px);
+  margin: 16px 0 20px;
+  white-space: nowrap; /* keep on single line */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .input-group-login {
@@ -159,25 +165,32 @@ body {
 
 /* SIDEBAR */
 .sidebar {
-  width: 230px;
+  /* widened sidebar for better readability */
+  width: 300px;
   background: #003f66;
   color: #fff;
-  padding: 15px 10px;
+  padding: 18px 14px;
 }
 .sidebar-header {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 0 10px 15px;
-  border-bottom: 1px solid rgba(255,255,255,0.2);
-  margin-bottom: 10px;
+  gap: 6px;
+  padding: 8px 12px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  margin-bottom: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  border-radius: 8px;
 }
 .sidebar-logo { font-weight: bold; font-size: 20px; }
-.sidebar-user div:first-child { font-weight: bold; }
+.sidebar-logo { font-weight: bold; font-size: 22px; color: #cfe7ff; letter-spacing: .2px; }
+.sidebar-user div:first-child { font-weight: 700; font-size: 18px; color:#ffffff; }
+.sidebar-user div:nth-child(2) { font-size: 13px; color: rgba(255,255,255,0.8); margin-top:2px; }
 .sidebar-user {
-  max-width: 180px;
+  /* allow user name/role to take more room when sidebar is wider */
+  max-width: 260px;
   white-space: normal;
-  word-break: break-all;
+  word-break: break-word;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.25);
 }
 .sidebar-section-title {
   margin: 15px 10px 5px;
@@ -346,6 +359,23 @@ body {
   gap:8px;
 }
 
+/* Make filter groups distribute space evenly so the three "Tất cả" boxes match width.
+   Use a sensible base width so groups are equal on desktop but still shrink on small screens. */
+.alerts-filters .filter-group,
+.history-filters .filter-group {
+  flex: 1 1 220px; /* grow/shrink with a preferred base width */
+  min-width: 140px; /* prevent becoming too small on narrow viewports */
+}
+
+/* Ensure inputs/selects expand to fill their group's width */
+.alerts-filters .filter-group input,
+.alerts-filters .filter-group select,
+.history-filters .filter-group input,
+.history-filters .filter-group select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 /* HISTORY TABLE */
 .history-layout .panel-full {
   margin-top:8px;
@@ -422,12 +452,98 @@ body {
   gap:6px;
 }
 
+/* FORMS USED IN PATIENTS / DEVICE BINDING AREAS */
+.patients-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap; /* allow wrapping on narrow screens */
+}
+.patients-form input,
+.patients-form select {
+  flex: 1 1 160px; /* grow, but keep a sensible minimum */
+  min-width: 120px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 2px solid #e6e9ef;
+  font-size: 14px;
+  line-height: 1.2;
+  min-height: 36px;      /* target height requested by user */
+  max-height: 40px;      /* keep compact look */
+  height: auto;
+  background: #fff;
+}
+.patients-form button {
+  flex: 0 0 auto; /* buttons keep their intrinsic size */
+  white-space: nowrap;
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+
+/* Extra safety: ensure selects and inputs don't get forced to large heights by other rules */
+.patients-form input[type="text"],
+.patients-form input[type="number"],
+.patients-form input[type="tel"],
+.patients-form select {
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Ensure textareas used in forms (device ID, notes, etc.) remain compact on mobile
+   and match the input styles instead of stretching to large default heights. */
+.patients-form textarea,
+.phone-row textarea,
+.settings-grid textarea,
+.panel-body textarea,
+.input-group-login textarea {
+  flex: 1 1 160px;
+  min-width: 120px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 2px solid #e6e9ef;
+  font-size: 14px;
+  line-height: 1.2;
+  min-height: 36px;
+  max-height: 56px; /* allow a small multi-line area but prevent giant boxes */
+  height: auto;
+  resize: vertical;
+  background: #fff;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+
 /* SETTINGS GRID */
 .settings-grid {
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
-  gap:10px;
-  margin-top:10px;
+  display: grid;
+  /* two columns layout for clean rows (HR, BP Sys, BP Dia, SpO2) */
+  /* 4 columns on wide screens to show two visual rows (top/bottom) */
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* Collapse to single column on narrow screens */
+@media (max-width: 1000px) {
+  .settings-grid {
+    /* two columns on medium screens */
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+}
+
+/* Mobile: keep two columns so each row shows a pair (max/min) as requested */
+@media (max-width: 640px) {
+  .settings-grid {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+    gap: 8px;
+  }
+}
+
+/* Very small phones: single column */
+@media (max-width: 380px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .settings-grid label {
   font-size:12px;
@@ -530,13 +646,38 @@ body {
 
   .stat-card { width: 100%; }
   .panel { width: 100%; }
-
   /* Tables and forms adapt */
-  .phone-row { flex-direction: column; gap: 8px; }
-  .phone-row button { width: 100%; }
+  /* Inputs stack vertically but phone actions (save/delete) are shown in a single row */
+  .phone-row { flex-direction: column; gap: 8px; align-items: stretch; }
+  /* keep input full width */
+  .phone-row input { width: 100%; }
+  /* phone action buttons grouped side-by-side similar to threshold-actions */
+  .phone-actions { display:flex; gap:10px; }
+  .phone-actions button { flex: 1; min-width: 120px; }
+
+  /* Stack patient/device form controls on mobile for predictable layout */
+  .patients-form { flex-direction: column; align-items: stretch; }
+  .patients-form input,
+  .patients-form select { width: 100%; }
+  .patients-form button { width: 100%; }
+
+  /* Device actions: keep device buttons side-by-side on mobile while inputs stack */
+  .device-actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+  .device-actions button {
+    flex: 1 1 0;
+    width: auto; /* override full-width rule */
+    min-width: 0;
+  }
 
   .history-filters, .alerts-filters { flex-direction: column; align-items: flex-start; }
   .filter-actions { width: 100%; display: flex; gap: 8px; }
+
+  /* Hide Export CSV on mobile to simplify the UI */
+  #his-export-btn { display: none; }
 
   .sidebar-user { max-width: none; word-break: normal; white-space: normal; }
   /* mobile: make sidebar header bigger like UTE sample */
@@ -565,4 +706,101 @@ body {
   
   /* Bottom navigation */
   /* bottom nav removed - mobile menu uses sidebar */
+}
+
+/* Mobile touch-friendly adjustments */
+@media (max-width: 768px) {
+  /* Increase touch target sizes and readable font sizes */
+  .main input[type="text"],
+  .main input[type="number"],
+  .main input[type="tel"],
+  .main input[type="date"],
+  .main select,
+  .patients-form input,
+  .phone-row input,
+  .filter-group input,
+  .filter-group select,
+  .input-group-login input {
+    min-height: 44px;
+    font-size: 15px;
+    padding: 10px 12px;
+    border-radius: 8px;
+  }
+
+  .patients-form button,
+  .phone-row button,
+  .filter-actions button,
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 15px;
+  }
+
+  /* Make patient/device form controls compact but touch-friendly on mobile.
+     Use auto height so inputs don't look like large textareas; keep a sensible minimum. */
+  .patients-form input,
+  .patients-form select,
+  #bind-device-id,
+  #bind-pair-code,
+  #pt-name,
+  #pt-age,
+  #pt-sex {
+    height: auto;
+    min-height: 36px;
+    padding: 8px 10px;
+    line-height: 1.2;
+  }
+
+  /* Ensure grouped phone action buttons are comfortable and equal-width */
+  .phone-actions button { min-height: 44px; }
+
+  /* Slightly larger labels for accessibility */
+  .filter-group label,
+  .settings-grid label,
+  .input-group-login label {
+    font-size: 15px;
+  }
+
+  /* History date range: make the "đến" text match the label style on mobile */
+  /* make the "đến" text match the normal label style (not bold) on mobile */
+  .history-filters .filter-group span {
+    font-size: 13px;
+    font-weight: normal;
+    color: #374151;
+    align-self: center; /* keep it visually aligned with date inputs */
+  }
+
+  /* Make patients/device inputs match the alert phone input size and padding on mobile */
+  .patients-form input,
+  .patients-form select,
+  #bind-device-id,
+  #bind-pair-code,
+  #pt-name,
+  #pt-age,
+  #pt-sex,
+  #alert-phone {
+    padding: 6px 8px !important;
+    font-size: 13px !important;
+    min-height: 36px !important;
+    max-height: 40px !important;
+    line-height: 1.1 !important;
+  }
+
+  /* Give more vertical breathing room on mobile */
+  .patients-form { gap: 12px; }
+  .history-filters, .alerts-filters { gap: 14px; }
+  .tab-header.single h2 { font-size: 20px; }
+
+  /* Page header selects: don't force full width on mobile — keep them just large enough for their content
+     but allow wrapping for very narrow viewports. This prevents the select from stretching across unrelated sections. */
+  .page-header-row select,
+  .overview-header select {
+    display: inline-block;
+    width: auto;
+    max-width: 320px; /* reasonable cap so it won't grow too wide */
+    min-width: 160px; /* keep a usable touch target */
+  }
 }

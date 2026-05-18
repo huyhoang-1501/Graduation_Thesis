@@ -196,31 +196,40 @@ static void create_main_gui() {
   lv_obj_set_style_text_font(label_health, pick_font_36_or_14(), 0);
   lv_obj_align(label_health, LV_ALIGN_TOP_LEFT, 0, 2);
 
-  lv_obj_t *label_monitor = lv_label_create(text_cont);
-  lv_label_set_text(label_monitor, "Monitoring");
-  lv_obj_set_style_text_color(label_monitor, primary, 0);
-  lv_obj_set_style_text_font(label_monitor, pick_font_36_or_14(), 0);
-  lv_obj_align_to(label_monitor, label_health, LV_ALIGN_OUT_BOTTOM_LEFT, 0, -4);
+  lv_obj_t *label_guardian = lv_label_create(text_cont);
+  lv_label_set_text(label_guardian, "Guardian");
+  lv_obj_set_style_text_color(label_guardian, primary, 0);
+  lv_obj_set_style_text_font(label_guardian, pick_font_36_or_14(), 0);
+  lv_obj_align_to(label_guardian, label_health, LV_ALIGN_OUT_BOTTOM_LEFT, 0, -4);
 
   label_device_id = lv_label_create(text_cont);
   lv_label_set_text(label_device_id, "Device ID: --");
   lv_obj_set_style_text_color(label_device_id, dark, 0);
   lv_obj_set_style_text_font(label_device_id, pick_font_16_or_14(), 0);
-  lv_obj_align_to(label_device_id, label_monitor, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 10);
+  // nho nhat: đẩy lên cao chút
+  lv_obj_align_to(label_device_id, label_guardian, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 6);
 
   label_user_id = lv_label_create(text_cont);
   lv_label_set_text(label_user_id, "User ID: (chua nhap)");
   lv_obj_set_style_text_color(label_user_id, dark, 0);
   lv_obj_set_style_text_font(label_user_id, pick_font_16_or_14(), 0);
-  lv_obj_align_to(label_user_id, label_device_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 6);
+  // slightly tighter spacing
+  lv_obj_align_to(label_user_id, label_device_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 4);
 
-  lv_obj_t *label_mode_hint = lv_label_create(text_cont);
-  lv_label_set_text(label_mode_hint, "Guest: do tai cho | User: nhap ID de dong bo web");
-  lv_label_set_long_mode(label_mode_hint, LV_LABEL_LONG_WRAP);
-  lv_obj_set_width(label_mode_hint, 230);
-  lv_obj_set_style_text_color(label_mode_hint, lv_color_make(70, 110, 130), 0);
-  lv_obj_set_style_text_font(label_mode_hint, pick_font_14(), 0);
-  lv_obj_align_to(label_mode_hint, label_user_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 6);
+  // Split the mode hint into two lines: Guest above, User below
+  lv_obj_t *label_guest_hint = lv_label_create(text_cont);
+  lv_label_set_text(label_guest_hint, "Guest: do tai cho");
+  lv_obj_set_style_text_color(label_guest_hint, lv_color_make(70, 110, 130), 0);
+  lv_obj_set_style_text_font(label_guest_hint, pick_font_14(), 0);
+  lv_obj_align_to(label_guest_hint, label_user_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 6);
+
+  lv_obj_t *label_user_hint = lv_label_create(text_cont);
+  lv_label_set_text(label_user_hint, "User: nhap ID de dong bo");
+  lv_label_set_long_mode(label_user_hint, LV_LABEL_LONG_WRAP);
+  lv_obj_set_width(label_user_hint, 230);
+  lv_obj_set_style_text_color(label_user_hint, lv_color_make(70, 110, 130), 0);
+  lv_obj_set_style_text_font(label_user_hint, pick_font_14(), 0);
+  lv_obj_align_to(label_user_hint, label_guest_hint, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 6);
 
   lv_obj_t *cont_btn = lv_obj_create(scr);
   lv_obj_set_size(cont_btn, lv_pct(100), 74);
@@ -270,11 +279,11 @@ static void create_main_gui() {
   lv_obj_add_event_cb(btn_user, user_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
   lv_obj_t *lu = lv_label_create(btn_user);
-  lv_label_set_text(lu, "User mode (nhap ID)");
+  lv_label_set_text(lu, "User mode ");
   lv_obj_center(lu);
   lv_obj_set_style_text_color(lu, lv_color_white(), 0);
   lv_obj_set_style_text_font(lu, pick_font_20_or_14(), 0);
-
+  
   MainUi_UpdateStatus("--:--  --/--/----", "--%");
   refresh_device_id_label();
   refresh_user_id_label();

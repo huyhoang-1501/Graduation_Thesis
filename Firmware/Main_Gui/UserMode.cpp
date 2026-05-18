@@ -4,11 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <stdlib.h>
 #include "keypad.h"
 #include "FirebaseSync.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include <stdlib.h>
 
 typedef struct {
   char userId[16];
@@ -45,7 +45,7 @@ static void ensure_status_label() {
   lv_obj_align(g_status_label, LV_ALIGN_TOP_RIGHT, -4, 6);
   lv_obj_set_style_text_align(g_status_label, LV_TEXT_ALIGN_RIGHT, 0);
   lv_obj_set_style_text_color(g_status_label, lv_color_make(80, 120, 140), 0);
-  lv_label_set_text(g_status_label, "Nhap User ID 5 so da tao tren Web");
+  lv_label_set_text(g_status_label, "Nhap User ID 5 so da tao tren web/app");
 }
 
 void UserMode_SetStatus(const char *text, bool is_error) {
@@ -116,22 +116,23 @@ void UserMode_Init(const lv_font_t *btn_font,
 
   if (!g_inited) {
     keypad_init_screen(g_btn_font,
-                       g_back_font,
-                       on_keypad_back_internal,
-                       on_keypad_view_internal);
+               g_back_font,
+               on_keypad_back_internal,
+               on_keypad_view_internal,
+               "ENTER");
     g_inited = true;
   }
 
-  keypad_set_placeholder_text("Nhap User ID 5 so da dang ky tren Web...");
+  keypad_set_placeholder_text("Nhap User ID 5 so da dang ky...");
   ensure_status_label();
 }
 
 void UserMode_Show(void) {
   if (!g_inited) return;
   keypad_set_text("");
-  keypad_set_placeholder_text("Nhap User ID 5 so da dang ky tren Web...");
+  keypad_set_placeholder_text("Nhap User ID 5 so da dang ky...");
   ensure_status_label();
-  UserMode_SetStatus("Nhap User ID 5 so da tao tren Web", false);
+  UserMode_SetStatus("Nhap User ID 5 so da tao", false);
 
   lv_obj_t *scr = keypad_get_screen();
   if (scr) {

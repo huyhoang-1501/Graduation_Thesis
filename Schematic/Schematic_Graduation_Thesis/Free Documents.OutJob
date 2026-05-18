@@ -2,9 +2,9 @@
 Version=1.0
 
 [PublishSettings]
-OutputFilePath2=D:\DoAn\DATN\DoAnTotNghiep\Schematic\Schematic_Graduation_Thesis\.PDF
+OutputFilePath2=D:\DoAn\DATN\Graduation_Thesis\Schematic\Schematic_Graduation_Thesis\.PDF
 ReleaseManaged2=0
-OutputBasePath2=D:\DoAn\DATN\DoAnTotNghiep\Schematic\Schematic_Graduation_Thesis\
+OutputBasePath2=D:\DoAn\DATN\Graduation_Thesis\Schematic\Schematic_Graduation_Thesis\
 OutputPathMedia2=
 OutputPathMediaValue2=
 OutputPathOutputer2=[Output Type]
@@ -81,7 +81,7 @@ WmvVideoCodecName4=Windows Media Video V7
 WmvQuality4=80
 
 [GeneratedFilesSettings]
-RelativeOutputPath2=D:\DoAn\DATN\DoAnTotNghiep\Schematic\Schematic_Graduation_Thesis\.PDF
+RelativeOutputPath2=D:\DoAn\DATN\Graduation_Thesis\Schematic\Schematic_Graduation_Thesis\.PDF
 OpenOutputs2=1
 RelativeOutputPath3=
 OpenOutputs3=1
