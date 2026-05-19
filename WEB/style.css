@@ -824,7 +824,28 @@ body {
 
   /* Give more vertical breathing room on mobile */
   .patients-form { gap: 12px; }
-  .history-filters, .alerts-filters { gap: 14px; }
+  /* Reduce vertical spacing between filter groups on mobile so controls sit closer together */
+  .history-filters, .alerts-filters { gap: 8px; }
+
+  /* Make date-range sub-controls tighter and align the "đến" label to the left, matching the
+     visual style of the 'Ngày / Khoảng thời gian' label on mobile. This keeps sizes compact
+     and consistent with the screenshots the user provided. */
+  .history-filters .filter-group {
+    gap: 6px; /* reduce vertical space inside the group */
+  }
+
+  /* Make the inline "đến" text match label size and weight and align left with the label */
+  .history-filters .filter-group span {
+    font-size: 15px; /* match mobile label size */
+    font-weight: 700; /* match label boldness */
+    color: #374151; /* neutral dark gray consistent with labels */
+    align-self: flex-start; /* align to left edge like the label */
+    margin: 0; /* remove extra default spacing */
+    line-height: 1.2;
+  }
+
+  /* Alerts: keep alert filter inputs closer together on mobile */
+  .alerts-filters .filter-group { gap: 6px; }
   .tab-header.single h2 { font-size: 20px; }
 
   /* Page header selects: don't force full width on mobile — keep them just large enough for their content
