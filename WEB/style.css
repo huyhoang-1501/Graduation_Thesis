@@ -356,13 +356,28 @@ body {
 }
 
 @media (max-width: 768px) {
+  /* Mobile: select on first row; Device ID + button on the same row */
   .ov-controls {
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-auto-rows: auto;
+    gap: 8px;
+    align-items: center;
   }
-  .ov-controls select { width: 100%; min-width: 0; }
-  #ov-device-id-input { width: 100%; }
-  #ov-view-device-btn { width: 100%; }
+  .ov-controls select {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+  }
+  #ov-device-id-input {
+    grid-column: 1;
+    width: 100%;
+    min-width: 0;
+  }
+  #ov-view-device-btn {
+    grid-column: 2;
+    width: auto;
+  }
 }
 
 /* HISTORY + ALERTS FILTERS */
@@ -803,7 +818,12 @@ body {
     font-size: 13px;
     font-weight: normal;
     color: #374151;
-    align-self: center; /* keep it visually aligned with date inputs */
+    align-self: flex-start; /* stick to the left edge */
+    width: 100%;
+    text-align: left;
+    line-height: 1.2;
+    margin-top: 2px;
+    margin-bottom: -2px; /* visually tighten between the two date inputs */
   }
 
   /* Make patients/device inputs match the alert phone input size and padding on mobile */
@@ -831,21 +851,53 @@ body {
      visual style of the 'Ngày / Khoảng thời gian' label on mobile. This keeps sizes compact
      and consistent with the screenshots the user provided. */
   .history-filters .filter-group {
-    gap: 6px; /* reduce vertical space inside the group */
+    gap: 4px; /* reduce vertical space inside the group */
   }
 
   /* Make the inline "đến" text match label size and weight and align left with the label */
   .history-filters .filter-group span {
-    font-size: 15px; /* match mobile label size */
-    font-weight: 700; /* match label boldness */
+    font-size: 13px;
+    font-weight: normal;
     color: #374151; /* neutral dark gray consistent with labels */
     align-self: flex-start; /* align to left edge like the label */
+    width: 100%;
+    text-align: left;
     margin: 0; /* remove extra default spacing */
     line-height: 1.2;
   }
 
   /* Alerts: keep alert filter inputs closer together on mobile */
-  .alerts-filters .filter-group { gap: 6px; }
+  .alerts-filters .filter-group { gap: 4px; }
+
+  /* Make History/Alerts filter controls more compact on mobile (match the screenshots) */
+  #his-patient-select,
+  #al-patient-select,
+  .history-filters .filter-group input,
+  .history-filters .filter-group select,
+  .alerts-filters .filter-group input,
+  .alerts-filters .filter-group select {
+    min-height: 36px !important;
+    padding: 6px 8px !important;
+    font-size: 13px !important;
+    line-height: 1.2;
+  }
+
+  /* Overview controls: make Device ID + button smaller and keep them on one row */
+  .ov-controls { row-gap: 10px; }
+  #ov-patient-select,
+  #ov-device-id-input {
+    min-height: 36px !important;
+    padding: 6px 8px !important;
+    font-size: 13px !important;
+    line-height: 1.2;
+  }
+  #ov-view-device-btn {
+    width: auto !important; /* override global .btn-primary width:100% on mobile */
+    min-height: 36px !important;
+    padding: 6px 10px !important;
+    font-size: 13px !important;
+    line-height: 1.2;
+  }
   .tab-header.single h2 { font-size: 20px; }
 
   /* Page header selects: don't force full width on mobile — keep them just large enough for their content
