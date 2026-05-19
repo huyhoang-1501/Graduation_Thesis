@@ -318,26 +318,63 @@ function showDeviceById(deviceId) {
 
     const devRef = db.ref('devices/' + deviceId);
     window._currentDeviceRef = devRef;
+    // derive online/offline/stale from lastSeen timestamp (firmware may not flip status to offline)
+    const ONLINE_THRESHOLD = 3 * 60 * 1000; // 3 minutes
+    const STALE_THRESHOLD = 30 * 60 * 1000; // 30 minutes
+
     window._currentDeviceListener = devRef.on('value', snap => {
       const d = snap.val() || {};
+
       // battery
       const battEl = document.getElementById('ov-battery');
       if (battEl) battEl.textContent = (d.batteryPercent != null) ? (d.batteryPercent + ' %') : '-- %';
-      // last seen
+
+      // last seen & freshness
+      const now = Date.now();
+      const lastSeenRaw = d.lastSeen || d.lastSeenAt || 0;
+      const lastSeen = Number(lastSeenRaw) || 0;
       const lastEl = document.getElementById('ov-lastseen');
+      const freshnessEl = document.getElementById('ov-freshness');
       if (lastEl) {
-        if (d.lastSeen) lastEl.textContent = new Date(d.lastSeen).toLocaleString();
+        if (lastSeen) lastEl.textContent = new Date(lastSeen).toLocaleString();
         else lastEl.textContent = '--';
       }
+
+      // compute derived status based on lastSeen (more reliable than trusting firmware-written `status` field)
+      let derivedStatus = (d.status || 'offline');
+      if (lastSeen) {
+        const age = now - lastSeen;
+        if (age < ONLINE_THRESHOLD) derivedStatus = 'online';
+        else if (age < STALE_THRESHOLD) derivedStatus = 'stale';
+        else derivedStatus = 'offline';
+      } else {
+        derivedStatus = d.status || 'offline';
+      }
+
       // badge
       const badge = document.getElementById('ov-device-badge');
       if (badge) {
-        const status = (d.status || 'offline');
-        badge.textContent = status.toUpperCase();
+        badge.textContent = derivedStatus.toUpperCase();
         badge.classList.remove('badge-online','badge-offline','badge-stale');
-        if (status === 'online') badge.classList.add('badge-online');
+        if (derivedStatus === 'online') badge.classList.add('badge-online');
+        else if (derivedStatus === 'stale') badge.classList.add('badge-stale');
         else badge.classList.add('badge-offline');
       }
+
+      // freshness text
+      if (freshnessEl) {
+        if (!lastSeen) freshnessEl.textContent = '--';
+        else {
+          const sec = Math.floor((now - lastSeen) / 1000);
+          if (sec < 60) freshnessEl.textContent = 'Vừa mới';
+          else if (sec < 3600) freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 60) + ' phút';
+          else freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 3600) + ' giờ';
+        }
+      }
+
+      // optional network indicator
+      const netEl = document.getElementById('ov-network');
+      if (netEl) netEl.textContent = d.network || '--';
     });
 
     // Clear patient selector selection to indicate device view
@@ -632,6 +669,19 @@ function initDeviceBindingModule() {
           updatedAt: firebase.database.ServerValue.TIMESTAMP
         });
 
+        // Ensure there's a settings entry for this patientId. We keep settings keyed by patientId
+        // (safer than using patient name as key because names may not be unique or key-safe).
+        try {
+          await db.ref('settings/' + patientId).set({
+            patientId,
+            name: oldPatient?.name || ("Bệnh nhân " + patientId.slice(-4)),
+            thresholds: oldPatient?.thresholds || {},
+            phone: oldPatient?.phone || ''
+          });
+        } catch (err) {
+          console.warn('Không lưu được settings mặc định cho bệnh nhân:', err);
+        }
+
         if (statusEl) {
           statusEl.textContent = "Đã lưu DEVICE ID " + deviceId + " và tạo mã User mode: " + patientId + ". Hãy nhập mã 5 số này trên thiết bị.";
           statusEl.style.color = "#16a34a";
@@ -685,7 +735,8 @@ function initDeviceBindingModule() {
     return; // legacy flow handled
   }
 
-  // Simplified flow: no deviceId input present -> clicking the button will create/generate a 5-digit User mode ID
+  // Simplified flow: no deviceId input present -> clicking the button *confirms* the 5-digit User mode ID
+  // It will NOT create the patient immediately. User must fill Name/Age/Sex and press Thêm to actually add.
   linkBtn.addEventListener("click", async () => {
     let patientId = normalizeUserModeId(pairCodeInput.value);
     const ownerUid = getCurrentUserUid();
@@ -698,22 +749,27 @@ function initDeviceBindingModule() {
       const oldPatient = patientSnap.val();
       if (oldPatient?.ownerUid && oldPatient.ownerUid !== ownerUid) return alert("Mã này thuộc tài khoản khác.");
 
-      await db.ref("patients/" + patientId).set({
-        name: oldPatient?.name || ("Bệnh nhân " + patientId.slice(-4)),
-        age: oldPatient?.age || "",
-        sex: oldPatient?.sex || "Nam",
-        deviceId: "",
-        ownerUid,
-        mode: "user",
-        status: oldPatient?.status || "offline",
-        createdAt: firebase.database.ServerValue.TIMESTAMP
-      });
+      // Prefill the add-patient form with existing data if any, but DO NOT write to DB yet
+      const nameInput = document.getElementById('pt-name');
+      const ageInput = document.getElementById('pt-age');
+      const sexInput = document.getElementById('pt-sex');
+      const statusElLocal = document.getElementById('pt-status');
+
+      if (nameInput) nameInput.value = oldPatient?.name || "";
+      if (ageInput) ageInput.value = oldPatient?.age || "";
+      if (sexInput) sexInput.value = oldPatient?.sex || "Nam";
 
       pairCodeInput.value = patientId;
-      alert("Đã tạo Mã User mode: " + patientId + ". Hãy nhập mã này trên thiết bị.");
+
+      if (statusElLocal) {
+        statusElLocal.textContent = "Mã ID " + patientId + " đã xác nhận. Điền tên/tuổi/giới tính rồi bấm 'Thêm' để lưu.";
+        statusElLocal.style.color = "#2563eb";
+      } else {
+        alert("Mã ID " + patientId + " đã xác nhận. Điền tên/tuổi/giới tính rồi bấm 'Thêm' để lưu.");
+      }
     } catch (err) {
       console.error(err);
-      alert("Lỗi khi tạo mã: " + err.message);
+      alert("Lỗi khi kiểm tra mã: " + err.message);
     }
   });
 }

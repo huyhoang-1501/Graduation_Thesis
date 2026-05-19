@@ -32,20 +32,17 @@ function initPatientsModule() {
       const p = ownedPatients[pid];
       const row = document.createElement("div");
       row.className = "patient-row";
-      const statusBadge = p.status === "online" ? "badge-online" : "badge-offline";
 
       row.innerHTML = `
-        <div class="patient-info">
-          <div><strong>${p.name || "(chưa có tên)"}</strong> (${p.age || "?"}, ${p.sex || "?"})</div>
-          <div>DeviceId: ${p.deviceId || "-"}</div>
-          <div>patientId: <code>${pid}</code></div>
-          <div>Trạng thái: <span class="badge ${statusBadge}">${(p.status || "offline").toUpperCase()}</span></div>
-        </div>
-        <div class="patient-actions">
-          <button class="btn-ghost" data-pid="${pid}" data-action="view">View</button>
-          <button class="btn-ghost" data-pid="${pid}" data-action="delete">Delete</button>
-        </div>
-      `;
+          <div class="patient-info">
+            <div><strong>${p.name || "(chưa có tên)"}</strong> (${p.age || "?"}, ${p.sex || "?"})</div>
+            <div>patientId: <code>${pid}</code></div>
+          </div>
+          <div class="patient-actions">
+            <button class="btn-ghost" data-pid="${pid}" data-action="view">View</button>
+            <button class="btn-ghost" data-pid="${pid}" data-action="delete">Delete</button>
+          </div>
+        `;
       listEl.appendChild(row);
     });
 
@@ -53,7 +50,7 @@ function initPatientsModule() {
     refreshPatientDropdowns(ownedPatients);
   });
 
-  // Thêm patient: ghi vào /patients
+  // Thêm patient: ghi vào /patients (deviceId là tùy chọn)
   addBtn?.addEventListener("click", () => {
     const name = nameEl.value.trim();
     const age  = ageEl.value.trim();
@@ -61,14 +58,8 @@ function initPatientsModule() {
     const deviceId = normalizeDeviceId(bindIdEl?.value || "");
     const patientId = normalizeUserModeId(pairCodeEl?.value || "");
 
-    if (!name || !age || !deviceId || !patientId) {
-      statusEl.textContent = "Vui lòng nhập đầy đủ Tên, Tuổi, DEVICE ID và Mã User mode.";
-      statusEl.style.color = "#dc2626";
-      return;
-    }
-
-    if (!isValidDeviceId(deviceId)) {
-      statusEl.textContent = "DEVICE ID không hợp lệ.";
+    if (!name || !patientId) {
+      statusEl.textContent = "Vui lòng nhập ít nhất Tên và Mã User mode (5 số).";
       statusEl.style.color = "#dc2626";
       return;
     }
@@ -79,11 +70,17 @@ function initPatientsModule() {
       return;
     }
 
+    if (deviceId && !isValidDeviceId(deviceId)) {
+      statusEl.textContent = "DEVICE ID không hợp lệ.";
+      statusEl.style.color = "#dc2626";
+      return;
+    }
+
     const patientData = {
       name,
-      age,
-      sex,
-      deviceId,
+      age: age || "",
+      sex: sex || "Nam",
+      deviceId: deviceId || "",
       ownerUid,
       mode: "user",
       status: "offline"   // mặc định, phần cứng cập nhật sau
@@ -91,19 +88,38 @@ function initPatientsModule() {
 
     const patientRef = ref.child(patientId);
     patientRef.set(patientData)
-      .then(() => db.ref("devices/" + deviceId).update({
-        ownerUid,
-        patientId,
-        status: "linked",
-        linked: true,
-        mode: "user",
-        updatedAt: firebase.database.ServerValue.TIMESTAMP
-      }))
       .then(() => {
-        statusEl.textContent = "Đã thêm bệnh nhân với User mode ID: " + patientId + " (DEVICE ID: " + deviceId + ").";
+        // if deviceId provided, update device node
+        if (deviceId) {
+          return db.ref("devices/" + deviceId).update({
+            ownerUid,
+            patientId,
+            status: "linked",
+            linked: true,
+            mode: "user",
+            updatedAt: firebase.database.ServerValue.TIMESTAMP
+          });
+        }
+        return Promise.resolve();
+      })
+      .then(async () => {
+        // create/update settings node for this patientId
+        try {
+          await db.ref('settings/' + patientId).set({
+            patientId,
+            name,
+            thresholds: {},
+            phone: ''
+          });
+        } catch (err) {
+          console.warn('Không lưu được settings mặc định cho bệnh nhân:', err);
+        }
+
+        statusEl.textContent = "Đã thêm bệnh nhân với User mode ID: " + patientId + (deviceId ? " (DEVICE ID: " + deviceId + ")" : "") + ".";
         statusEl.style.color = "#16a34a";
         nameEl.value = "";
         ageEl.value = "";
+        pairCodeEl.value = "";
       })
       .catch(err => {
         console.error(err);
