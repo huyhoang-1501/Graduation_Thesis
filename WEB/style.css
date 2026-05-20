@@ -903,6 +903,63 @@ body {
     line-height: 1.2;
   }
 
+  /* Arrange History/Alerts filter groups to match mobile screenshots:
+     - Stack groups vertically but keep their controls compact (not full-width).
+     - Provide consistent vertical spacing and keep selects/inputs a comfortable max-width. */
+  .history-filters,
+  .alerts-filters {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px; /* slightly larger gap like screenshots */
+  }
+
+  .history-filters .filter-group,
+  .alerts-filters .filter-group {
+    width: 100%;
+    max-width: 360px; /* group won't stretch forever on wide phones */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  /* Date inputs in History should span the group's width (full within the group's max-width)
+     so they look like the pill-style date controls in your screenshot. Other selects remain compact. */
+  .history-filters .filter-group input[type="date"] {
+    display: block;
+    width: 100%;
+    max-width: 360px;
+    box-sizing: border-box;
+    padding: 10px 12px !important;
+    min-height: 36px !important;
+    border-radius: 8px !important;
+    border: 2px solid #e6e9ef !important;
+    background: #fff !important;
+    font-size: 14px !important;
+  }
+
+  .history-filters .filter-group input:not([type="date"]),
+  .history-filters .filter-group select {
+    display: inline-block;
+    width: auto;
+    max-width: 320px;
+    box-sizing: border-box;
+  }
+
+  /* Alerts: stack small selects vertically and keep them compact like the screenshot */
+  .alerts-filters .filter-group input,
+  .alerts-filters .filter-group select {
+    display: inline-block;
+    width: auto;
+    max-width: 220px;
+    box-sizing: border-box;
+  }
+
+  /* Make filter action buttons (Lọc / Export) full width and visually separated */
+  .filter-actions { width: 100%; display: flex; gap: 8px; }
+  .filter-actions .btn-primary,
+  .filter-actions .btn-secondary { flex: 1; }
+
   /* Overview controls: make Device ID + button smaller and keep them on one row */
   .ov-controls { row-gap: 10px; }
   #ov-view-device-btn {
@@ -922,5 +979,6 @@ body {
     width: auto;
     max-width: 320px; /* reasonable cap so it won't grow too wide */
     min-width: 160px; /* keep a usable touch target */
+    margin-bottom: 10px;
   }
 }
