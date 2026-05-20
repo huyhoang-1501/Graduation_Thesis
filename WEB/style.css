@@ -872,20 +872,27 @@ body {
   /* Alerts: keep alert filter inputs closer together on mobile */
   .alerts-filters .filter-group { gap: 4px; }
 
-  /* Make History/Alerts filter controls more compact on mobile (match the screenshots) */
+  /* Make History/Alerts/Overview patient selects match the Settings tab patient select on mobile
+     - Use the same inline-block sizing and touch-friendly padding as the Settings select so all
+       four selects look identical on small viewports. Remove conflicting full-width overrides. */
+  #set-patient-select,
+  #ov-patient-select,
   #his-patient-select,
   #al-patient-select {
+    display: inline-block;
     box-sizing: border-box;
-    width: 100%;
-    padding: 10px 12px !important; /* match Settings select */
-    min-height: 36px !important;
-    max-height: 40px !important;
-    font-size: 14px !important;
-    line-height: 1.2;
+    width: auto;
+    max-width: 320px;
+    min-width: 160px;
+    padding: 10px 12px !important;
+    min-height: 44px !important;
+    font-size: 15px !important;
+    line-height: 1.2 !important;
     border-radius: 8px !important;
     border: 2px solid #e6e9ef !important;
     background: #fff !important;
   }
+  /* keep other filter inputs/selects compact and touch-friendly */
   .history-filters .filter-group input,
   .history-filters .filter-group select,
   .alerts-filters .filter-group input,
@@ -898,22 +905,6 @@ body {
 
   /* Overview controls: make Device ID + button smaller and keep them on one row */
   .ov-controls { row-gap: 10px; }
-  /* Make Overview/History/Alerts patient selects match the Settings tab patient select on mobile */
-  #ov-patient-select,
-  #ov-device-id-input,
-  #his-patient-select,
-  #al-patient-select {
-    box-sizing: border-box;
-    width: 100%;
-    padding: 10px 12px !important; /* match .patients-form inputs/selects */
-    min-height: 36px !important;
-    max-height: 40px !important;
-    font-size: 14px !important;
-    line-height: 1.2;
-    border-radius: 8px !important;
-    border: 2px solid #e6e9ef !important;
-    background: #fff !important;
-  }
   #ov-view-device-btn {
     width: auto !important; /* override global .btn-primary width:100% on mobile */
     min-height: 36px !important;
