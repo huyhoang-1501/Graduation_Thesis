@@ -593,7 +593,7 @@ function initDeviceBindingModule() {
   // require at least pairCode input and the action button
   if (!pairCodeInput || !linkBtn) return;
 
-  // User mode ID chỉ 5 số
+  // Mode Online ID chỉ 5 số
   pairCodeInput.addEventListener("beforeinput", (e) => {
     if (e.data && /\D/.test(e.data)) {
       e.preventDefault();
@@ -605,7 +605,7 @@ function initDeviceBindingModule() {
   });
   pairCodeInput.setAttribute("inputmode", "numeric");
   pairCodeInput.setAttribute("maxlength", "5");
-  pairCodeInput.placeholder = "Mã 5 số cho User mode";
+  pairCodeInput.placeholder = "Mã 5 số cho Mode Online";
 
   // If deviceIdInput and createBtn exist (legacy layout), keep full behavior
   if (deviceIdInput && createBtn) {
@@ -618,7 +618,7 @@ function initDeviceBindingModule() {
 
     // show concise instructions only if statusEl present
     if (statusEl) {
-      statusEl.innerHTML = "Tạo mã User mode 5 số để nhập trên thiết bị.";
+      statusEl.innerHTML = "Tạo mã Mode Online 5 số để nhập trên thiết bị.";
       statusEl.style.color = "#6b7280";
     }
 
@@ -683,10 +683,10 @@ function initDeviceBindingModule() {
         }
 
         if (statusEl) {
-          statusEl.textContent = "Đã lưu DEVICE ID " + deviceId + " và tạo mã User mode: " + patientId + ". Hãy nhập mã 5 số này trên thiết bị.";
+          statusEl.textContent = "Đã lưu DEVICE ID " + deviceId + " và tạo mã Mode Online: " + patientId + ". Hãy nhập mã 5 số này trên thiết bị.";
           statusEl.style.color = "#16a34a";
         } else {
-          alert("Đã tạo mã User mode: " + patientId + ".");
+          alert("Đã tạo mã Mode Online: " + patientId + ".");
         }
       } catch (err) {
         console.error(err);
@@ -700,7 +700,7 @@ function initDeviceBindingModule() {
 
       if (!deviceId) return alert("Hãy nhập DEVICE ID trước.");
       if (!isValidDeviceId(deviceId)) return alert("DEVICE ID không hợp lệ.");
-      if (patientId.length !== 5) return alert("Mã User mode phải đúng 5 số. Hãy bấm Lưu DEVICE ID để tạo mã.");
+      if (patientId.length !== 5) return alert("Mã Mode Online phải đúng 5 số. Hãy bấm Lưu DEVICE ID để tạo mã.");
 
       const ownerUid = getCurrentUserUid();
 
@@ -721,10 +721,10 @@ function initDeviceBindingModule() {
 
         pairCodeInput.value = patientId;
         if (statusEl) {
-          statusEl.textContent = "Đã xác nhận User mode cho ID " + patientId + ". Thiết bị sẽ đẩy dữ liệu lên dashboard của tài khoản này.";
+          statusEl.textContent = "Đã xác nhận Mode Online cho ID " + patientId + ". Thiết bị sẽ đẩy dữ liệu lên dashboard của tài khoản này.";
           statusEl.style.color = "#2563eb";
         } else {
-          alert("Đã xác nhận User mode cho ID " + patientId + ".");
+          alert("Đã xác nhận Mode Online cho ID " + patientId + ".");
         }
       } catch (err) {
         console.error(err);
@@ -735,7 +735,7 @@ function initDeviceBindingModule() {
     return; // legacy flow handled
   }
 
-  // Simplified flow: no deviceId input present -> clicking the button *confirms* the 5-digit User mode ID
+  // Simplified flow: no deviceId input present -> clicking the button *confirms* the 5-digit Mode Online ID
   // It will NOT create the patient immediately. User must fill Name/Age/Sex and press Thêm to actually add.
   linkBtn.addEventListener("click", async () => {
     let patientId = normalizeUserModeId(pairCodeInput.value);

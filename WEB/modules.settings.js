@@ -36,8 +36,7 @@ function initSettingsModule() {
   function loadThresholdsForCurrentPatient() {
     const pid = getSelectedPatientId();
     if (!pid) {
-      thStatus.textContent = "Chưa chọn bệnh nhân. Hãy chọn ở dropdown trong tab Cài đặt.";
-      thStatus.style.color = "#6b7280";
+      // No patient selected: do not show a persistent message here (handled in UI elsewhere)
       return;
     }
 
@@ -122,8 +121,7 @@ function initSettingsModule() {
   function loadPhoneForCurrentPatient() {
     const pid = getSelectedPatientId();
     if (!pid) {
-      phoneStatus.textContent = "Chưa chọn bệnh nhân. Hãy chọn ở dropdown trong tab Cài đặt.";
-      phoneStatus.style.color = "#6b7280";
+      // No patient selected: avoid showing a message here to keep UI cleaner
       return;
     }
 

@@ -59,13 +59,13 @@ function initPatientsModule() {
     const patientId = normalizeUserModeId(pairCodeEl?.value || "");
 
     if (!name || !patientId) {
-      statusEl.textContent = "Vui lòng nhập ít nhất Tên và Mã User mode (5 số).";
+      statusEl.textContent = "Vui lòng nhập ít nhất Tên và Mã Mode Online (5 số).";
       statusEl.style.color = "#dc2626";
       return;
     }
 
     if (patientId.length !== 5 || /\D/.test(patientId)) {
-      statusEl.textContent = "Mã User mode phải đúng 5 số.";
+      statusEl.textContent = "Mã Mode Online phải đúng 5 số.";
       statusEl.style.color = "#dc2626";
       return;
     }
@@ -115,7 +115,7 @@ function initPatientsModule() {
           console.warn('Không lưu được settings mặc định cho bệnh nhân:', err);
         }
 
-        statusEl.textContent = "Đã thêm bệnh nhân với User mode ID: " + patientId + (deviceId ? " (DEVICE ID: " + deviceId + ")" : "") + ".";
+        statusEl.textContent = "Đã thêm bệnh nhân với Mode Online ID: " + patientId + (deviceId ? " (DEVICE ID: " + deviceId + ")" : "") + ".";
         statusEl.style.color = "#16a34a";
         nameEl.value = "";
         ageEl.value = "";

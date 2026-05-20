@@ -49,7 +49,7 @@ static void back_btn_event_cb(lv_event_t *e) {
 
 static lv_obj_t *btn_start = nullptr;
 
-// Start button is decorative in Guest mode; no event handler is attached.
+// Start button is decorative in Mode Offline; no event handler is attached.
 
 static void build_guest_screen() {
   if (guest_scr) return;
@@ -72,7 +72,7 @@ static void build_guest_screen() {
   lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_t *title = lv_label_create(header);
-  lv_label_set_text(title, "Guest - Health Guardian");
+  lv_label_set_text(title, "Mode Offline - Health Guardian");
   lv_obj_set_style_text_color(title, primary, 0);
   lv_obj_set_style_text_font(title, pick_font_mid(), 0);
   lv_obj_align(title, LV_ALIGN_LEFT_MID, 0, -10);

@@ -183,7 +183,6 @@
         </div>
 
         <nav class="sidebar-menu">
-          <div class="sidebar-section-title">TRANG CHÍNH</div>
           <button class="sidebar-item active" data-page="overview">
             <i class="fas fa-chart-line"></i> Tổng quan
           </button>
@@ -197,7 +196,6 @@
             <i class="fas fa-users"></i> Thiết bị / Bệnh nhân
           </button>
 
-          <div class="sidebar-section-title">TÀI KHOẢN</div>
           <button class="sidebar-item" data-page="settings">
             <i class="fas fa-cog"></i> Cài đặt
           </button>
@@ -416,17 +414,17 @@
           </div>
 
           <div class="placeholder-box">
-            <p><strong>Flow đơn giản cho người dùng:</strong></p>
+            <p><strong>Hướng dẫn chọn chế độ:</strong></p>
             <p style="margin-top:8px; color:#374151;">
-              <strong>Guest mode:</strong> đo tại chỗ trên thiết bị.<br>
-              <strong>User mode:</strong> tạo Mã ID trên dashboard, sau đó nhập đúng Mã ID đó trên thiết bị để đồng bộ.
+              <strong>Offline Mode:</strong> Nếu chỉ cần đo tại chỗ bật máy lên và đo bình thường.<br>
+              <strong>Online Mode:</strong> Nếu muốn người nhà xem từ xa tạo mã ID trên Portal, sau đó nhập đúng mã ID đó trên thiết bị để đồng bộ.
             </p>
           </div>
 
           <div class="placeholder-box">
-            <p>Tạo mã ID cho User mode:</p>
+            <p>Tạo mã ID cho Online Mode:</p>
              <div class="patients-form">
-               <input type="text" id="bind-pair-code" placeholder="Mã 5 số cho User mode" inputmode="numeric" pattern="[0-9]*" maxlength="5" autocomplete="off">
+               <input type="text" id="bind-pair-code" placeholder="Mã 5 số cho Online Mode" inputmode="numeric" pattern="[0-9]*" maxlength="5" autocomplete="off">
                <div class="device-actions">
                  <button class="btn-secondary" id="device-link-btn">
                    <i class="fas fa-link"></i> Xác nhận mã ID
