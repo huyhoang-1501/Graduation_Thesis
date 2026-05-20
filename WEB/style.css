@@ -841,11 +841,14 @@ body {
     max-height: 40px !important;
     line-height: 1.1 !important;
   }
-
+  /*
+        Phần điều chỉnh các khoảng cách và kích thước của các phần tử trong trang để phù hợp với thiết bị di động.
+  */
   /* Give more vertical breathing room on mobile */
   .patients-form { gap: 12px; }
   /* Reduce vertical spacing between filter groups on mobile so controls sit closer together */
-  .history-filters, .alerts-filters { gap: 8px; }
+  /* tightened from 8px -> 6px to make selects sit closer on small screens */
+  .history-filters, .alerts-filters { gap:4px; }
 
   /* Make date-range sub-controls tighter and align the "đến" label to the left, matching the
      visual style of the 'Ngày / Khoảng thời gian' label on mobile. This keeps sizes compact
@@ -871,7 +874,18 @@ body {
 
   /* Make History/Alerts filter controls more compact on mobile (match the screenshots) */
   #his-patient-select,
-  #al-patient-select,
+  #al-patient-select {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 10px 12px !important; /* match Settings select */
+    min-height: 36px !important;
+    max-height: 40px !important;
+    font-size: 14px !important;
+    line-height: 1.2;
+    border-radius: 8px !important;
+    border: 2px solid #e6e9ef !important;
+    background: #fff !important;
+  }
   .history-filters .filter-group input,
   .history-filters .filter-group select,
   .alerts-filters .filter-group input,
@@ -884,12 +898,21 @@ body {
 
   /* Overview controls: make Device ID + button smaller and keep them on one row */
   .ov-controls { row-gap: 10px; }
+  /* Make Overview/History/Alerts patient selects match the Settings tab patient select on mobile */
   #ov-patient-select,
-  #ov-device-id-input {
+  #ov-device-id-input,
+  #his-patient-select,
+  #al-patient-select {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 10px 12px !important; /* match .patients-form inputs/selects */
     min-height: 36px !important;
-    padding: 6px 8px !important;
-    font-size: 13px !important;
+    max-height: 40px !important;
+    font-size: 14px !important;
     line-height: 1.2;
+    border-radius: 8px !important;
+    border: 2px solid #e6e9ef !important;
+    background: #fff !important;
   }
   #ov-view-device-btn {
     width: auto !important; /* override global .btn-primary width:100% on mobile */
