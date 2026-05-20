@@ -332,6 +332,22 @@ body {
   font-size:13px;
 }
 
+/* Make the patient select boxes consistent across Overview, Settings, History, Alerts
+   Give them a predictable min/max width so they match each other on desktop and
+   remain responsive on narrow viewports. Mobile overrides below keep touch-friendly sizing. */
+#set-patient-select,
+#ov-patient-select,
+#his-patient-select,
+#al-patient-select {
+  display: inline-block;
+  box-sizing: border-box;
+  min-width: 220px; /* sensible base width to match Settings on desktop */
+  max-width: 360px; /* won't grow endlessly on very wide screens */
+  width: auto; /* allow content-driven width within min/max bounds */
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
 /* Responsive controls in overview (Device ID + view button) */
 .ov-controls {
   display: flex;
@@ -651,6 +667,9 @@ body {
   }
 
   .topbar { padding: 0 12px; }
+    /* Make topbar fixed on small screens so content sits beneath it; this prevents
+      the large empty gap when .main uses margin-top:60px. Kept only for mobile. */
+    .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1300; }
   .topbar-title { display: none; }
 
   /* Sidebar becomes off-canvas */
@@ -980,5 +999,26 @@ body {
     max-width: 320px; /* reasonable cap so it won't grow too wide */
     min-width: 160px; /* keep a usable touch target */
     margin-bottom: 10px;
+  }
+
+  /* Ensure History + Alerts patient selects use the same compact/touch-friendly sizing
+     (some filter-group rules may force width:100%; this override restores the compact look). */
+  #his-patient-select,
+  #al-patient-select,
+  .page#page-history .page-header-row select,
+  .page#page-alerts .page-header-row select {
+    display: inline-block !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: 320px !important;
+    min-width: 160px !important;
+    padding: 10px 12px !important;
+    min-height: 44px !important;
+    font-size: 15px !important;
+    line-height: 1.2 !important;
+    border-radius: 8px !important;
+    border: 2px solid #e6e9ef !important;
+    background: #fff !important;
+    margin-bottom: 10px !important;
   }
 }
