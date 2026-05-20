@@ -366,7 +366,7 @@ function showDeviceById(deviceId) {
         if (!lastSeen) freshnessEl.textContent = '--';
         else {
           const sec = Math.floor((now - lastSeen) / 1000);
-          if (sec < 60) freshnessEl.textContent = 'Vừa mới';
+          if (sec < 60) freshnessEl.textContent = 'Cập nhật mới nhất';
           else if (sec < 3600) freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 60) + ' phút';
           else freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 3600) + ' giờ';
         }

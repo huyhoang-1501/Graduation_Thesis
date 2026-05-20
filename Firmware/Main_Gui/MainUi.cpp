@@ -8,17 +8,15 @@
 
 static MainUiSaveUserIdCb g_save_user_id_cb = nullptr;
 static MainUiGetTextCb g_get_device_id_cb = nullptr;
-static MainUiGetTextCb g_get_user_id_cb = nullptr;
 static MainUiOpenUserModeCb g_open_user_mode_cb = nullptr;
 
 static lv_obj_t *main_scr = nullptr;
 static lv_obj_t *main_label_time = nullptr;
 static lv_obj_t *main_label_batt = nullptr;
 static lv_obj_t *label_device_id = nullptr;
-static lv_obj_t *label_user_id = nullptr;
 
-static const lv_font_t* pick_font_36_or_14() {
-#if defined(LV_FONT_MONTSERRAT_36) && (LV_FONT_MONTSERRAT_36 == 1)
+static const lv_font_t* pick_font_38_or_14() {
+#if defined(LV_FONT_MONTSERRAT_38) && (LV_FONT_MONTSERRAT_38 == 1)
   return &lv_font_montserrat_40;
 #else
   return &lv_font_montserrat_14;
@@ -64,18 +62,7 @@ static void refresh_device_id_label() {
   lv_label_set_text(label_device_id, buf);
 }
 
-static void refresh_user_id_label() {
-  if (!label_user_id) return;
-
-  const char *userId = g_get_user_id_cb ? g_get_user_id_cb() : "";
-  char buf[64];
-  if (userId && userId[0]) {
-    snprintf(buf, sizeof(buf), "User ID: %s", userId);
-  } else {
-    snprintf(buf, sizeof(buf), "User ID: (chua nhap)");
-  }
-  lv_label_set_text(label_user_id, buf);
-}
+// User ID label removed from main screen to avoid showing stored user information.
 
 static void guest_btn_event_cb(lv_event_t *e) {
   if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
@@ -193,13 +180,13 @@ static void create_main_gui() {
   lv_obj_t *label_health = lv_label_create(text_cont);
   lv_label_set_text(label_health, "Health");
   lv_obj_set_style_text_color(label_health, primary, 0);
-  lv_obj_set_style_text_font(label_health, pick_font_36_or_14(), 0);
+  lv_obj_set_style_text_font(label_health, pick_font_38_or_14(), 0);
   lv_obj_align(label_health, LV_ALIGN_TOP_LEFT, 0, 2);
 
   lv_obj_t *label_guardian = lv_label_create(text_cont);
   lv_label_set_text(label_guardian, "Guardian");
   lv_obj_set_style_text_color(label_guardian, primary, 0);
-  lv_obj_set_style_text_font(label_guardian, pick_font_36_or_14(), 0);
+  lv_obj_set_style_text_font(label_guardian, pick_font_38_or_14(), 0);
   lv_obj_align_to(label_guardian, label_health, LV_ALIGN_OUT_BOTTOM_LEFT, 0, -4);
 
   label_device_id = lv_label_create(text_cont);
@@ -209,27 +196,25 @@ static void create_main_gui() {
   // nho nhat: đẩy lên cao chút
   lv_obj_align_to(label_device_id, label_guardian, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 6);
 
-  label_user_id = lv_label_create(text_cont);
-  lv_label_set_text(label_user_id, "User ID: (chua nhap)");
-  lv_obj_set_style_text_color(label_user_id, dark, 0);
-  lv_obj_set_style_text_font(label_user_id, pick_font_16_or_14(), 0);
-  // slightly tighter spacing
-  lv_obj_align_to(label_user_id, label_device_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 4);
+  // User ID label removed: do not display stored user information on main screen.
 
   // Split the mode hint into two lines: Guest above, User below
   lv_obj_t *label_guest_hint = lv_label_create(text_cont);
-  lv_label_set_text(label_guest_hint, "Guest: do tai cho");
-  lv_obj_set_style_text_color(label_guest_hint, lv_color_make(70, 110, 130), 0);
-  lv_obj_set_style_text_font(label_guest_hint, pick_font_14(), 0);
-  lv_obj_align_to(label_guest_hint, label_user_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 6);
+  lv_label_set_text(label_guest_hint, "Mode offline: Quick Measure");
+  // Use same (larger) font as Device ID and match color for consistency
+  lv_obj_set_style_text_color(label_guest_hint, dark, 0);
+  lv_obj_set_style_text_font(label_guest_hint, pick_font_16_or_14(), 0);
+  // Move the hint slightly closer to Device ID (upwards)
+  lv_obj_align_to(label_guest_hint, label_device_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 4);
 
   lv_obj_t *label_user_hint = lv_label_create(text_cont);
-  lv_label_set_text(label_user_hint, "User: nhap ID de dong bo");
+  lv_label_set_text(label_user_hint, "Mode online: Sync Measure");
   lv_label_set_long_mode(label_user_hint, LV_LABEL_LONG_WRAP);
   lv_obj_set_width(label_user_hint, 230);
-  lv_obj_set_style_text_color(label_user_hint, lv_color_make(70, 110, 130), 0);
-  lv_obj_set_style_text_font(label_user_hint, pick_font_14(), 0);
-  lv_obj_align_to(label_user_hint, label_guest_hint, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 6);
+  // Match Device ID size/color and move slightly up
+  lv_obj_set_style_text_color(label_user_hint, dark, 0);
+  lv_obj_set_style_text_font(label_user_hint, pick_font_16_or_14(), 0);
+  lv_obj_align_to(label_user_hint, label_guest_hint, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 4);
 
   lv_obj_t *cont_btn = lv_obj_create(scr);
   lv_obj_set_size(cont_btn, lv_pct(100), 74);
@@ -261,7 +246,7 @@ static void create_main_gui() {
   lv_obj_add_event_cb(btn_guest, guest_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
   lv_obj_t *lg = lv_label_create(btn_guest);
-  lv_label_set_text(lg, "Guest mode");
+  lv_label_set_text(lg, "Mode Offline");
   lv_obj_center(lg);
   lv_obj_set_style_text_color(lg, dark, 0);
   lv_obj_set_style_text_font(lg, pick_font_20_or_14(), 0);
@@ -279,14 +264,13 @@ static void create_main_gui() {
   lv_obj_add_event_cb(btn_user, user_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
   lv_obj_t *lu = lv_label_create(btn_user);
-  lv_label_set_text(lu, "User mode ");
+  lv_label_set_text(lu, "Mode Online");
   lv_obj_center(lu);
   lv_obj_set_style_text_color(lu, lv_color_white(), 0);
   lv_obj_set_style_text_font(lu, pick_font_20_or_14(), 0);
   
   MainUi_UpdateStatus("--:--  --/--/----", "--%");
   refresh_device_id_label();
-  refresh_user_id_label();
 
   lv_scr_load(main_scr);
 }
@@ -297,14 +281,13 @@ void MainUi_Init(MainUiSaveUserIdCb saveUserIdCb,
                  MainUiOpenUserModeCb openUserModeCb) {
   g_save_user_id_cb = saveUserIdCb;
   g_get_device_id_cb = getDeviceIdCb;
-  g_get_user_id_cb = getUserIdCb;
   g_open_user_mode_cb = openUserModeCb;
 
   if (!main_scr) {
     create_main_gui();
   } else {
     refresh_device_id_label();
-    refresh_user_id_label();
+    // Do not refresh or show the User ID on the main screen
     MainUi_ShowMainScreen();
   }
 }

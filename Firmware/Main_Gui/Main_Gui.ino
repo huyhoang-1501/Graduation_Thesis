@@ -83,11 +83,9 @@ static Preferences devicePref;
 static bool devicePrefReady = false;
 static const char *DEVICE_NVS_NAMESPACE = "device";
 static const char *DEVICE_NVS_KEY_ID    = "device_id";
-static const char *DEVICE_NVS_KEY_USER  = "user_id";
 static const char *DEVICE_ID_FIXED      = "UTE-2026";
 
 static char g_device_id[24] = "DEV-UNKNOWN";
-static char g_user_id[24] = "";
 
 static void load_or_create_device_identity() {
   if (!devicePref.begin(DEVICE_NVS_NAMESPACE, false)) {
@@ -100,41 +98,24 @@ static void load_or_create_device_identity() {
   devicePrefReady = true;
 
   String storedId = devicePref.getString(DEVICE_NVS_KEY_ID, "");
-  String storedUser = devicePref.getString(DEVICE_NVS_KEY_USER, "");
 
   snprintf(g_device_id, sizeof(g_device_id), "%s", DEVICE_ID_FIXED);
   if (!storedId.equals(DEVICE_ID_FIXED)) {
     devicePref.putString(DEVICE_NVS_KEY_ID, DEVICE_ID_FIXED);
   }
 
-  if (storedUser.length() > 0) {
-    storedUser.toCharArray(g_user_id, sizeof(g_user_id));
-  } else {
-    g_user_id[0] = '\0';
-  }
-
   Serial.print("Device ID: ");
   Serial.println(g_device_id);
 }
 
-static void save_user_id(const char *userId) {
-  if (!userId || !*userId) return;
-  strncpy(g_user_id, userId, sizeof(g_user_id) - 1);
-  g_user_id[sizeof(g_user_id) - 1] = '\0';
-  if (devicePrefReady) {
-    devicePref.putString(DEVICE_NVS_KEY_USER, g_user_id);
-  }
-  Serial.print("Saved User ID: ");
-  Serial.println(g_user_id);
-}
+// User ID storage/display removed per user request.
+// (No functions to save or return user id are provided.)
 
 static const char *ui_get_device_id() {
   return g_device_id;
 }
 
-static const char *ui_get_user_id() {
-  return g_user_id;
-}
+// ui_get_user_id removed; pass nullptr where a user-id getter was used.
 
 // ================= FIREBASE SYNC CONFIG =================
 static const char *WIFI_SSID = "HUY HOANG";
@@ -150,13 +131,12 @@ static void on_user_mode_back() {
 }
 
 static void on_user_mode_success(const char *userId) {
-  save_user_id(userId);
+  // User ID not stored locally; still perform push and show dashboard
   if (!DISABLE_FIREBASE_PUSH) {
     FirebaseSync_PushStatusAndBattery();
   } else {
     Serial.println("Firebase push disabled: skipping PushStatusAndBattery");
   }
-  // Show per-user dashboard (similar to GuestMode but with user settings)
   UserDashboard_Show(MainUi_ShowMainScreen);
 }
 
@@ -582,13 +562,14 @@ void setup() {
   indev_drv.read_cb = my_touch_read;
   lv_indev_drv_register(&indev_drv);
 
-  MainUi_Init(save_user_id, ui_get_device_id, ui_get_user_id, on_open_user_mode);
+  // Do not provide a user-id getter or saver: user id is no longer stored locally
+  MainUi_Init(nullptr, ui_get_device_id, nullptr, on_open_user_mode);
   if (!DISABLE_FIREBASE_PUSH) {
     FirebaseSync_Init(WIFI_SSID,
                       WIFI_PASSWORD,
                       FIREBASE_DB_URL,
                       ui_get_device_id,
-                      ui_get_user_id,
+                      nullptr,
                       FIREBASE_PUSH_INTERVAL_MS);
   } else {
     Serial.println("Firebase disabled by flag: not initializing FirebaseSync");
