@@ -149,6 +149,16 @@ body {
   justify-content: space-between;
   padding: 0 20px;
 }
+
+/* Ensure the map panel fills available space and matches chart height */
+#map {
+  width: 100%;
+  /* increase min-height so map visually matches chart area */
+  min-height: 320px;
+  height: 320px;
+  border-radius: 6px;
+  overflow: hidden;
+}
 .topbar-left { display: flex; align-items: center; gap: 12px; }
 .menu-btn { display: none; }
 .topbar-logo { width: 50px; height: 50px; }

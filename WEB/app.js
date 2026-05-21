@@ -843,8 +843,12 @@ function initMap() {
     maxZoom: 19,
     attribution: "&copy; OpenStreetMap"
   }).addTo(leafletMap);
-
   leafletMarker = L.marker([10.85, 106.77]).addTo(leafletMap);
+
+  // Leaflet needs an invalidateSize call if container size changed; defer slightly
+  setTimeout(() => {
+    try { leafletMap.invalidateSize(); } catch (e) { /* ignore */ }
+  }, 250);
 }
 
 function mockUpdateOverview() {
