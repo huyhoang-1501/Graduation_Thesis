@@ -234,28 +234,21 @@
 
               <div class="stat-card">
                 <div class="stat-title">
-                  <i class="fas fa-tint"></i> Huyết áp
-                </div>
-                <div class="stat-value" id="ov-bp-value">-- / -- mmHg</div>
-                <div class="stat-sub" id="ov-bp-status">Trạng thái: --</div>
-              </div>
-
-              <div class="stat-card">
-                <div class="stat-title">
                   <i class="fas fa-lungs"></i> SpO₂
                 </div>
                 <div class="stat-value" id="ov-spo2-value">-- %</div>
                 <div class="stat-sub" id="ov-spo2-status">Trạng thái: --</div>
               </div>
 
-              <!-- Ô THÔNG BÁO -->
-              <div class="stat-card" id="ov-notify-card">
+              <div class="stat-card">
                 <div class="stat-title">
-                  <i class="fas fa-bell"></i> Thông báo
+                  <i class="fas fa-tint"></i> Huyết áp
                 </div>
-                <div class="stat-value" id="ov-notify-count">0</div>
-                <div class="stat-sub" id="ov-notify-text">Không có cảnh báo mới</div>
+                <div class="stat-value" id="ov-bp-value">-- / -- mmHg</div>
+                <div class="stat-sub" id="ov-bp-status">Trạng thái: --</div>
               </div>
+
+              <!-- notification moved to device row (small) -->
             </div>
 
             <!-- Row 2: device status -->
@@ -272,6 +265,14 @@
                   <!-- Network display removed: device pushes no longer include network field -->
                   <div>Data freshness: <span id="ov-freshness">--</span></div>
                 </div>
+              </div>
+              <!-- small notification card placed beside device status -->
+              <div class="stat-card notify-small" id="ov-notify-card">
+                <div class="stat-title">
+                  <i class="fas fa-bell"></i> Thông báo
+                </div>
+                <div class="stat-value" id="ov-notify-count">0</div>
+                <div class="stat-sub" id="ov-notify-text">Không có cảnh báo mới</div>
               </div>
             </div>
 
