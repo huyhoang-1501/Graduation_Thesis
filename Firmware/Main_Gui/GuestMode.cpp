@@ -72,10 +72,10 @@ static void build_guest_screen() {
   lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_t *title = lv_label_create(header);
-  lv_label_set_text(title, "Mode Offline - Health Guardian");
+  lv_label_set_text(title, "Mode Offline");
   lv_obj_set_style_text_color(title, primary, 0);
   lv_obj_set_style_text_font(title, pick_font_mid(), 0);
-  lv_obj_align(title, LV_ALIGN_LEFT_MID, 0, -10);
+  lv_obj_align(title, LV_ALIGN_LEFT_MID, -15, -5);
 
   label_state = lv_label_create(header);
   lv_label_set_text(label_state, "");

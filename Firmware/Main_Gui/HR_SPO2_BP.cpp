@@ -131,7 +131,7 @@ void hrspo2bp_setup() {
   }
 
   Serial.println("=== HỆ THỐNG ĐO HUYẾT ÁP AGR12 ĐÃ KHỞI ĐỘNG ===");
-  Serial.println("Gõ 'start' để bắt đầu đo\n");
+  // Serial.println("Gõ 'start' để bắt đầu đo\n");
 
   stopAll();
 

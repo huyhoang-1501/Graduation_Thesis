@@ -89,6 +89,7 @@ void Max30102_hr_spo2()
       delay(5);
     }
   }
+}
 
   uint32_t avgIR = sumIR / BUFFER_SIZE;
   uint32_t avgRed = sumRed / BUFFER_SIZE;
@@ -124,7 +125,7 @@ void Max30102_hr_spo2()
   }
 
   // Pass raw buffers directly to Maxim's algorithm (it handles DC removal)
-=======
+
 void Max30102_hr_spo2()
 {
   for (byte i = 0; i < BUFFER_SIZE; i++)
@@ -138,7 +139,7 @@ void Max30102_hr_spo2()
 
   }
 
->>>>>>> main
+
   maxim_heart_rate_and_oxygen_saturation(
     irBuffer,
     bufferLength,

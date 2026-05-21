@@ -64,6 +64,41 @@ function getCurrentUserUid() {
   return auth.currentUser?.uid || "";
 }
 
+// Claim / mark a device as linked by the current dashboard user.
+// - deviceId: device identifier (required)
+// - patientId: optional patientId to associate with the device
+// - setMode: if true (default) set mode:'user', set to false to leave mode unchanged
+// Returns: Promise<boolean> true on success, false on error
+async function claimDevice(deviceId, patientId, setMode = false) {
+  if (!deviceId) {
+    console.error('claimDevice: deviceId required');
+    return false;
+  }
+  const ownerUid = getCurrentUserUid();
+  if (!ownerUid) {
+    console.error('claimDevice: no authenticated user');
+    return false;
+  }
+
+  const updates = {
+    ownerUid,
+    linked: true,
+    status: 'linked',
+    updatedAt: firebase.database.ServerValue.TIMESTAMP
+  };
+  if (patientId) updates.patientId = patientId;
+  // Do not change device 'mode' by default to keep device-sent fields minimal.
+  if (setMode) updates.mode = 'user';
+
+  try {
+    await db.ref('devices/' + deviceId).update(updates);
+    return true;
+  } catch (err) {
+    console.error('claimDevice error:', err);
+    return false;
+  }
+}
+
 // ========== TOGGLE LOGIN / REGISTER FORM ==========
 document.getElementById("show-register")?.addEventListener("click", e => {
   e.preventDefault();

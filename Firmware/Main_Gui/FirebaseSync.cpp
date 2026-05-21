@@ -177,9 +177,11 @@ static void firebase_push_impl() {
   if (!deviceId || !deviceId[0]) return;
 
   String battStr = (g_battery_percent >= 0) ? String(g_battery_percent) : String("null");
+  // Send device-level info. Do NOT include user ownership or application-mode here;
+  // dashboard/web is responsible for claim/link and mode management.
   String payload = String("{\"deviceId\":\"") + deviceId +
                    "\",\"status\":\"online\",\"batteryPercent\":" + battStr +
-                   ",\"mode\":\"user\",\"lastSeen\":{\".sv\":\"timestamp\"},\"updatedAt\":{\".sv\":\"timestamp\"}}";
+                   ",\"lastSeen\":{\".sv\":\"timestamp\"},\"updatedAt\":{\".sv\":\"timestamp\"}}";
 
   // Push device info to /devices/<deviceId>. Do NOT update patients/<userId> here
   // (we intentionally send device-level info without depending on userId).
