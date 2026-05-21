@@ -948,52 +948,24 @@ function updateMapLocation(lat, lng) {
 
 // ========== HISTORY: (tạm thời) mock UI, có thể nâng cấp sau ==========
 function initOtherPages() {
+  // Do not render mock data in History. Clear any placeholder content so real data
+  // from Firebase can be rendered when the user requests it.
   renderMockHistory();
 }
 
 function renderMockHistory() {
+  // Clear any placeholder/mock content in the History tab.
   const tbody = document.getElementById("history-table-body");
-  if (!tbody) return;
-  tbody.innerHTML = "";
+  if (tbody) tbody.innerHTML = "";
 
-  const mockRows = [
-    { time: "21:30:15", hr: 78, sys: 120, dia: 80, spo2: 97 },
-    { time: "21:31:10", hr: 80, sys: 122, dia: 82, spo2: 96 },
-    { time: "21:32:05", hr: 76, sys: 118, dia: 78, spo2: 98 }
-  ];
-
-  mockRows.forEach(r => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${r.time}</td>
-      <td>${r.hr}</td>
-      <td>${r.sys}</td>
-      <td>${r.dia}</td>
-      <td>${r.spo2}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  const ctx = document.getElementById("historyChart")?.getContext("2d");
-  if (!ctx) return;
-  new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: mockRows.map(r => r.time),
-      datasets: [{
-        label: "Heart Rate (bpm)",
-        data: mockRows.map(r => r.hr),
-        borderColor: "#3b82f6",
-        backgroundColor: "rgba(59,130,246,0.2)",
-        fill: true,
-        tension: 0.3
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: { beginAtZero: false }
-      }
+  // Clear the chart canvas if present. Do not draw any mock chart.
+  const chartEl = document.getElementById("historyChart");
+  if (chartEl && chartEl.getContext) {
+    try {
+      const ctx = chartEl.getContext('2d');
+      ctx.clearRect(0, 0, chartEl.width || chartEl.offsetWidth, chartEl.height || chartEl.offsetHeight);
+    } catch (e) {
+      // ignore
     }
-  });
+  }
 }
