@@ -76,11 +76,13 @@ function initPatientsModule() {
       return;
     }
 
+    // Do not store deviceId inside /patients — devices are managed under /devices
+    // and linked by setting devices/<deviceId>.patientId. Keeping deviceId in
+    // both places causes duplication and potential out-of-sync states.
     const patientData = {
       name,
       age: age || "",
       sex: sex || "Nam",
-      deviceId: deviceId || "",
       ownerUid,
       mode: "user",
       status: "offline"   // mặc định, phần cứng cập nhật sau
@@ -187,7 +189,9 @@ function showOverviewForPatient(patientId) {
   const tabTitle = document.getElementById("main-tab-title");
   if (tabTitle) tabTitle.textContent = "TỔNG QUAN";
 
-  // Attach realtime listener to /devices/<deviceId> for this patient (if any)
+  // Attach realtime listener to the device linked to this patient (if any).
+  // We no longer store deviceId inside /patients; instead, find devices with
+  // devices/<deviceId>.patientId === patientId.
   try {
     // detach previous listener
     if (window._currentDeviceRef && window._currentDeviceListener) {
@@ -196,34 +200,50 @@ function showOverviewForPatient(patientId) {
       window._currentDeviceListener = null;
     }
 
-    const deviceId = pCache.deviceId || null;
-    if (deviceId) {
-      const devRef = db.ref("devices/" + deviceId);
-      window._currentDeviceRef = devRef;
-      window._currentDeviceListener = devRef.on('value', snap => {
-        const d = snap.val() || {};
-
-        // battery
-        const battEl = document.getElementById("ov-battery");
-        if (battEl) battEl.textContent = (d.batteryPercent != null) ? (d.batteryPercent + " %") : "-- %";
-
-        // last seen
-        const lastEl = document.getElementById("ov-lastseen");
-        if (lastEl) {
-          if (d.lastSeen) lastEl.textContent = new Date(d.lastSeen).toLocaleString();
+    // Query devices for a device linked to this patientId
+    db.ref('devices').orderByChild('patientId').equalTo(patientId).once('value')
+      .then(devSnap => {
+        const devs = devSnap.val() || {};
+        const keys = Object.keys(devs);
+        if (keys.length === 0) {
+          // no linked device
+          const battEl = document.getElementById("ov-battery"); if (battEl) battEl.textContent = "-- %";
+          const lastEl = document.getElementById("ov-lastseen"); if (lastEl) lastEl.textContent = "--";
+          const badge = document.getElementById("ov-device-badge"); if (badge) { badge.textContent = "OFFLINE"; badge.classList.remove("badge-online","badge-stale"); badge.classList.add("badge-offline"); }
+          return;
         }
 
-        // device status badge
-        const badge = document.getElementById("ov-device-badge");
-        if (badge) {
-          const status = (d.status || 'offline');
-          badge.textContent = status.toUpperCase();
-          badge.classList.remove("badge-online","badge-offline","badge-stale");
-          if (status === 'online') badge.classList.add("badge-online");
-          else badge.classList.add("badge-offline");
-        }
-      });
-    }
+        // pick the first device found (system expects at most one device per patient)
+        const deviceId = keys[0];
+        const devRef = db.ref("devices/" + deviceId);
+        window._currentDeviceRef = devRef;
+        window._currentDeviceListener = devRef.on('value', snap => {
+          const d = snap.val() || {};
+
+          // battery
+          const battEl = document.getElementById("ov-battery");
+          if (battEl) battEl.textContent = (d.batteryPercent != null) ? (d.batteryPercent + " %") : "-- %";
+
+          // last seen
+          const lastEl = document.getElementById("ov-lastseen");
+          if (lastEl) {
+            if (d.lastSeen) lastEl.textContent = new Date(d.lastSeen).toLocaleString();
+            else lastEl.textContent = '--';
+          }
+
+          // device status badge
+          const badge = document.getElementById("ov-device-badge");
+          if (badge) {
+            const status = (d.status || 'offline');
+            badge.textContent = status.toUpperCase();
+            badge.classList.remove("badge-online","badge-offline","badge-stale");
+            if (status === 'online') badge.classList.add("badge-online");
+            else if (status === 'stale') badge.classList.add("badge-stale");
+            else badge.classList.add("badge-offline");
+          }
+        });
+      })
+      .catch(e => console.error('device lookup error', e));
   } catch (e) {
     console.error('device listener error', e);
   }

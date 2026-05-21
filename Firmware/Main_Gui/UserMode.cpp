@@ -74,16 +74,16 @@ static void on_keypad_view_internal(const char *text) {
   const char *userId = text ? text : "";
 
   if (!is_valid_user_id_5digits(userId)) {
-    UserMode_SetStatus("User ID phai dung 5 so", true);
+    UserMode_SetStatus("ID phai dung 5 so", true);
     return;
   }
 
   if (!g_validate_cb) {
-    UserMode_SetStatus("Chua cau hinh bo kiem tra User ID", true);
+    UserMode_SetStatus("Chua cau hinh bo kiem tra ID", true);
     return;
   }
 
-  UserMode_SetStatus("Dang kiem tra User ID tren Firebase...", false);
+  UserMode_SetStatus("Dang kiem tra ID tren Firebase...", false);
 
   // Run validation by creating a background task (validation_task).
   validate_ctx_t *ctx = (validate_ctx_t *)malloc(sizeof(validate_ctx_t));
@@ -130,9 +130,9 @@ void UserMode_Init(const lv_font_t *btn_font,
 void UserMode_Show(void) {
   if (!g_inited) return;
   keypad_set_text("");
-  keypad_set_placeholder_text("Nhap User ID 5 so da dang ky...");
+  keypad_set_placeholder_text("Nhap ID 5 so da dang ky...");
   ensure_status_label();
-  UserMode_SetStatus("Nhap User ID 5 so da tao", false);
+  UserMode_SetStatus("Nhap ID 5 so da tao", false);
 
   lv_obj_t *scr = keypad_get_screen();
   if (scr) {
@@ -145,9 +145,9 @@ static void ui_result(void *arg) {
   result_t *r = (result_t *)arg;
   if (!r) return;
   if (!r->ok) {
-    UserMode_SetStatus(r->msg[0] ? r->msg : "User ID khong hop le", true);
+    UserMode_SetStatus(r->msg[0] ? r->msg : "ID khong hop le", true);
   } else {
-    UserMode_SetStatus("User ID hop le. Dang vao man hinh do...", false);
+    UserMode_SetStatus("ID hop le. Dang vao man hinh do...", false);
     if (r->success_cb) r->success_cb(r->userId);
   }
   free(r);

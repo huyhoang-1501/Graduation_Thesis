@@ -596,7 +596,7 @@ static void build_ud_screen() {
   lv_label_set_text(title, "Mode Online");
   lv_obj_set_style_text_color(title, primary, 0);
   lv_obj_set_style_text_font(title, pick_font_mid(), 0);
-  lv_obj_align(title, LV_ALIGN_LEFT_MID, -15, -5);
+  lv_obj_align(title, LV_ALIGN_LEFT_MID, -10, -5);
 
   lv_obj_t *btn_back = lv_btn_create(header);
   lv_obj_set_size(btn_back, 92, 42);

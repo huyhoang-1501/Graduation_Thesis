@@ -4,6 +4,7 @@
 #include <HTTPClient.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "HR_SPO2_BP.h"
 
 static String g_wifi_ssid;
 static String g_wifi_password;
@@ -15,6 +16,7 @@ static FirebaseSyncGetTextCb g_get_user_id_cb = nullptr;
 static int g_battery_percent = -1;
 static uint32_t g_push_interval_ms = 5000;
 static uint32_t g_last_push_ms = 0;
+static char g_current_user_id[16] = ""; // null-terminated
 
 // background task state
 static volatile bool g_pending_push = false;
@@ -132,6 +134,23 @@ static bool firebase_get(const String &path, String &outBody) {
   return false;
 }
 
+void FirebaseSync_SetCurrentUserId(const char *userId) {
+  if (!userId || !userId[0]) {
+    g_current_user_id[0] = '\0';
+    Serial.println("[Firebase] Cleared current user id");
+    return;
+  }
+  strncpy(g_current_user_id, userId, sizeof(g_current_user_id) - 1);
+  g_current_user_id[sizeof(g_current_user_id) - 1] = '\0';
+  Serial.print("[Firebase] Current user id set: "); Serial.println(g_current_user_id);
+}
+
+// Public: force push measurement now (non-blocking queued)
+void FirebaseSync_PushMeasurementNow() {
+  // set pending push so the background task triggers firebase_push_impl
+  g_pending_push = true;
+}
+
 void FirebaseSync_Init(const char *wifiSsid,
                        const char *wifiPassword,
                        const char *firebaseDbUrl,
@@ -174,6 +193,8 @@ bool FirebaseSync_PushStatusAndBattery() {
 static void firebase_push_impl() {
   const char *deviceId = g_get_device_id_cb ? g_get_device_id_cb() : "";
   const char *userId = g_get_user_id_cb ? g_get_user_id_cb() : "";
+  // fallback to internal user id when no callback provided
+  if ((!userId || !userId[0]) && g_current_user_id[0]) userId = g_current_user_id;
   if (!deviceId || !deviceId[0]) return;
 
   String battStr = (g_battery_percent >= 0) ? String(g_battery_percent) : String("null");
@@ -186,6 +207,50 @@ static void firebase_push_impl() {
   // Push device info to /devices/<deviceId>. Do NOT update patients/<userId> here
   // (we intentionally send device-level info without depending on userId).
   bool ok = firebase_patch(String("devices/") + deviceId, payload);
+
+  // If a userId is set, also push latest measurement under /measurements/<userId>
+  if (userId && userId[0]) {
+    // Double-check the patient exists on server at push time. This prevents the
+    // device from pushing measurements for IDs that were not created on the web.
+    String patientsOut;
+    bool havePatient = firebase_get(String("patients/") + userId, patientsOut);
+    if (!havePatient || patientsOut == "null" || patientsOut.length() == 0) {
+      Serial.print("[Firebase] Aborting measurement push: patient not registered: ");
+      Serial.println(userId);
+      return;
+    }
+    // Read globals from HR_SPO2_BP (declared extern in header)
+    // Only include fields that look valid (non-zero or in-range)
+    String mHr = (heartRate >= 30 && heartRate <= 220) ? String(heartRate) : String("null");
+    String mSpo2 = (spo2 >= 50 && spo2 <= 100) ? String(spo2) : String("null");
+    String mSys = (lastSYS > 0.0f) ? String((int)roundf(lastSYS)) : String("null");
+    String mDia = (lastDIA > 0.0f) ? String((int)roundf(lastDIA)) : String("null");
+
+    String meas = String("{") +
+      "\"hr\":" + mHr + "," +
+      "\"bpSys\":" + mSys + "," +
+      "\"bpDia\":" + mDia + "," +
+      "\"spo2\":" + mSpo2 + "," +
+      "\"timestamp\":{.sv:\"timestamp\"}" +
+      String("}");
+
+    // The timestamp expression needs to be valid JSON for PATCH — embed using server-value
+    // Firebase REST expects {"timestamp":{" .sv":"timestamp"}} but previous code used
+    // lastSeen style; we will send timestamp as a number using client's millis/epoch is not safe,
+    // so use a two-step: PATCH with ".sv":"timestamp" requires proper quoting; instead,
+    // construct JSON with server timestamp token as string value for key 'timestamp'.
+    // Workaround: use a small JSON and then immediately set timestamp on server via client-side patch
+
+    // Simpler: write measurement object with a timestamp property set to server timestamp via
+    // the token: "\"timestamp\":{.sv:\"timestamp\"}" – but since dots aren't allowed in key,
+    // use the same pattern as device payload used earlier
+    String measPayload = String("{\"hr\":") + mHr + ",\"bpSys\":" + mSys + ",\"bpDia\":" + mDia + ",\"spo2\":" + mSpo2 + ",\"timestamp\":{\".sv\":\"timestamp\"}}";
+
+    bool mok = firebase_patch(String("measurements/") + userId, measPayload);
+    if (!mok) {
+      Serial.print("[Firebase] measurement push fail for "); Serial.println(userId);
+    }
+  }
 }
 
 bool FirebaseSync_ValidateUserId(const char *userId, char *errMsg, size_t errMsgSize) {
@@ -205,8 +270,21 @@ bool FirebaseSync_ValidateUserId(const char *userId, char *errMsg, size_t errMsg
   // Yêu cầu: đẩy trạng thái + pin lên Firebase trước.
   FirebaseSync_PushStatusAndBattery();
 
-  // Tạm thời BỎ QUA việc kiểm tra xem `userId` có được gắn với `deviceId` trên Firebase
-  // và BỎ QUA việc ghép (binding). Trả về OK trực tiếp.
+  // Check that the patient/user exists in Firebase under /patients/<userId>.
+  String out;
+  bool got = firebase_get(String("patients/") + String(userId), out);
+  if (!got) {
+    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "Loi ket noi Firebase");
+    return false;
+  }
+
+  // firebase returns null when key not found
+  if (out == "null" || out.length() == 0) {
+    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "User ID chua duoc dang ky tren web");
+    return false;
+  }
+
+  // Optionally, we could verify /devices/<deviceId>.patientId == userId here.
   if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "OK");
   return true;
 }

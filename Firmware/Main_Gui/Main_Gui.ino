@@ -128,11 +128,17 @@ static const bool DISABLE_FIREBASE_PUSH = false;
 
 static void on_user_mode_back() {
   MainUi_ShowMainScreen();
+  // Clear current user id so device stops pushing measurements for previous user
+  FirebaseSync_SetCurrentUserId(nullptr);
 }
 
 static void on_user_mode_success(const char *userId) {
   // User ID not stored locally; still perform push and show dashboard
+  // Set the current user id for measurement uploads and UI
+  FirebaseSync_SetCurrentUserId(userId);
+
   if (!DISABLE_FIREBASE_PUSH) {
+    // Push device status (and measurement will be pushed by background worker)
     FirebaseSync_PushStatusAndBattery();
   } else {
     Serial.println("Firebase push disabled: skipping PushStatusAndBattery");

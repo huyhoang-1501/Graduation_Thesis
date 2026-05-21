@@ -693,11 +693,13 @@ function initDeviceBindingModule() {
           return alert("Mã bệnh nhân này đang thuộc tài khoản khác.");
         }
 
+        // Do not store deviceId inside the patients node. Devices are tracked
+        // under /devices and linked to a patient via devices/<deviceId>.patientId.
+        // Keeping deviceId in two places leads to duplication and sync issues.
         await db.ref("patients/" + patientId).set({
           name: oldPatient?.name || ("Bệnh nhân " + patientId.slice(-4)),
           age: oldPatient?.age || "",
           sex: oldPatient?.sex || "Nam",
-          deviceId,
           ownerUid,
           mode: "user",
           status: oldPatient?.status || "offline",
