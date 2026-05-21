@@ -1,10 +1,15 @@
 #include "FirebaseSync.h"
-
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "HR_SPO2_BP.h"
+
+#ifdef USE_FIREBASE_ESP_CLIENT
+#include <Firebase_ESP_Client.h>
+// optional pointer to FirebaseData provided by main sketch when using Firebase_ESP_Client
+static FirebaseData *g_fbdo = nullptr;
+#endif
 
 static String g_wifi_ssid;
 static String g_wifi_password;
@@ -22,6 +27,12 @@ static char g_current_user_id[16] = ""; // null-terminated
 static volatile bool g_pending_push = false;
 static TaskHandle_t g_firebase_task_handle = NULL;
 
+// last-sent measurement snapshot to detect changes and push immediately
+static int g_last_sent_hr = -1;
+static int g_last_sent_spo2 = -1;
+static int g_last_sent_sys = -1;
+static int g_last_sent_dia = -1;
+
 static void firebase_push_impl();
 
 static bool wifi_connect_if_needed();
@@ -32,12 +43,32 @@ static void firebase_task(void *arg) {
     // do lightweight wifi connect attempt (non-blocking) so worker can trigger connection
     wifi_connect_if_needed();
 
+    // Detect measurement changes (read globals from HR_SPO2_BP) and queue an immediate push.
+    // This allows near-realtime pushes when sensor values update.
+    int curHr = (heartRate >= 30 && heartRate <= 220) ? (int)heartRate : -1;
+    int curSpo2 = (spo2 >= 50 && spo2 <= 100) ? (int)spo2 : -1;
+    int curSys = (lastSYS > 0.0f) ? (int)roundf(lastSYS) : -1;
+    int curDia = (lastDIA > 0.0f) ? (int)roundf(lastDIA) : -1;
+
+    if (curHr != g_last_sent_hr || curSpo2 != g_last_sent_spo2 || curSys != g_last_sent_sys || curDia != g_last_sent_dia) {
+      // update snapshot
+      g_last_sent_hr = curHr;
+      g_last_sent_spo2 = curSpo2;
+      g_last_sent_sys = curSys;
+      g_last_sent_dia = curDia;
+      // queue immediate push
+      g_pending_push = true;
+      g_last_push_ms = millis();
+    }
+
     if (g_pending_push || (millis() - g_last_push_ms >= g_push_interval_ms)) {
       g_pending_push = false;
       g_last_push_ms = millis();
+      Serial.println("[Firebase] Task: triggering push");
       firebase_push_impl();
     }
 
+    // delay between iterations — keep moderate to avoid CPU/heap pressure
     vTaskDelay(pdMS_TO_TICKS(250));
   }
 }
@@ -54,6 +85,12 @@ static const uint16_t HTTP_RW_TIMEOUT_MS = 1200;
 static bool wifi_connect_if_needed() {
   wl_status_t st = WiFi.status();
   if (st == WL_CONNECTED) {
+    // If we were actively connecting and now connected, trigger an immediate
+    // push so pending data goes out without waiting for the next interval.
+    if (g_wifi_connecting) {
+      Serial.println("[WiFi] Connected — triggering immediate push");
+      g_pending_push = true;
+    }
     g_wifi_connecting = false;
     return true;
   }
@@ -89,15 +126,61 @@ static void http_prepare(HTTPClient &http) {
   http.setTimeout(HTTP_RW_TIMEOUT_MS);
 }
 
-static bool firebase_patch(const String &path, const String &jsonBody) {
+// POST helper (used to append to history nodes)
+static bool firebase_post(const String &path, const String &jsonBody) {
   if (!wifi_connect_if_needed()) return false;
   if (g_firebase_db_url.length() == 0) return false;
 
+#ifdef USE_FIREBASE_ESP_CLIENT
+  // Use Firebase_ESP_Client push (creates a unique child under path)
+  if (!g_fbdo) {
+    Serial.println("[Firebase] pushJSON: fbdo not provided");
+    return false;
+  }
+  bool ok = Firebase.RTDB.pushJSON(g_fbdo, path.c_str(), jsonBody.c_str());
+  if (!ok) {
+    Serial.print("[Firebase] pushJSON fail "); Serial.print(path); Serial.print(" reason="); Serial.println(g_fbdo->errorReason());
+  }
+  return ok;
+#else
   HTTPClient http;
   String url = g_firebase_db_url + "/" + path + ".json";
   http.begin(url);
   http_prepare(http);
   http.addHeader("Content-Type", "application/json");
+  http.addHeader("Connection", "keep-alive");
+  int code = http.POST(jsonBody);
+  bool ok = (code >= 200 && code < 300);
+  if (!ok) {
+    Serial.print("[Firebase] POST fail "); Serial.print(path); Serial.print(" code="); Serial.println(code);
+  }
+  http.end();
+  return ok;
+#endif
+}
+
+static bool firebase_patch(const String &path, const String &jsonBody) {
+  if (!wifi_connect_if_needed()) return false;
+  if (g_firebase_db_url.length() == 0) return false;
+
+#ifdef USE_FIREBASE_ESP_CLIENT
+  // Use setJSON to write/overwrite the node with provided JSON
+  if (!g_fbdo) {
+    Serial.println("[Firebase] setJSON: fbdo not provided");
+    return false;
+  }
+  bool ok = Firebase.RTDB.setJSON(g_fbdo, path.c_str(), jsonBody.c_str());
+  if (!ok) {
+    Serial.print("[Firebase] setJSON fail "); Serial.print(path); Serial.print(" reason="); Serial.println(g_fbdo->errorReason());
+  }
+  return ok;
+#else
+  HTTPClient http;
+  String url = g_firebase_db_url + "/" + path + ".json";
+  http.begin(url);
+  http_prepare(http);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("Connection", "keep-alive");
   int code = http.sendRequest("PATCH", jsonBody);
   bool ok = (code >= 200 && code < 300);
   if (!ok) {
@@ -108,6 +191,7 @@ static bool firebase_patch(const String &path, const String &jsonBody) {
   }
   http.end();
   return ok;
+#endif
 }
 
 static bool firebase_get(const String &path, String &outBody) {
@@ -115,10 +199,23 @@ static bool firebase_get(const String &path, String &outBody) {
   if (!wifi_connect_if_needed()) return false;
   if (g_firebase_db_url.length() == 0) return false;
 
+#ifdef USE_FIREBASE_ESP_CLIENT
+  if (!g_fbdo) {
+    Serial.println("[Firebase] getJSON: fbdo not provided");
+    return false;
+  }
+  if (!Firebase.RTDB.getJSON(g_fbdo, path.c_str())) {
+    Serial.print("[Firebase] getJSON fail "); Serial.print(path); Serial.print(" reason="); Serial.println(g_fbdo->errorReason());
+    return false;
+  }
+  outBody = g_fbdo->payload();
+  return true;
+#else
   HTTPClient http;
   String url = g_firebase_db_url + "/" + path + ".json";
   http.begin(url);
   http_prepare(http);
+  http.addHeader("Connection", "keep-alive");
   int code = http.GET();
   if (code >= 200 && code < 300) {
     outBody = http.getString();
@@ -132,6 +229,7 @@ static bool firebase_get(const String &path, String &outBody) {
   Serial.println(code);
   http.end();
   return false;
+#endif
 }
 
 void FirebaseSync_SetCurrentUserId(const char *userId) {
@@ -145,6 +243,8 @@ void FirebaseSync_SetCurrentUserId(const char *userId) {
   Serial.print("[Firebase] Current user id set: "); Serial.println(g_current_user_id);
 }
 
+// NOTE: auth token support removed — this project does not use Firebase REST auth tokens.
+
 // Public: force push measurement now (non-blocking queued)
 void FirebaseSync_PushMeasurementNow() {
   // set pending push so the background task triggers firebase_push_impl
@@ -156,7 +256,8 @@ void FirebaseSync_Init(const char *wifiSsid,
                        const char *firebaseDbUrl,
                        FirebaseSyncGetTextCb getDeviceIdCb,
                        FirebaseSyncGetTextCb getUserIdCb,
-                       uint32_t pushIntervalMs) {
+                       uint32_t pushIntervalMs,
+                       void *firebaseDataPtr) {
   g_wifi_ssid = wifiSsid ? wifiSsid : "";
   g_wifi_password = wifiPassword ? wifiPassword : "";
   g_firebase_db_url = firebaseDbUrl ? firebaseDbUrl : "";
@@ -164,9 +265,13 @@ void FirebaseSync_Init(const char *wifiSsid,
   g_get_user_id_cb = getUserIdCb;
   g_push_interval_ms = pushIntervalMs > 0 ? pushIntervalMs : 5000;
   g_last_push_ms = 0;
+  // If caller provided a FirebaseData pointer, store it for use by Firebase_ESP_Client calls
+#ifdef USE_FIREBASE_ESP_CLIENT
+  g_fbdo = firebaseDataPtr ? (FirebaseData *)firebaseDataPtr : nullptr;
+#endif
   // start background firebase task if not running
   if (g_firebase_task_handle == NULL) {
-    BaseType_t res = xTaskCreate(firebase_task, "firebase_task", 4096, NULL, 1, &g_firebase_task_handle);
+    BaseType_t res = xTaskCreate(firebase_task, "firebase_task", 8192, NULL, 1, &g_firebase_task_handle);
     if (res != pdPASS) {
       Serial.println("[Firebase] Failed to create firebase_task");
       g_firebase_task_handle = NULL;
@@ -210,15 +315,9 @@ static void firebase_push_impl() {
 
   // If a userId is set, also push latest measurement under /measurements/<userId>
   if (userId && userId[0]) {
-    // Double-check the patient exists on server at push time. This prevents the
-    // device from pushing measurements for IDs that were not created on the web.
-    String patientsOut;
-    bool havePatient = firebase_get(String("patients/") + userId, patientsOut);
-    if (!havePatient || patientsOut == "null" || patientsOut.length() == 0) {
-      Serial.print("[Firebase] Aborting measurement push: patient not registered: ");
-      Serial.println(userId);
-      return;
-    }
+    // To reduce round-trips, we skip an existence GET and optimistically push
+    // the measurement. The web/dashboard can ignore measurements for unknown
+    // users if necessary. This avoids a costly GET before every push.
     // Read globals from HR_SPO2_BP (declared extern in header)
     // Only include fields that look valid (non-zero or in-range)
     String mHr = (heartRate >= 30 && heartRate <= 220) ? String(heartRate) : String("null");
@@ -246,10 +345,15 @@ static void firebase_push_impl() {
     // use the same pattern as device payload used earlier
     String measPayload = String("{\"hr\":") + mHr + ",\"bpSys\":" + mSys + ",\"bpDia\":" + mDia + ",\"spo2\":" + mSpo2 + ",\"timestamp\":{\".sv\":\"timestamp\"}}";
 
-    bool mok = firebase_patch(String("measurements/") + userId, measPayload);
-    if (!mok) {
-      Serial.print("[Firebase] measurement push fail for "); Serial.println(userId);
+    // Write latest measurement to a small /measurements/<userId>/latest node
+    // (cheap for listeners that only need newest value) and append to
+    // /measurements/<userId>/history (optional). This reduces payload size and
+    // makes web listeners (limitToLast(1) or 'latest') faster.
+    bool mokLatest = firebase_patch(String("measurements/") + userId + String("/latest"), measPayload);
+    if (!mokLatest) {
+      Serial.print("[Firebase] measurement latest push fail for "); Serial.println(userId);
     }
+    // History appends removed to reduce write volume; only update /measurements/<userId>/latest
   }
 }
 

@@ -9,7 +9,8 @@ void FirebaseSync_Init(const char *wifiSsid,
                        const char *firebaseDbUrl,
                        FirebaseSyncGetTextCb getDeviceIdCb,
                        FirebaseSyncGetTextCb getUserIdCb,
-                       uint32_t pushIntervalMs);
+                       uint32_t pushIntervalMs,
+                       void *firebaseDataPtr = nullptr);
 
 void FirebaseSync_SetBatteryPercent(int batteryPercent);
 bool FirebaseSync_PushStatusAndBattery();

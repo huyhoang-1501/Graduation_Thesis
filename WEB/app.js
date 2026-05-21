@@ -345,54 +345,34 @@ function showApp(user) {
 // Show device-level info without requiring ownership. Detaches previous listener.
 function showDeviceById(deviceId) {
   try {
-    if (window._currentDeviceRef && window._currentDeviceListener) {
-      window._currentDeviceRef.off('value', window._currentDeviceListener);
-      window._currentDeviceRef = null;
-      window._currentDeviceListener = null;
+    // Detach any previous fine-grained listeners
+    if (window._currentDeviceRefs && Array.isArray(window._currentDeviceRefs)) {
+      window._currentDeviceRefs.forEach(it => {
+        try { it.ref.off('value', it.handler); } catch (e) { /* ignore */ }
+      });
     }
+    window._currentDeviceRefs = [];
 
-    const devRef = db.ref('devices/' + deviceId);
-    window._currentDeviceRef = devRef;
-    // derive online/offline from lastSeen timestamp (treat previously 'stale' as offline)
+    const base = 'devices/' + deviceId;
     const ONLINE_THRESHOLD = 3 * 60 * 1000; // 3 minutes
 
-    window._currentDeviceListener = devRef.on('value', snap => {
+    // Initial one-time read to populate UI quickly
+    db.ref(base).once('value').then(snap => {
       const d = snap.val() || {};
-
       // battery
       const battEl = document.getElementById('ov-battery');
       if (battEl) battEl.textContent = (d.batteryPercent != null) ? (d.batteryPercent + ' %') : '-- %';
 
-      // last seen & freshness
+      // lastSeen
+      const lastEl = document.getElementById('ov-lastseen');
+      const freshnessEl = document.getElementById('ov-freshness');
       const now = Date.now();
       const lastSeenRaw = d.lastSeen || d.lastSeenAt || 0;
       const lastSeen = Number(lastSeenRaw) || 0;
-      const lastEl = document.getElementById('ov-lastseen');
-      const freshnessEl = document.getElementById('ov-freshness');
       if (lastEl) {
         if (lastSeen) lastEl.textContent = new Date(lastSeen).toLocaleString();
         else lastEl.textContent = '--';
       }
-
-      // compute derived status based on lastSeen (online vs offline only)
-      let derivedStatus = (d.status || 'offline');
-      if (lastSeen) {
-        const age = now - lastSeen;
-        derivedStatus = (age < ONLINE_THRESHOLD) ? 'online' : 'offline';
-      } else {
-        derivedStatus = d.status || 'offline';
-      }
-
-      // badge
-      const badge = document.getElementById('ov-device-badge');
-      if (badge) {
-        badge.textContent = derivedStatus.toUpperCase();
-        badge.classList.remove('badge-online','badge-offline');
-        if (derivedStatus === 'online') badge.classList.add('badge-online');
-        else badge.classList.add('badge-offline');
-      }
-
-      // freshness text
       if (freshnessEl) {
         if (!lastSeen) freshnessEl.textContent = '--';
         else {
@@ -403,10 +383,164 @@ function showDeviceById(deviceId) {
         }
       }
 
-      // optional network indicator
+      // badge & network
+      const badge = document.getElementById('ov-device-badge');
+      let derivedStatus = (d.status || 'offline');
+      if (lastSeen) {
+        const age = Date.now() - lastSeen;
+        derivedStatus = (age < ONLINE_THRESHOLD) ? 'online' : 'offline';
+      }
+      if (badge) {
+        badge.textContent = derivedStatus.toUpperCase();
+        badge.classList.remove('badge-online','badge-offline');
+        if (derivedStatus === 'online') badge.classList.add('badge-online');
+        else badge.classList.add('badge-offline');
+      }
       const netEl = document.getElementById('ov-network');
       if (netEl) netEl.textContent = d.network || '--';
+
+      // If device is linked to a patient, remember for measurement listener
+      window._devicePatientId = d.patientId || '';
+    }).catch(err => console.warn('device initial read failed', err));
+
+    // Small-field realtime listeners (cheaper than 'value' for whole node)
+    const addFieldListener = (field, cb) => {
+      const r = db.ref(base + '/' + field);
+      const handler = snap => cb(snap.val());
+      r.on('value', handler);
+      window._currentDeviceRefs.push({ ref: r, handler });
+    };
+
+    addFieldListener('batteryPercent', v => {
+      const battEl = document.getElementById('ov-battery');
+      if (battEl) battEl.textContent = (v != null) ? (v + ' %') : '-- %';
     });
+
+    addFieldListener('lastSeen', v => {
+      const last = Number(v) || 0;
+      const lastEl = document.getElementById('ov-lastseen');
+      const freshnessEl = document.getElementById('ov-freshness');
+      if (lastEl) lastEl.textContent = last ? new Date(last).toLocaleString() : '--';
+      if (freshnessEl) {
+        if (!last) freshnessEl.textContent = '--';
+        else {
+          const sec = Math.floor((Date.now() - last) / 1000);
+          if (sec < 60) freshnessEl.textContent = 'Cập nhật mới nhất';
+          else if (sec < 3600) freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 60) + ' phút';
+          else freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 3600) + ' giờ';
+        }
+      }
+    });
+
+    addFieldListener('status', v => {
+      const badge = document.getElementById('ov-device-badge');
+      if (!badge) return;
+      const lastSeenText = document.getElementById('ov-lastseen')?.textContent || '';
+      const derived = (v || 'offline');
+      badge.textContent = derived.toUpperCase();
+      badge.classList.remove('badge-online','badge-offline');
+      if (derived === 'online') badge.classList.add('badge-online');
+      else badge.classList.add('badge-offline');
+    });
+
+    addFieldListener('network', v => {
+      const netEl = document.getElementById('ov-network');
+      if (netEl) netEl.textContent = v || '--';
+    });
+
+    // Measurements: listen to latest measurement for patient if available
+    // We'll create a measurement listener once we know patientId (from initial read)
+    // Poll for patientId availability (short-lived) and then attach listener
+    const attachMeasWhenReady = () => {
+      const pid = window._devicePatientId || '';
+      if (!pid) return;
+      try {
+        // Support both structures:
+        // - legacy: measurements/<pid> contains pushed child entries (limitToLast(1))
+        // - current firmware: measurements/<pid>/latest is updated by device
+        // Listen to both so UI works with either format.
+        const measRef = db.ref('measurements/' + pid).limitToLast(1);
+        const measHandler = snap => {
+          const m = snap.val();
+          // when using limitToLast(1) child_added returns the new child; if we get object, derive values
+          const record = (typeof m === 'object' && m !== null) ? (Object.values(m)[0] || Object.values(m)) : m;
+          const rec = record || {};
+          if (rec.hr != null) {
+            const hrEl = document.getElementById('ov-hr-value');
+            if (hrEl) hrEl.textContent = rec.hr + ' bpm';
+          }
+          if (rec.spo2 != null) {
+            const spoEl = document.getElementById('ov-spo2-value');
+            if (spoEl) spoEl.textContent = rec.spo2 + ' %';
+          }
+          if (rec.bpSys != null && rec.bpDia != null) {
+            const bpEl = document.getElementById('ov-bp-value');
+            if (bpEl) bpEl.textContent = rec.bpSys + ' / ' + rec.bpDia + ' mmHg';
+          }
+          // Optionally update chart
+          if (miniChart && rec.hr != null) {
+            try {
+              miniChart.data.labels.push('');
+              miniChart.data.datasets[0].data.push(rec.hr);
+              if (miniChart.data.labels.length > 60) {
+                miniChart.data.labels.shift();
+                miniChart.data.datasets[0].data.shift();
+              }
+              miniChart.update();
+            } catch (e) { /* ignore chart errors */ }
+          }
+        };
+        measRef.on('child_added', measHandler);
+        window._currentDeviceRefs.push({ ref: measRef, handler: measHandler });
+
+        // Also listen to the single '/latest' node that the firmware writes to.
+        try {
+          const latestRef = db.ref('measurements/' + pid + '/latest');
+          const latestHandler = snap => {
+            const rec = snap.val() || {};
+            if (rec.hr != null) {
+              const hrEl = document.getElementById('ov-hr-value');
+              if (hrEl) hrEl.textContent = rec.hr + ' bpm';
+            }
+            if (rec.spo2 != null) {
+              const spoEl = document.getElementById('ov-spo2-value');
+              if (spoEl) spoEl.textContent = rec.spo2 + ' %';
+            }
+            if (rec.bpSys != null && rec.bpDia != null) {
+              const bpEl = document.getElementById('ov-bp-value');
+              if (bpEl) bpEl.textContent = rec.bpSys + ' / ' + rec.bpDia + ' mmHg';
+            }
+            if (miniChart && rec.hr != null) {
+              try {
+                miniChart.data.labels.push('');
+                miniChart.data.datasets[0].data.push(rec.hr);
+                if (miniChart.data.labels.length > 60) {
+                  miniChart.data.labels.shift();
+                  miniChart.data.datasets[0].data.shift();
+                }
+                miniChart.update();
+              } catch (e) { /* ignore chart errors */ }
+            }
+          };
+          latestRef.on('value', latestHandler);
+          window._currentDeviceRefs.push({ ref: latestRef, handler: latestHandler });
+        } catch (e) {
+          console.warn('failed to attach latest listener', e);
+        }
+      } catch (e) { console.warn('attachMeasWhenReady failed', e); }
+    };
+
+    // Try attaching measurement listener after small delays until patientId available
+    let tries = 0;
+    const tryInterval = setInterval(() => {
+      tries++;
+      if (window._devicePatientId) {
+        attachMeasWhenReady();
+        clearInterval(tryInterval);
+      } else if (tries > 6) {
+        clearInterval(tryInterval);
+      }
+    }, 500);
 
     // Clear patient selector selection to indicate device view
     const ovSel = document.getElementById('ov-patient-select');

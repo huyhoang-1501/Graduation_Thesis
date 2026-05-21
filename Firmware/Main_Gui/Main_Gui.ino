@@ -25,6 +25,22 @@
 // HR/SpO2 and BP module
 #include "HR_SPO2_BP.h"
 
+#include <WiFi.h>
+
+// Enable Firebase_ESP_Client usage in FirebaseSync (will pass fbdo pointer)
+#define USE_FIREBASE_ESP_CLIENT
+#ifdef USE_FIREBASE_ESP_CLIENT
+#include <Firebase_ESP_Client.h>
+#include "addons/TokenHelper.h"
+#include "addons/RTDBHelper.h"
+// Firebase objects (sketch-level)
+static FirebaseData fbdo;
+static FirebaseAuth auth;
+static FirebaseConfig config;
+// Leave empty if you don't want to hardcode the API key here.
+static const char *FIREBASE_API_KEY = "";
+#endif
+
 // ================= DISPLAY =================
 static const uint16_t SCREEN_WIDTH  = 480;
 static const uint16_t SCREEN_HEIGHT = 320;
@@ -482,6 +498,46 @@ static void maybe_save_battery_to_nvs() {
   }
 }
 
+// Background task to initialize Firebase without blocking setup()
+static void firebase_init_task(void *arg) {
+  (void)arg;
+#ifdef USE_FIREBASE_ESP_CLIENT
+  Serial.println("[Firebase init task] Waiting for WiFi...");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED) {
+    vTaskDelay(pdMS_TO_TICKS(500));
+  }
+  Serial.println("[Firebase init task] WiFi connected");
+  // configure Firebase client
+  config.api_key = FIREBASE_API_KEY;
+  config.database_url = FIREBASE_DB_URL;
+  config.token_status_callback = tokenStatusCallback;
+  Firebase.begin(&config, &auth);
+  Firebase.reconnectWiFi(true);
+  // pass fbdo pointer into FirebaseSync so it can use the client library
+  FirebaseSync_Init(WIFI_SSID,
+                    WIFI_PASSWORD,
+                    FIREBASE_DB_URL,
+                    ui_get_device_id,
+                    nullptr,
+                    FIREBASE_PUSH_INTERVAL_MS,
+                    (void*)&fbdo);
+  // initial status push
+  FirebaseSync_PushStatusAndBattery();
+#else
+  // For HTTP fallback, just init FirebaseSync (it will manage wifi non-blocking)
+  FirebaseSync_Init(WIFI_SSID,
+                    WIFI_PASSWORD,
+                    FIREBASE_DB_URL,
+                    ui_get_device_id,
+                    nullptr,
+                    FIREBASE_PUSH_INTERVAL_MS,
+                    nullptr);
+  FirebaseSync_PushStatusAndBattery();
+#endif
+  vTaskDelete(NULL);
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -571,12 +627,26 @@ void setup() {
   // Do not provide a user-id getter or saver: user id is no longer stored locally
   MainUi_Init(nullptr, ui_get_device_id, nullptr, on_open_user_mode);
   if (!DISABLE_FIREBASE_PUSH) {
-    FirebaseSync_Init(WIFI_SSID,
-                      WIFI_PASSWORD,
-                      FIREBASE_DB_URL,
-                      ui_get_device_id,
-                      nullptr,
-                      FIREBASE_PUSH_INTERVAL_MS);
+        // create the FreeRTOS task to initialize Firebase in background
+        BaseType_t res = xTaskCreate(firebase_init_task, "fb_init", 4096, NULL, 1, NULL);
+    if (res != pdPASS) {
+      Serial.println("[Firebase] Failed to create fb_init task, falling back to inline init");
+      // fallback to inline (blocking) init to preserve behavior
+#ifdef USE_FIREBASE_ESP_CLIENT
+      WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+      while (WiFi.status() != WL_CONNECTED) { delay(500); }
+      config.api_key = FIREBASE_API_KEY;
+      config.database_url = FIREBASE_DB_URL;
+      config.token_status_callback = tokenStatusCallback;
+      Firebase.begin(&config, &auth);
+      Firebase.reconnectWiFi(true);
+      FirebaseSync_Init(WIFI_SSID, WIFI_PASSWORD, FIREBASE_DB_URL, ui_get_device_id, nullptr, FIREBASE_PUSH_INTERVAL_MS, (void*)&fbdo);
+      FirebaseSync_PushStatusAndBattery();
+#else
+      FirebaseSync_Init(WIFI_SSID, WIFI_PASSWORD, FIREBASE_DB_URL, ui_get_device_id, nullptr, FIREBASE_PUSH_INTERVAL_MS, nullptr);
+      FirebaseSync_PushStatusAndBattery();
+#endif
+    }
   } else {
     Serial.println("Firebase disabled by flag: not initializing FirebaseSync");
   }

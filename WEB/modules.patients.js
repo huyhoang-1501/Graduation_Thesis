@@ -343,32 +343,81 @@ function showOverviewForPatient(patientId) {
   });
 
   // 2) Đọc measurements hiện tại (1 record)
+  // Detach any previous measurement listeners for patient view
+  try {
+    if (window._currentMeasurementRefs && Array.isArray(window._currentMeasurementRefs)) {
+      window._currentMeasurementRefs.forEach(r => { try { r.ref.off(r.event || 'value', r.handler); } catch (e) {} });
+    }
+  } catch (e) { /* ignore */ }
+  window._currentMeasurementRefs = [];
+
+  // Helper to apply measurement data to UI
+  const applyMeas = (rec) => {
+    const hr = (rec && rec.hr != null) ? rec.hr : '--';
+    const bpSys = (rec && rec.bpSys != null) ? rec.bpSys : '--';
+    const bpDia = (rec && rec.bpDia != null) ? rec.bpDia : '--';
+    const spo2 = (rec && rec.spo2 != null) ? rec.spo2 : '--';
+    document.getElementById("ov-hr-value").textContent   = hr + " bpm";
+    document.getElementById("ov-bp-value").textContent   = bpSys + " / " + bpDia + " mmHg";
+    document.getElementById("ov-spo2-value").textContent = spo2 + " %";
+    if (rec && rec.timestamp) {
+      try { document.getElementById("ov-lastseen").textContent = new Date(rec.timestamp).toLocaleString(); } catch (e) {}
+    }
+    if (rec && rec.location && rec.location.lat != null && rec.location.lng != null) {
+      updateMapLocation(rec.location.lat, rec.location.lng);
+    }
+  };
+
+  // 2a) One-time read: support both legacy (object) and /latest structure
   db.ref("measurements/" + patientId)
     .once("value")
     .then(snap => {
       const m = snap.val();
       if (!m) {
-        document.getElementById("ov-hr-value").textContent   = "-- bpm";
-        document.getElementById("ov-bp-value").textContent   = "-- / -- mmHg";
-        document.getElementById("ov-spo2-value").textContent = "-- %";
+        applyMeas(null);
         return;
       }
 
-      document.getElementById("ov-hr-value").textContent   = (m.hr ?? "--") + " bpm";
-      document.getElementById("ov-bp-value").textContent   = (m.bpSys ?? "--") + " / " + (m.bpDia ?? "--") + " mmHg";
-      document.getElementById("ov-spo2-value").textContent = (m.spo2 ?? "--") + " %";
-
-      // cập nhật lastseen nếu bạn dùng timestamp
-      if (m.timestamp) {
-        document.getElementById("ov-lastseen").textContent =
-          new Date(m.timestamp).toLocaleString();
+      // If object contains a 'latest' child, use it; otherwise if it's a direct record use that
+      if (m.latest && typeof m.latest === 'object') {
+        applyMeas(m.latest);
+        return;
       }
 
-      // location cho map
-      if (m.location && m.location.lat != null && m.location.lng != null) {
-        updateMapLocation(m.location.lat, m.location.lng);
+      // If measurements/<pid> is a map of child entries (legacy push), pick the last child
+      if (typeof m === 'object') {
+        const vals = Object.values(m);
+        if (vals.length > 0) {
+          const last = vals[vals.length - 1];
+          applyMeas(last);
+          return;
+        }
       }
+
+      // Fallback: if it's a flat measurement object
+      applyMeas(m);
     });
+
+  // 2b) Attach realtime listeners so Overview updates live when device pushes new data
+  try {
+    // legacy child_added listener for push-style entries
+    const legacyRef = db.ref('measurements/' + patientId).limitToLast(1);
+    const legacyHandler = snap => {
+      const m = snap.val();
+      const record = (typeof m === 'object' && m !== null) ? (Object.values(m)[0] || Object.values(m)) : m;
+      applyMeas(record || {});
+    };
+    legacyRef.on('child_added', legacyHandler);
+    window._currentMeasurementRefs.push({ ref: legacyRef, handler: legacyHandler, event: 'child_added' });
+
+    // current firmware writes to /measurements/<pid>/latest — listen to value
+    const latestRef = db.ref('measurements/' + patientId + '/latest');
+    const latestHandler = snap => { applyMeas(snap.val() || {}); };
+    latestRef.on('value', latestHandler);
+    window._currentMeasurementRefs.push({ ref: latestRef, handler: latestHandler, event: 'value' });
+  } catch (e) {
+    console.warn('attach measurement listeners failed', e);
+  }
 
   // 3) Có thể load alerts lịch sử cho patient này (tab Alerts)
   loadAlertsForPatient(patientId);
