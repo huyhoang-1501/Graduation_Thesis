@@ -3,11 +3,27 @@
 #include <Wire.h>
 #include "esp_timer.h"
 
+// ===== NVS / Preferences để lưu dung lượng pin =====
+#include <Preferences.h>
+// ===== INA219 =====
+#include <Adafruit_INA219.h>
+
+// ===== LVGL =====
 #define LV_CONF_SKIP
 #include "lv_conf.h"
 #include <lvgl.h>
 
+// ===== RTC =====
 #include "RTClib.h"
+
+// ===== UI modules =====
+#include "GuestMode.h"
+#include "MainUi.h"
+#include "UserMode.h"
+#include "FirebaseSync.h"
+#include "UserDashboard.h"
+// HR/SpO2 and BP module
+#include "HR_SPO2_BP.h"
 
 // ================= DISPLAY =================
 static const uint16_t SCREEN_WIDTH  = 480;
@@ -17,7 +33,9 @@ static const uint16_t SCREEN_HEIGHT = 320;
 TFT_eSPI tft;
 
 // ================= LVGL BUFFER =================
-static lv_color_t buf1[SCREEN_WIDTH * 40];
+// Reduced draw buffer lines to save ~11 KB of RAM (was 24)
+static const uint16_t LVGL_DRAW_BUF_LINES = 14;
+static lv_color_t buf1[SCREEN_WIDTH * LVGL_DRAW_BUF_LINES];
 static lv_disp_draw_buf_t draw_buf;
 
 // ================= LVGL TICK =================
@@ -60,60 +78,169 @@ static bool ft6336u_read_touch(uint16_t &x, uint16_t &y, bool &touched) {
 RTC_DS3231 rtc;
 static bool rtc_ok = false;
 
-// ================= MAX17043 (Battery gauge) =================
-#define MAX17043_ADDR 0x32
-#define VCELL_REG   0x02
-#define SOC_REG     0x04
-#define MODE_REG    0x06
+// ================= DEVICE ID / PAIRING DEMO =================
+static Preferences devicePref;
+static bool devicePrefReady = false;
+static const char *DEVICE_NVS_NAMESPACE = "device";
+static const char *DEVICE_NVS_KEY_ID    = "device_id";
+static const char *DEVICE_ID_FIXED      = "UTE-2026";
 
-static bool max17043_ok = false;
+static char g_device_id[24] = "DEV-UNKNOWN";
 
-static bool i2c_device_present(uint8_t addr) {
-  Wire.beginTransmission(addr);
-  return (Wire.endTransmission() == 0);
+static void load_or_create_device_identity() {
+  if (!devicePref.begin(DEVICE_NVS_NAMESPACE, false)) {
+    Serial.println("Failed to init device NVS, using RAM-only fixed device id");
+    devicePrefReady = false;
+    snprintf(g_device_id, sizeof(g_device_id), "%s", DEVICE_ID_FIXED);
+    return;
+  }
+
+  devicePrefReady = true;
+
+  String storedId = devicePref.getString(DEVICE_NVS_KEY_ID, "");
+
+  snprintf(g_device_id, sizeof(g_device_id), "%s", DEVICE_ID_FIXED);
+  if (!storedId.equals(DEVICE_ID_FIXED)) {
+    devicePref.putString(DEVICE_NVS_KEY_ID, DEVICE_ID_FIXED);
+  }
+
+  Serial.print("Device ID: ");
+  Serial.println(g_device_id);
 }
 
-static void max17043_reset() {
-  Wire.beginTransmission(MAX17043_ADDR);
-  Wire.write(MODE_REG);
-  Wire.write(0x54);
-  Wire.write(0x00);
-  Wire.endTransmission();
+// User ID storage/display removed per user request.
+// (No functions to save or return user id are provided.)
+
+static const char *ui_get_device_id() {
+  return g_device_id;
 }
 
-static void max17043_quickStart() {
-  Wire.beginTransmission(MAX17043_ADDR);
-  Wire.write(MODE_REG);
-  Wire.write(0x40);
-  Wire.write(0x00);
-  Wire.endTransmission();
+// ui_get_user_id removed; pass nullptr where a user-id getter was used.
+
+// ================= FIREBASE SYNC CONFIG =================
+static const char *WIFI_SSID = "HUY HOANG";
+static const char *WIFI_PASSWORD = "123456789";
+static const char *FIREBASE_DB_URL = "https://graduation-thesis-3a3df-default-rtdb.firebaseio.com";
+static const uint32_t FIREBASE_PUSH_INTERVAL_MS = 5000;
+
+// If true, disable all Firebase push/loop/init calls to allow disconnecting WiFi temporarily.
+static const bool DISABLE_FIREBASE_PUSH = false;
+
+static void on_user_mode_back() {
+  MainUi_ShowMainScreen();
 }
 
-// trả về mV
-static float max17043_readVoltage_mV() {
-  Wire.beginTransmission(MAX17043_ADDR);
-  Wire.write(VCELL_REG);
-  Wire.endTransmission();
-
-  if (Wire.requestFrom(MAX17043_ADDR, (uint8_t)2) != 2) return NAN;
-
-  uint16_t value = (Wire.read() << 8) | Wire.read();
-  return (value >> 4) * 1.25f; // mỗi bit = 1.25mV
+static void on_user_mode_success(const char *userId) {
+  // User ID not stored locally; still perform push and show dashboard
+  if (!DISABLE_FIREBASE_PUSH) {
+    FirebaseSync_PushStatusAndBattery();
+  } else {
+    Serial.println("Firebase push disabled: skipping PushStatusAndBattery");
+  }
+  UserDashboard_Show(MainUi_ShowMainScreen);
 }
 
-// trả về %
-static float max17043_readSOC_percent() {
-  Wire.beginTransmission(MAX17043_ADDR);
-  Wire.write(SOC_REG);
-  Wire.endTransmission();
-
-  if (Wire.requestFrom(MAX17043_ADDR, (uint8_t)2) != 2) return NAN;
-
-  uint16_t value = (Wire.read() << 8) | Wire.read();
-  float percent = value >> 8;
-  percent += (value & 0xFF) / 256.0f;
-  return percent;
+static void on_open_user_mode() {
+  UserMode_Show();
 }
+
+// Local validator used when Firebase (and thus WiFi) is disabled.
+static bool local_validate_user_id(const char *userId, char *errMsg, size_t errMsgSize) {
+  if (errMsg && errMsgSize) errMsg[0] = '\0';
+  if (!userId || !userId[0]) {
+    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "User ID rong");
+    return false;
+  }
+  // Keep same basic check as UI: 5 digits
+  if (strlen(userId) != 5) {
+    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "User ID phai dung 5 so");
+    return false;
+  }
+  if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "OK");
+  return true;
+}
+
+// ===== RTC sync policy =====
+// Chỉ bật true 1 lần khi muốn ép set RTC theo thời gian compile,
+// sau đó để lại false để tránh bị reset giờ mỗi lần nạp code.
+static const bool RTC_FORCE_SET_ON_BOOT = false;
+
+// Nếu toolchain của bạn compile theo UTC và muốn cộng múi giờ VN (+7h),
+// đặt thành 7 * 3600. Mặc định 0 (dùng giờ local của máy build).
+static const int32_t RTC_TIMEZONE_OFFSET_SEC = 0;
+
+static DateTime get_build_time_with_tz() {
+  DateTime t(F(__DATE__), F(__TIME__));
+  if (RTC_TIMEZONE_OFFSET_SEC != 0) {
+    t = t + TimeSpan(RTC_TIMEZONE_OFFSET_SEC);
+  }
+  return t;
+}
+
+static bool rtc_time_looks_invalid(const DateTime &t) {
+  // DS3231 hợp lệ lâu dài, nhưng với app này chỉ cần chặn giá trị rác.
+  return (t.year() < 2024 || t.year() > 2099 ||
+          t.month() < 1 || t.month() > 12 ||
+          t.day() < 1 || t.day() > 31);
+}
+
+static void rtc_sync_if_needed() {
+  if (!rtc_ok) return;
+
+  bool need_adjust = RTC_FORCE_SET_ON_BOOT;
+
+  if (rtc.lostPower()) {
+    Serial.println("RTC lost power -> will adjust from build time");
+    need_adjust = true;
+  }
+
+  DateTime current = rtc.now();
+  if (rtc_time_looks_invalid(current)) {
+    Serial.println("RTC invalid datetime -> will adjust from build time");
+    need_adjust = true;
+  }
+
+  if (need_adjust) {
+    DateTime build_time = get_build_time_with_tz();
+    rtc.adjust(build_time);
+    Serial.print("RTC adjusted to: ");
+    Serial.print(build_time.hour()); Serial.print(":");
+    Serial.print(build_time.minute()); Serial.print(":");
+    Serial.print(build_time.second()); Serial.print("  ");
+    Serial.print(build_time.day()); Serial.print("/");
+    Serial.print(build_time.month()); Serial.print("/");
+    Serial.println(build_time.year());
+  }
+}
+
+// ================= INA219 + Battery SOH/SOC bằng tích phân =================
+
+// Dung lượng danh định của pack pin (mAh).
+// 2 cell nối tiếp (2S1P) => mAh giữ nguyên như 1 cell.
+const float BATTERY_CAPACITY_mAh = 2600.0f;
+
+// INA219
+Adafruit_INA219 ina219;
+
+// Dung lượng còn lại (mAh), sẽ đọc/lưu vào NVS
+float batteryRemaining_mAh = BATTERY_CAPACITY_mAh;
+
+// Biến thời gian để tích phân dòng
+unsigned long lastMillis_batt = 0;
+
+// Nếu wiring làm cho chiều dòng ngược, đổi true/false cho phù hợp
+// - Nếu XẢ → current_mA dương, SẠC → current_mA âm: để false
+// - Nếu ngược lại thì set true
+const bool INVERT_CURRENT = false;
+
+// NVS
+Preferences pref;
+const char *NVS_NAMESPACE = "battery";
+const char *NVS_KEY_QmAh  = "Q_mAh";
+
+// Thời gian giữa 2 lần save NVS (ms)
+const uint32_t NVS_SAVE_INTERVAL_MS = 10000; // 10 giây
+static uint32_t last_nvs_save_ms = 0;
 
 // ================= POWER SAVE / BACKLIGHT =================
 static const uint32_t IDLE_OFF_MS = 30000; // 30s không chạm -> tắt backlight
@@ -240,154 +367,7 @@ static void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t
   lv_disp_flush_ready(disp);
 }
 
-// ================= Fonts fallback =================
-static const lv_font_t* pick_font_44_or_14() {
-#if defined(LV_FONT_MONTSERRAT_44) && (LV_FONT_MONTSERRAT_44 == 1)
-  return &lv_font_montserrat_44;
-#else
-  return &lv_font_montserrat_14;
-#endif
-}
-static const lv_font_t* pick_font_20_or_14() {
-#if defined(LV_FONT_MONTSERRAT_20) && (LV_FONT_MONTSERRAT_20 == 1)
-  return &lv_font_montserrat_20;
-#else
-  return &lv_font_montserrat_14;
-#endif
-}
-static const lv_font_t* pick_font_18_or_14() {
-#if defined(LV_FONT_MONTSERRAT_18) && (LV_FONT_MONTSERRAT_18 == 1)
-  return &lv_font_montserrat_18;
-#else
-  return &lv_font_montserrat_14;
-#endif
-}
-static const lv_font_t* pick_font_14() { return &lv_font_montserrat_14; }
-
-// ================= MAIN GUI objects =================
-static lv_obj_t *label_time = nullptr;
-static lv_obj_t *label_batt = nullptr;
-static lv_obj_t *btn_guest  = nullptr;
-static lv_obj_t *btn_user   = nullptr;
-
-// Update status bar
-static void ui_set_status(const char *time_str, const char *batt_str) {
-  if (label_time) lv_label_set_text(label_time, time_str);
-  if (label_batt) lv_label_set_text(label_batt, batt_str);
-}
-
-// Create GUI (Medical theme)
-static void create_main_gui() {
-  lv_obj_t *scr = lv_scr_act();
-
-  lv_color_t bg      = lv_color_make(245, 252, 255);
-  lv_color_t primary = lv_color_make(0, 140, 200);
-  lv_color_t dark    = lv_color_make(10, 60, 90);
-  lv_color_t card    = lv_color_white();
-
-  lv_obj_set_style_bg_color(scr, bg, 0);
-  lv_obj_set_style_pad_all(scr, 12, 0);
-
-  // Status bar
-  lv_obj_t *status = lv_obj_create(scr);
-  lv_obj_set_size(status, lv_pct(100), 44);
-  lv_obj_align(status, LV_ALIGN_TOP_MID, 0, 0);
-
-  lv_obj_set_style_bg_color(status, card, 0);
-  lv_obj_set_style_radius(status, 14, 0);
-  lv_obj_set_style_border_width(status, 2, 0);
-  lv_obj_set_style_border_color(status, lv_color_make(200, 235, 250), 0);
-  lv_obj_set_style_pad_left(status, 12, 0);
-  lv_obj_set_style_pad_right(status, 12, 0);
-  lv_obj_set_style_shadow_width(status, 0, 0);
-
-  // HCMUTE badge
-  lv_obj_t *hcmute_box = lv_obj_create(status);
-  lv_obj_set_size(hcmute_box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-  lv_obj_align(hcmute_box, LV_ALIGN_LEFT_MID, 0, 0);
-
-  lv_obj_set_style_bg_opa(hcmute_box, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_width(hcmute_box, 2, 0);
-  lv_obj_set_style_border_color(hcmute_box, lv_color_make(220, 40, 40), 0);
-  lv_obj_set_style_radius(hcmute_box, 10, 0);
-  lv_obj_set_style_pad_left(hcmute_box, 10, 0);
-  lv_obj_set_style_pad_right(hcmute_box, 10, 0);
-  lv_obj_set_style_pad_top(hcmute_box, 5, 0);
-  lv_obj_set_style_pad_bottom(hcmute_box, 5, 0);
-
-  lv_obj_t *label_hcmute = lv_label_create(hcmute_box);
-  lv_label_set_text(label_hcmute, "HCMUTE");
-  lv_obj_set_style_text_color(label_hcmute, primary, 0);
-  lv_obj_set_style_text_font(label_hcmute, pick_font_18_or_14(), 0);
-  lv_obj_center(label_hcmute);
-
-  // Battery
-  label_batt = lv_label_create(status);
-  lv_label_set_text(label_batt, "--%");
-  lv_obj_set_style_text_color(label_batt, dark, 0);
-  lv_obj_set_style_text_font(label_batt, pick_font_18_or_14(), 0);
-  lv_obj_align(label_batt, LV_ALIGN_RIGHT_MID, 0, 0);
-
-  // Time
-  label_time = lv_label_create(status);
-  lv_label_set_text(label_time, "--:--  --/--/----");
-  lv_obj_set_style_text_color(label_time, dark, 0);
-  lv_obj_set_style_text_font(label_time, pick_font_14(), 0);
-  lv_obj_align(label_time, LV_ALIGN_RIGHT_MID, -78, 0);
-
-  // Title
-  lv_obj_t *title = lv_label_create(scr);
-  lv_label_set_text(title, "Health Monitoring");
-  lv_obj_set_style_text_color(title, primary, 0);
-  lv_obj_set_style_text_font(title, pick_font_44_or_14(), 0);
-  lv_obj_align(title, LV_ALIGN_CENTER, 0, -30);
-
-  // Buttons container
-  lv_obj_t *cont_btn = lv_obj_create(scr);
-  lv_obj_set_size(cont_btn, lv_pct(100), 90);
-  lv_obj_align(cont_btn, LV_ALIGN_CENTER, 0, 90);
-  lv_obj_set_style_bg_opa(cont_btn, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_width(cont_btn, 0, 0);
-  lv_obj_set_style_pad_all(cont_btn, 0, 0);
-  lv_obj_set_style_pad_column(cont_btn, 16, 0);
-
-  static lv_coord_t col[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t row[] = {LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-  lv_obj_set_grid_dsc_array(cont_btn, col, row);
-
-  // Guest
-  btn_guest = lv_btn_create(cont_btn);
-  lv_obj_set_grid_cell(btn_guest, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
-  lv_obj_set_style_radius(btn_guest, 18, 0);
-  lv_obj_set_style_bg_color(btn_guest, card, 0);
-  lv_obj_set_style_bg_color(btn_guest, lv_color_make(210, 245, 255), LV_STATE_PRESSED);
-  lv_obj_set_style_border_width(btn_guest, 3, 0);
-  lv_obj_set_style_border_color(btn_guest, primary, 0);
-  lv_obj_set_style_shadow_width(btn_guest, 0, 0);
-
-  lv_obj_t *lg = lv_label_create(btn_guest);
-  lv_label_set_text(lg, "Guest");
-  lv_obj_center(lg);
-  lv_obj_set_style_text_color(lg, dark, 0);
-  lv_obj_set_style_text_font(lg, pick_font_20_or_14(), 0);
-
-  // User
-  btn_user = lv_btn_create(cont_btn);
-  lv_obj_set_grid_cell(btn_user, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
-  lv_obj_set_style_radius(btn_user, 18, 0);
-  lv_obj_set_style_bg_color(btn_user, lv_color_make(0, 140, 200), 0);
-  lv_obj_set_style_bg_color(btn_user, lv_color_make(0, 175, 235), LV_STATE_PRESSED);
-  lv_obj_set_style_border_width(btn_user, 0, 0);
-  lv_obj_set_style_shadow_width(btn_user, 0, 0);
-
-  lv_obj_t *lu = lv_label_create(btn_user);
-  lv_label_set_text(lu, "User");
-  lv_obj_center(lu);
-  lv_obj_set_style_text_color(lu, lv_color_white(), 0);
-  lv_obj_set_style_text_font(lu, pick_font_20_or_14(), 0);
-
-  ui_set_status("--:--  --/--/----", "--%");
-}
+// UI has been moved to MainUi module (MainUi.h/.cpp)
 
 // ================= format time =================
 static void format_datetime(char *out, size_t out_sz, const DateTime &now) {
@@ -396,9 +376,127 @@ static void format_datetime(char *out, size_t out_sz, const DateTime &now) {
            now.day(), now.month(), now.year());
 }
 
-// ================= SETUP / LOOP =================
+static void update_battery_soc_from_ina219(char *out, size_t out_sz) {
+  // Nếu INA219 chưa khởi tạo được thì báo "--%"
+  static bool ina_ok_checked = false;
+  static bool ina_ok = false;
+  if (!ina_ok_checked) {
+    // Giả sử nếu begin() trong setup fail, ta in ra Serial nhưng vẫn chạy.
+    // Ở đây ta coi như nếu điện áp đọc được là NaN thì coi như fail.
+    float vtest = ina219.getBusVoltage_V();
+    ina_ok = !isnan(vtest);
+    ina_ok_checked = true;
+  }
+  if (!ina_ok) {
+    snprintf(out, out_sz, "--%%");
+    return;
+  }
+
+  // ===== Đọc thời gian và tính dt =====
+  unsigned long now = millis();
+  float dt_s = (now - lastMillis_batt) / 1000.0f;
+  if (dt_s <= 0.0f || dt_s > 10.0f) {
+    // Nếu dt_s bất thường (âm hoặc lớn hơn 10s), bỏ qua để tránh nhảy ác
+    dt_s = 1.0f;
+  }
+  lastMillis_batt = now;
+
+  // ===== Đọc INA219 =====
+  float busVoltage_V    = ina219.getBusVoltage_V();
+  float shuntVoltage_mV = ina219.getShuntVoltage_mV();
+  float current_mA_raw  = ina219.getCurrent_mA();
+
+  // Nếu bất kỳ cái nào là NaN thì bỏ, không update
+  if (isnan(busVoltage_V) || isnan(shuntVoltage_mV) || isnan(current_mA_raw)) {
+    snprintf(out, out_sz, "--%%");
+    return;
+  }
+
+  float current_mA = INVERT_CURRENT ? -current_mA_raw : current_mA_raw;
+
+  // ===== Tích phân dòng =====
+  float delta_mAh = current_mA * dt_s / 3600.0f;
+
+  if (!isnan(delta_mAh) && isfinite(delta_mAh)) {
+    batteryRemaining_mAh -= delta_mAh;
+  }
+
+  // Giới hạn Q trong [0, capacity]
+  if (!isfinite(batteryRemaining_mAh) || batteryRemaining_mAh < 0.0f) {
+    batteryRemaining_mAh = 0.0f;
+  }
+  if (batteryRemaining_mAh > BATTERY_CAPACITY_mAh) {
+    batteryRemaining_mAh = BATTERY_CAPACITY_mAh;
+  }
+
+  // ===== Tính % pin =====
+  float batPercent_f = 0.0f;
+
+  if (BATTERY_CAPACITY_mAh > 0.0f) {
+    batPercent_f = 100.0f * batteryRemaining_mAh / BATTERY_CAPACITY_mAh;
+  }
+
+  // Nếu NaN hoặc vô cực thì coi như 0%
+  if (!isfinite(batPercent_f)) {
+    batPercent_f = 0.0f;
+  }
+
+  if (batPercent_f < 0.0f)   batPercent_f = 0.0f;
+  if (batPercent_f > 100.0f) batPercent_f = 100.0f;
+
+  // Làm tròn
+  int batPercent = (int)(batPercent_f + 0.5f);
+  if (batPercent < 0)   batPercent = 0;
+  if (batPercent > 100) batPercent = 100;
+  if (!DISABLE_FIREBASE_PUSH) {
+    FirebaseSync_SetBatteryPercent(batPercent);
+  } else {
+    // Firebase push disabled: skip updating remote percent
+  }
+
+  // Debug
+  Serial.print("Q = ");
+  Serial.print(batteryRemaining_mAh, 1);
+  Serial.print(" mAh, SoC = ");
+  Serial.print(batPercent);
+  Serial.println(" %");
+
+  // Format chuỗi: "75%"
+  snprintf(out, out_sz, "%d%%", batPercent);
+}
+
+// ============ Lưu dung lượng vào NVS mỗi NVS_SAVE_INTERVAL_MS =============
+static void maybe_save_battery_to_nvs() {
+  uint32_t now = millis();
+  if (now - last_nvs_save_ms >= NVS_SAVE_INTERVAL_MS) {
+    last_nvs_save_ms = now;
+    pref.putFloat(NVS_KEY_QmAh, batteryRemaining_mAh);
+    Serial.print("NVS save Q_mAh = ");
+    Serial.println(batteryRemaining_mAh, 1);
+  }
+}
+
 void setup() {
   Serial.begin(115200);
+
+  // NVS / Preferences
+    if (!pref.begin(NVS_NAMESPACE, false)) {
+    Serial.println("Failed to init NVS, using defaults");
+  } else {
+    float stored_Q = pref.getFloat(NVS_KEY_QmAh, BATTERY_CAPACITY_mAh);
+
+    if (!isfinite(stored_Q) ||
+        stored_Q < 0.0f ||
+        stored_Q > BATTERY_CAPACITY_mAh * 1.2f) {
+      stored_Q = BATTERY_CAPACITY_mAh;
+    }
+
+    batteryRemaining_mAh = stored_Q;
+    Serial.print("Loaded Q_mAh from NVS: ");
+    Serial.println(batteryRemaining_mAh, 1);
+  }
+
+  load_or_create_device_identity();
 
   // TFT init
   tft.init();
@@ -410,23 +508,28 @@ void setup() {
 
   tft.fillScreen(TFT_BLACK);
 
-  // I2C (chung cho Touch + RTC + MAX17043)
+  // I2C (chung cho Touch + RTC + INA219)
   Wire.begin(I2C_SDA, I2C_SCL);
   Wire.setClock(400000);
 
   // RTC init
   rtc_ok = rtc.begin();
   Serial.println(rtc_ok ? "DS3231 OK" : "DS3231 not found");
-
-  // MAX17043 init
-  max17043_ok = i2c_device_present(MAX17043_ADDR);
-  Serial.println(max17043_ok ? "MAX17043 OK" : "MAX17043 not found");
-  if (max17043_ok) {
-    max17043_reset();
-    delay(250);
-    max17043_quickStart();
-    delay(125);
+  if (rtc_ok) {
+    rtc_sync_if_needed();
   }
+
+  // INA219 init
+  if (!ina219.begin()) {
+    Serial.println("Khong tim thay INA219!");
+  } else {
+    // Calibration: 32V, 1A (tùy tải)
+    ina219.setCalibration_32V_1A();
+    lastMillis_batt = millis();
+  }
+
+  // HR/SpO2 and BP module init
+  hrspo2bp_setup();
 
   // LVGL init
   lv_init();
@@ -442,7 +545,7 @@ void setup() {
   esp_timer_start_periodic(lvgl_tick_timer, 1000);
 
   // Display driver
-  lv_disp_draw_buf_init(&draw_buf, buf1, NULL, SCREEN_WIDTH * 40);
+  lv_disp_draw_buf_init(&draw_buf, buf1, NULL, SCREEN_WIDTH * LVGL_DRAW_BUF_LINES);
 
   static lv_disp_drv_t disp_drv;
   lv_disp_drv_init(&disp_drv);
@@ -459,16 +562,46 @@ void setup() {
   indev_drv.read_cb = my_touch_read;
   lv_indev_drv_register(&indev_drv);
 
-  create_main_gui();
+  // Do not provide a user-id getter or saver: user id is no longer stored locally
+  MainUi_Init(nullptr, ui_get_device_id, nullptr, on_open_user_mode);
+  if (!DISABLE_FIREBASE_PUSH) {
+    FirebaseSync_Init(WIFI_SSID,
+                      WIFI_PASSWORD,
+                      FIREBASE_DB_URL,
+                      ui_get_device_id,
+                      nullptr,
+                      FIREBASE_PUSH_INTERVAL_MS);
+  } else {
+    Serial.println("Firebase disabled by flag: not initializing FirebaseSync");
+  }
+  UserMode_Init(nullptr,
+                nullptr,
+                on_user_mode_back,
+                (usermode_validate_cb_t)(DISABLE_FIREBASE_PUSH ? local_validate_user_id : FirebaseSync_ValidateUserId),
+                on_user_mode_success);
+
+  // Day trang thai ban dau len Firebase (skipped if disabled).
+  if (!DISABLE_FIREBASE_PUSH) {
+    FirebaseSync_PushStatusAndBattery();
+  } else {
+    Serial.println("Firebase disabled: initial push skipped");
+  }
 }
 
 void loop() {
   lv_timer_handler();
-  delay(5);
+  delay(1);
+
+  // Run HR/SpO2 background loop (updates spo2/heartRate)
+  hrspo2bp_loop();
 
   power_save_task();
+  GuestMode_Loop();
+  UserDashboard_Loop();
+  if (!DISABLE_FIREBASE_PUSH) {
+    FirebaseSync_Loop();
+  }
 
-  // Update status mỗi 1 giây
   static uint32_t last = 0;
   if (millis() - last >= 1000) {
     last = millis();
@@ -484,23 +617,11 @@ void loop() {
 
     // battery string
     char bbuf[16];
-    if (max17043_ok) {
-      float soc = max17043_readSOC_percent();
-      if (isnan(soc)) {
-        snprintf(bbuf, sizeof(bbuf), "--%%");
-      } else {
-        int pct = (int)lroundf(soc);
-        if (pct < 0) pct = 0;
-        if (pct > 100) pct = 100;
-        snprintf(bbuf, sizeof(bbuf), "%d%%", pct);
-      }
-    } else {
-      snprintf(bbuf, sizeof(bbuf), "--%%");
-    }
+    update_battery_soc_from_ina219(bbuf, sizeof(bbuf));
 
-    ui_set_status(tbuf, bbuf);
+    MainUi_UpdateStatus(tbuf, bbuf);
 
-    // optional debug
-    // if (max17043_ok) Serial.printf("Battery: %s\n", bbuf);
+    // Lưu NVS định kỳ
+    maybe_save_battery_to_nvs();
   }
 }

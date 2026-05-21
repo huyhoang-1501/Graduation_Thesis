@@ -9,10 +9,11 @@ body {
 #login-section {
   position: fixed;
   inset: 0;
-  background-image: url('image/SPKT.jpg');
+  background-image: url('image/ute_gate.png');
   background-size: cover;
-  background-position: center;
+  background-position: center center;
   background-repeat: no-repeat;
+  background-color: #dbeafe;
   display: none;          /* ban đầu ẨN login */
   justify-content: center;
   align-items: center;
@@ -32,6 +33,32 @@ body {
   text-align: center;
 }
 
+/* Responsive tweaks for small/mobile screens to make the login card tighter */
+@media (max-width: 480px) {
+    .login-container {
+      /* ensure the container never exceeds viewport width on small screens */
+      width: min(280px, calc(100% - 20px));
+      max-width: 96%;
+      margin: 0 10px;               /* small side margin so rounded corners aren't off-screen */
+      padding: 8px 10px;            /* tighten vertical space */
+    overflow-y: auto;
+    overflow-x: hidden; /* prevent horizontal scroll if heading is long */
+  }
+  .login-header img { width:60px; height:60px; }
+  .login-header h1 { font-size:14px; margin:1px 0; }
+  /* keep the login title on a single line on narrow screens */
+  .login-title h2 { font-size:18px; margin:6px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .input-group-login { margin-bottom:4px; }
+  .input-group-login input { padding:10px 8px; font-size:13px; min-height:44px; line-height:1.25; }
+  .btn-login { padding:8px; font-size:13px; }
+
+  /* reduce large gaps for tighter vertical spacing */
+  .login-container .login-header,
+  .login-container .login-title,
+  .login-container .login-box { margin-bottom: 4px; }
+}
+
 .login-header img {
   width: 80px;
   height: 80px;
@@ -39,16 +66,24 @@ body {
 }
 .login-header h1 {
   color: #006a9b;
-  font-size: 32px;
+  /* make smaller so the heading fits on one line on narrow viewports */
+  font-size: clamp(14px, 4.5vw, 28px); /* responsive size that scales to viewport */
   font-weight: bold;
   margin: 6px 0;
+  white-space: nowrap; /* keep on single line */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .login-header p { color: #555; font-size: 14px; }
 
 .login-title h2 {
   color: #006a9b;
-  font-size: 24px;
-  margin: 20px 0 25px;
+  /* responsive, constrained heading so it won't wrap on narrow screens */
+  font-size: clamp(18px, 4.5vw, 24px);
+  margin: 16px 0 20px;
+  white-space: nowrap; /* keep on single line */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .input-group-login {
@@ -64,10 +99,13 @@ body {
 }
 .input-group-login input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 16px 12px; /* give extra top space so diacritics are not clipped */
+  min-height: 52px;
+  line-height: 1.25; /* improve vertical spacing for accented glyphs */
   border-radius: 8px;
   border: 2px solid #ddd;
   font-size: 15px;
+  background-clip: padding-box; /* avoid box-shadow overlap affecting glyphs */
 }
 .input-group-login input:focus {
   outline: none;
@@ -77,7 +115,7 @@ body {
 
 .btn-login {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   border-radius: 8px;
   border: none;
   color: white;
@@ -112,6 +150,7 @@ body {
   padding: 0 20px;
 }
 .topbar-left { display: flex; align-items: center; gap: 12px; }
+.menu-btn { display: none; }
 .topbar-logo { width: 50px; height: 50px; }
 .topbar-title { font-size: 18px; font-weight: bold; }
 .topbar-right { display: flex; align-items: center; gap: 10px; }
@@ -126,25 +165,32 @@ body {
 
 /* SIDEBAR */
 .sidebar {
-  width: 230px;
+  /* widened sidebar for better readability */
+  width: 300px;
   background: #003f66;
   color: #fff;
-  padding: 15px 10px;
+  padding: 18px 14px;
 }
 .sidebar-header {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 0 10px 15px;
-  border-bottom: 1px solid rgba(255,255,255,0.2);
-  margin-bottom: 10px;
+  gap: 6px;
+  padding: 8px 12px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  margin-bottom: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  border-radius: 8px;
 }
 .sidebar-logo { font-weight: bold; font-size: 20px; }
-.sidebar-user div:first-child { font-weight: bold; }
+.sidebar-logo { font-weight: bold; font-size: 22px; color: #cfe7ff; letter-spacing: .2px; }
+.sidebar-user div:first-child { font-weight: 700; font-size: 18px; color:#ffffff; }
+.sidebar-user div:nth-child(2) { font-size: 13px; color: rgba(255,255,255,0.8); margin-top:2px; }
 .sidebar-user {
-  max-width: 180px;
+  /* allow user name/role to take more room when sidebar is wider */
+  max-width: 260px;
   white-space: normal;
-  word-break: break-all;
+  word-break: break-word;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.25);
 }
 .sidebar-section-title {
   margin: 15px 10px 5px;
@@ -186,6 +232,24 @@ body {
   background:#00548a; border:none; color:#fff;
   padding:8px 14px; border-radius:4px; cursor:pointer;
 }
+.btn-secondary {
+  background:#6b7280;
+  border:none;
+  color:#fff;
+  padding:8px 12px;
+  border-radius:4px;
+  cursor:pointer;
+  font-size:13px;
+}
+.btn-ghost {
+  background:transparent;
+  border:1px solid #d1d5db;
+  padding:4px 8px;
+  border-radius:4px;
+  font-size:12px;
+  cursor:pointer;
+}
+
 /* PAGES */
 .page { display:none; }
 .page.active { display:block; }
@@ -246,6 +310,7 @@ body {
   font-weight:bold; font-size:14px;
 }
 .panel-body { padding:10px 12px; }
+
 /* HEADER TRONG CÁC PAGE */
 .page-header-row,
 .overview-header {
@@ -265,6 +330,70 @@ body {
   border-radius:4px;
   border:1px solid #ccc;
   font-size:13px;
+}
+
+/* Make the patient select boxes consistent across Overview, Settings, History, Alerts
+   Give them a predictable min/max width so they match each other on desktop and
+   remain responsive on narrow viewports. Mobile overrides below keep touch-friendly sizing. */
+#set-patient-select,
+#ov-patient-select,
+#his-patient-select,
+#al-patient-select {
+  display: inline-block;
+  box-sizing: border-box;
+  min-width: 220px; /* sensible base width to match Settings on desktop */
+  max-width: 360px; /* won't grow endlessly on very wide screens */
+  width: auto; /* allow content-driven width within min/max bounds */
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+/* Responsive controls in overview (Device ID + view button) */
+.ov-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap; /* allow wrapping on narrow screens */
+}
+.ov-controls select { min-width: 160px; }
+#ov-device-id-input {
+  flex: 1 1 140px; /* grow to fill available space but keep a sensible base */
+  min-width: 120px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  background: #fff;
+}
+#ov-view-device-btn {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  /* Mobile: select on first row; Device ID + button on the same row */
+  .ov-controls {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-auto-rows: auto;
+    gap: 8px;
+    align-items: center;
+  }
+  .ov-controls select {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+  }
+  #ov-device-id-input {
+    grid-column: 1;
+    width: 100%;
+    min-width: 0;
+  }
+  #ov-view-device-btn {
+    grid-column: 2;
+    width: auto;
+  }
 }
 
 /* HISTORY + ALERTS FILTERS */
@@ -293,14 +422,22 @@ body {
   display:flex;
   gap:8px;
 }
-.btn-secondary {
-  background:#6b7280;
-  border:none;
-  color:#fff;
-  padding:8px 12px;
-  border-radius:4px;
-  cursor:pointer;
-  font-size:13px;
+
+/* Make filter groups distribute space evenly so the three "Tất cả" boxes match width.
+   Use a sensible base width so groups are equal on desktop but still shrink on small screens. */
+.alerts-filters .filter-group,
+.history-filters .filter-group {
+  flex: 1 1 220px; /* grow/shrink with a preferred base width */
+  min-width: 140px; /* prevent becoming too small on narrow viewports */
+}
+
+/* Ensure inputs/selects expand to fill their group's width */
+.alerts-filters .filter-group input,
+.alerts-filters .filter-group select,
+.history-filters .filter-group input,
+.history-filters .filter-group select {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* HISTORY TABLE */
@@ -355,14 +492,6 @@ body {
   flex-direction:column;
   gap:4px;
 }
-.btn-ghost {
-  background:transparent;
-  border:1px solid #d1d5db;
-  padding:4px 8px;
-  border-radius:4px;
-  font-size:12px;
-  cursor:pointer;
-}
 
 /* PATIENTS LIST */
 .patients-list {
@@ -387,12 +516,98 @@ body {
   gap:6px;
 }
 
+/* FORMS USED IN PATIENTS / DEVICE BINDING AREAS */
+.patients-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap; /* allow wrapping on narrow screens */
+}
+.patients-form input,
+.patients-form select {
+  flex: 1 1 160px; /* grow, but keep a sensible minimum */
+  min-width: 120px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 2px solid #e6e9ef;
+  font-size: 14px;
+  line-height: 1.2;
+  min-height: 36px;      /* target height requested by user */
+  max-height: 40px;      /* keep compact look */
+  height: auto;
+  background: #fff;
+}
+.patients-form button {
+  flex: 0 0 auto; /* buttons keep their intrinsic size */
+  white-space: nowrap;
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+
+/* Extra safety: ensure selects and inputs don't get forced to large heights by other rules */
+.patients-form input[type="text"],
+.patients-form input[type="number"],
+.patients-form input[type="tel"],
+.patients-form select {
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Ensure textareas used in forms (device ID, notes, etc.) remain compact on mobile
+   and match the input styles instead of stretching to large default heights. */
+.patients-form textarea,
+.phone-row textarea,
+.settings-grid textarea,
+.panel-body textarea,
+.input-group-login textarea {
+  flex: 1 1 160px;
+  min-width: 120px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 2px solid #e6e9ef;
+  font-size: 14px;
+  line-height: 1.2;
+  min-height: 36px;
+  max-height: 56px; /* allow a small multi-line area but prevent giant boxes */
+  height: auto;
+  resize: vertical;
+  background: #fff;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+
 /* SETTINGS GRID */
 .settings-grid {
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
-  gap:10px;
-  margin-top:10px;
+  display: grid;
+  /* two columns layout for clean rows (HR, BP Sys, BP Dia, SpO2) */
+  /* 4 columns on wide screens to show two visual rows (top/bottom) */
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* Collapse to single column on narrow screens */
+@media (max-width: 1000px) {
+  .settings-grid {
+    /* two columns on medium screens */
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+}
+
+/* Mobile: keep two columns so each row shows a pair (max/min) as requested */
+@media (max-width: 640px) {
+  .settings-grid {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+    gap: 8px;
+  }
+}
+
+/* Very small phones: single column */
+@media (max-width: 380px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .settings-grid label {
   font-size:12px;
@@ -405,4 +620,405 @@ body {
   border-radius:4px;
   border:1px solid #ccc;
   font-size:13px;
+}
+.phone-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.phone-row input {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 13px;
+}
+
+.phone-status-text {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+.threshold-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+/* ========== MOBILE / RESPONSIVE ========== */
+@media (max-width: 768px) {
+  .menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: transparent;
+    color: #fff;
+    border: none;
+    font-size: 20px;
+    margin-right: 8px;
+    cursor: pointer;
+  }
+
+  .topbar { padding: 0 12px; }
+    /* Make topbar fixed on small screens so content sits beneath it; this prevents
+      the large empty gap when .main uses margin-top:60px. Kept only for mobile. */
+    .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1300; }
+  .topbar-title { display: none; }
+
+  /* Sidebar becomes off-canvas */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 300px;
+    max-width: 85%;
+    transform: translateX(-120%);
+    transition: transform .28s ease, box-shadow .28s ease;
+    z-index: 1200;
+    padding-top: 70px;
+    box-shadow: 6px 0 18px rgba(0,0,0,0.18);
+    will-change: transform;
+  }
+
+  /* When sidebar open (body class) slide in */
+  body.sidebar-open .sidebar { transform: translateX(0); }
+
+  /* Main content flows under topbar on mobile */
+  .layout { flex-direction: column; }
+  .main { padding: 12px; margin-top: 60px; }
+
+  /* Overlay to dim background */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .28s ease;
+    z-index: 1100;
+  }
+  body.sidebar-open .overlay { opacity: 1; pointer-events: auto; }
+
+  /* Make overview rows stack vertically */
+  .overview-row,
+  .overview-row-2col { flex-direction: column; }
+
+  .stat-card { width: 100%; }
+  .panel { width: 100%; }
+  /* Tables and forms adapt */
+  /* Inputs stack vertically but phone actions (save/delete) are shown in a single row */
+  .phone-row { flex-direction: column; gap: 8px; align-items: stretch; }
+  /* keep input full width */
+  .phone-row input { width: 100%; }
+  /* phone action buttons grouped side-by-side similar to threshold-actions */
+  .phone-actions { display:flex; gap:10px; }
+  .phone-actions button { flex: 1; min-width: 120px; }
+
+  /* Stack patient/device form controls on mobile for predictable layout */
+  .patients-form { flex-direction: column; align-items: stretch; }
+  .patients-form input,
+  .patients-form select { width: 100%; }
+  .patients-form button { width: 100%; }
+
+  /* Device actions: keep device buttons side-by-side on mobile while inputs stack */
+  .device-actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+  .device-actions button {
+    flex: 1 1 0;
+    width: auto; /* override full-width rule */
+    min-width: 0;
+  }
+
+  .history-filters, .alerts-filters { flex-direction: column; align-items: flex-start; }
+  .filter-actions { width: 100%; display: flex; gap: 8px; }
+
+  /* Hide Export CSV on mobile to simplify the UI */
+  #his-export-btn { display: none; }
+
+  .sidebar-user { max-width: none; word-break: normal; white-space: normal; }
+  /* mobile: make sidebar header bigger like UTE sample */
+  .sidebar-header { align-items: center; text-align: center; padding-top: 18px; }
+  .sidebar-logo { font-size: 22px; }
+  .sidebar-header img, .topbar-logo { display: none; }
+  .sidebar-header::before {
+    content: '';
+    display:block;
+    width:100%;
+    height:140px;
+    background-image: url('image/healthcare.png');
+    background-repeat:no-repeat;
+    background-position:center 20px;
+    background-size: 120px 120px;
+    margin-bottom: 6px;
+  }
+  /* Remove login background image on mobile for better readability */
+  #login-section {
+    background-image: none !important;
+    background-size: initial !important;
+    background-position: initial !important;
+    background-repeat: initial !important;
+    background-color: #dbeafe; /* keep fallback color */
+  }
+  
+  /* Bottom navigation */
+  /* bottom nav removed - mobile menu uses sidebar */
+}
+
+/* Mobile touch-friendly adjustments */
+@media (max-width: 768px) {
+  /* Increase touch target sizes and readable font sizes */
+  .main input[type="text"],
+  .main input[type="number"],
+  .main input[type="tel"],
+  .main input[type="date"],
+  .main select,
+  .patients-form input,
+  .phone-row input,
+  .filter-group input,
+  .filter-group select,
+  .input-group-login input {
+    min-height: 44px;
+    font-size: 15px;
+    padding: 10px 12px;
+    border-radius: 8px;
+  }
+
+  .patients-form button,
+  .phone-row button,
+  .filter-actions button,
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 15px;
+  }
+
+  /* Make patient/device form controls compact but touch-friendly on mobile.
+     Use auto height so inputs don't look like large textareas; keep a sensible minimum. */
+  .patients-form input,
+  .patients-form select,
+  #bind-device-id,
+  #bind-pair-code,
+  #pt-name,
+  #pt-age,
+  #pt-sex {
+    height: auto;
+    min-height: 36px;
+    padding: 8px 10px;
+    line-height: 1.2;
+  }
+
+  /* Ensure grouped phone action buttons are comfortable and equal-width */
+  .phone-actions button { min-height: 44px; }
+
+  /* Slightly larger labels for accessibility */
+  .filter-group label,
+  .settings-grid label,
+  .input-group-login label {
+    font-size: 15px;
+  }
+
+  /* History date range: make the "đến" text match the label style on mobile */
+  /* make the "đến" text match the normal label style (not bold) on mobile */
+  .history-filters .filter-group span {
+    font-size: 13px;
+    font-weight: normal;
+    color: #374151;
+    align-self: flex-start; /* stick to the left edge */
+    width: 100%;
+    text-align: left;
+    line-height: 1.2;
+    margin-top: 2px;
+    margin-bottom: -2px; /* visually tighten between the two date inputs */
+  }
+
+  /* Make patients/device inputs match the alert phone input size and padding on mobile */
+  .patients-form input,
+  .patients-form select,
+  #bind-device-id,
+  #bind-pair-code,
+  #pt-name,
+  #pt-age,
+  #pt-sex,
+  #alert-phone {
+    padding: 6px 8px !important;
+    font-size: 13px !important;
+    min-height: 36px !important;
+    max-height: 40px !important;
+    line-height: 1.1 !important;
+  }
+  /*
+        Phần điều chỉnh các khoảng cách và kích thước của các phần tử trong trang để phù hợp với thiết bị di động.
+  */
+  /* Give more vertical breathing room on mobile */
+  .patients-form { gap: 12px; }
+  /* Reduce vertical spacing between filter groups on mobile so controls sit closer together */
+  /* tightened from 8px -> 6px to make selects sit closer on small screens */
+  .history-filters, .alerts-filters { gap:4px; }
+
+  /* Make date-range sub-controls tighter and align the "đến" label to the left, matching the
+     visual style of the 'Ngày / Khoảng thời gian' label on mobile. This keeps sizes compact
+     and consistent with the screenshots the user provided. */
+  .history-filters .filter-group {
+    gap: 4px; /* reduce vertical space inside the group */
+  }
+
+  /* Make the inline "đến" text match label size and weight and align left with the label */
+  .history-filters .filter-group span {
+    font-size: 13px;
+    font-weight: normal;
+    color: #374151; /* neutral dark gray consistent with labels */
+    align-self: flex-start; /* align to left edge like the label */
+    width: 100%;
+    text-align: left;
+    margin: 0; /* remove extra default spacing */
+    line-height: 1.2;
+  }
+
+  /* Alerts: keep alert filter inputs closer together on mobile */
+  .alerts-filters .filter-group { gap: 4px; }
+
+  /* Make History/Alerts/Overview patient selects match the Settings tab patient select on mobile
+     - Use the same inline-block sizing and touch-friendly padding as the Settings select so all
+       four selects look identical on small viewports. Remove conflicting full-width overrides. */
+  #set-patient-select,
+  #ov-patient-select,
+  #his-patient-select,
+  #al-patient-select {
+    display: inline-block;
+    box-sizing: border-box;
+    width: auto;
+    max-width: 320px;
+    min-width: 160px;
+    padding: 10px 12px !important;
+    min-height: 44px !important;
+    font-size: 15px !important;
+    line-height: 1.2 !important;
+    border-radius: 8px !important;
+    border: 2px solid #e6e9ef !important;
+    background: #fff !important;
+  }
+  /* keep other filter inputs/selects compact and touch-friendly */
+  .history-filters .filter-group input,
+  .history-filters .filter-group select,
+  .alerts-filters .filter-group input,
+  .alerts-filters .filter-group select {
+    min-height: 36px !important;
+    padding: 6px 8px !important;
+    font-size: 13px !important;
+    line-height: 1.2;
+  }
+
+  /* Arrange History/Alerts filter groups to match mobile screenshots:
+     - Stack groups vertically but keep their controls compact (not full-width).
+     - Provide consistent vertical spacing and keep selects/inputs a comfortable max-width. */
+  .history-filters,
+  .alerts-filters {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px; /* slightly larger gap like screenshots */
+  }
+
+  .history-filters .filter-group,
+  .alerts-filters .filter-group {
+    width: 100%;
+    max-width: 360px; /* group won't stretch forever on wide phones */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  /* Date inputs in History should span the group's width (full within the group's max-width)
+     so they look like the pill-style date controls in your screenshot. Other selects remain compact. */
+  .history-filters .filter-group input[type="date"] {
+    display: block;
+    width: 100%;
+    max-width: 360px;
+    box-sizing: border-box;
+    padding: 10px 12px !important;
+    min-height: 36px !important;
+    border-radius: 8px !important;
+    border: 2px solid #e6e9ef !important;
+    background: #fff !important;
+    font-size: 14px !important;
+  }
+
+  .history-filters .filter-group input:not([type="date"]),
+  .history-filters .filter-group select {
+    display: inline-block;
+    width: auto;
+    max-width: 320px;
+    box-sizing: border-box;
+  }
+
+  /* Alerts: stack small selects vertically and keep them compact like the screenshot */
+  .alerts-filters .filter-group input,
+  .alerts-filters .filter-group select {
+    display: inline-block;
+    width: auto;
+    max-width: 220px;
+    box-sizing: border-box;
+  }
+
+  /* Make filter action buttons (Lọc / Export) full width and visually separated */
+  .filter-actions { width: 100%; display: flex; gap: 8px; }
+  .filter-actions .btn-primary,
+  .filter-actions .btn-secondary { flex: 1; }
+
+  /* Overview controls: make Device ID + button smaller and keep them on one row */
+  .ov-controls { row-gap: 10px; }
+  #ov-view-device-btn {
+    width: auto !important; /* override global .btn-primary width:100% on mobile */
+    min-height: 36px !important;
+    padding: 6px 10px !important;
+    font-size: 13px !important;
+    line-height: 1.2;
+  }
+  .tab-header.single h2 { font-size: 20px; }
+
+  /* Page header selects: don't force full width on mobile — keep them just large enough for their content
+     but allow wrapping for very narrow viewports. This prevents the select from stretching across unrelated sections. */
+  .page-header-row select,
+  .overview-header select {
+    display: inline-block;
+    width: auto;
+    max-width: 320px; /* reasonable cap so it won't grow too wide */
+    min-width: 160px; /* keep a usable touch target */
+    margin-bottom: 10px;
+  }
+
+  /* Ensure History + Alerts patient selects use the same compact/touch-friendly sizing
+     (some filter-group rules may force width:100%; this override restores the compact look). */
+  #his-patient-select,
+  #al-patient-select,
+  .page#page-history .page-header-row select,
+  .page#page-alerts .page-header-row select {
+    display: inline-block !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: 320px !important;
+    min-width: 160px !important;
+    padding: 10px 12px !important;
+    min-height: 44px !important;
+    font-size: 15px !important;
+    line-height: 1.2 !important;
+    border-radius: 8px !important;
+    border: 2px solid #e6e9ef !important;
+    background: #fff !important;
+    margin-bottom: 10px !important;
+  }
 }

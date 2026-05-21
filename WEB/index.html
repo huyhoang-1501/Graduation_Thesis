@@ -2,14 +2,25 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Smart Health Monitoring - Portal</title>
-  <link rel="icon" href="image/logo.png" type="image/png">
+  <title>Health Guardian - Portal</title>
+  <link rel="icon" href="image/potral.png" type="image/png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="image/potral.png">
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-3gk3ZL6a8K+Yq3b1Zqz7x1Q6bY5Qv0m3gkD0ZzQ4Yk1Z2k3Y5v6w" crossorigin="anonymous">
 
   <!-- Firebase v8 -->
   <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-auth.js"></script>
 
+  <!-- Firebase Realtime Database -->
+  <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-database.js"></script>
+  
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
@@ -22,6 +33,7 @@
   <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
+  <!-- CSS chính -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -30,9 +42,9 @@
   <div id="login-section">
     <div class="login-container">
       <div class="login-header">
-        <img src="image/logo_spkt.png" alt="HCMUTE Logo">
-        <h1>HCM-UTE</h1>
-        <p>Trường Đại học Công nghệ Kỹ thuật TP.HCM</p>
+        <img src="image/healthcare.png?v=3" alt="Healthcare Logo">
+        <h1>HEALTH GUARDIAN</h1>
+        <p>HỆ THỐNG GIÁM SÁT VÀ CẢNH BÁO SỨC KHỎE</p>
       </div>
 
       <div class="login-box">
@@ -40,35 +52,39 @@
           <h2>ĐĂNG NHẬP</h2>
         </div>
 
-        <!-- FORM LOGIN: EMAIL + GOOGLE -->
+        <!-- FORM LOGIN: USERNAME + GOOGLE -->
         <form id="login-form">
           <div class="input-group-login">
-            <label>Email</label>
-            <input type="email" id="email-login"
-                   placeholder="Nhập email của bạn" autocomplete="off">
+            <label>Tên đăng nhập hoặc Email</label>
+            <input type="text" id="username-login"
+                   placeholder="Tên đăng nhập hoặc Email" autocomplete="username">
           </div>
           <div class="input-group-login">
             <label>Mật khẩu</label>
             <input type="password" id="password-login"
                    placeholder="Nhập mật khẩu" minlength="6"
-                   autocomplete="new-password">
+                   autocomplete="current-password">
           </div>
 
-          <button type="button" id="email-signin-btn"
+          <button type="button" id="username-signin-btn"
                   class="btn-login"
                   style="background:#2c3e50; margin-bottom:15px;">
-            Đăng nhập bằng Email
+            Đăng nhập bằng Tài khoản
           </button>
 
-          <div style="text-align:center; margin:20px 0; color:#777; font-weight:bold;">
+          <div style="text-align:center; margin:15px 0; color:#777; font-weight:bold;">
             HOẶC
           </div>
 
           <button type="submit" class="btn-login" id="google-signin-btn"
                   style="background:#4285F4;">
-            <i class="fab fa-google" style="margin-right:12px;"></i>
+            <i class="fab fa-google" style="margin-right:15px;"></i>
             Đăng nhập bằng Google
           </button>
+
+          <p style="margin-top:12px; text-align:center;">
+            <a href="#" id="forgot-password-link" style="color:#e11d48; font-weight:bold; text-decoration:underline; font-size:13px;">Quên mật khẩu?</a>
+          </p>
 
           <p style="margin-top:25px; font-size:15px; color:#555;">
             Chưa có tài khoản?
@@ -85,13 +101,25 @@
           </div>
         </form>
 
-        <!-- ĐĂNG KÝ (ẩn mặc định) -->
-        <div id="register-form" style="display:none; margin-top:30px;">
-          <h3 style="color:#2c3e50; margin-bottom:20px;">TẠO TÀI KHOẢN MỚI</h3>
+        <!-- RESET PASSWORD (đã tách ra, ẩn mặc định) -->
+        <div id="reset-form" style="display:none; margin-top:20px;">
           <div class="input-group-login">
-            <label>Email</label>
-            <input type="email" id="email-register" placeholder="Nhập email"
-                   required autocomplete="off">
+            <label>Nhập Email</label>
+            <input type="text" id="reset-identifier" placeholder="Nhập email cần khôi phục" autocomplete="username">
+          </div>
+          <div style="display:flex; gap:8px; margin-top:10px;">
+            <button type="button" id="reset-btn" class="btn-login" style="background:#ef4444;">Gửi liên kết khôi phục</button>
+            <button type="button" id="reset-cancel-btn" class="btn-login" style="background:#6b7280;">Hủy</button>
+          </div>
+        </div>
+
+        <!-- ĐĂNG KÝ (ẩn mặc định) -->
+        <div id="register-form" style="display:none; margin-top:18px;">
+          <h3 style="color:#2c3e50; margin-bottom:8px;">TẠO TÀI KHOẢN MỚI</h3>
+          <p style="font-size:14px; color:#374151; text-align:left; margin-top:4px; margin-bottom:8px;">Đăng ký bằng Email hoặc Tên đăng nhập. Tài khoản tạo bằng Tên đăng nhập không thể khôi phục mật khẩu thông qua Email.</p>
+          <div class="input-group-login">
+            <label>Email hoặc Tên đăng nhập</label>
+            <input type="text" id="identifier-register" placeholder="you@example.com hoặc user123" autocomplete="username">
           </div>
           <div class="input-group-login">
             <label>Mật khẩu (tối thiểu 6 ký tự)</label>
@@ -99,6 +127,15 @@
                    placeholder="Tạo mật khẩu" required minlength="6"
                    autocomplete="new-password">
           </div>
+          <div class="input-group-login">
+            <label>Xác nhận mật khẩu</label>
+            <input type="password" id="password-register-confirm" placeholder="Nhập lại mật khẩu" required minlength="6" autocomplete="new-password">
+          </div>
+          <div style="margin-top:6px; font-size:13px; color:#374151;">
+            <label style="cursor:pointer;"><input type="checkbox" id="register-show-pass" style="margin-right:8px;"> Hiện mật khẩu</label>
+          </div>
+
+          <!-- phone input removed to simplify registration for elderly users -->
           <button type="button" id="register-btn" class="btn-login"
                   style="background:#27ae60;">
             Đăng ký ngay
@@ -120,8 +157,11 @@
     <!-- TOP BAR -->
     <header class="topbar">
       <div class="topbar-left">
-        <img src="image/logo_spkt.png" class="topbar-logo" alt="">
-        <span class="topbar-title">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ KỸ THUẬT TP.HCM</span>
+          <button class="menu-btn" aria-label="Mở menu" aria-expanded="false">
+            <i class="fas fa-bars" aria-hidden="true"></i>
+          </button>
+        <img src="image/healthcare.png?v=3" class="topbar-logo" alt="">
+        <span class="topbar-title">HỆ THỐNG GIÁM SÁT VÀ CẢNH BÁO SỨC KHỎE</span>
       </div>
       <div class="topbar-right">
         <span id="current-user-email" class="user-email"></span>
@@ -135,15 +175,14 @@
       <!-- SIDEBAR -->
       <aside class="sidebar">
         <div class="sidebar-header">
-          <div class="sidebar-logo">HCM-UTE</div>
+          <div class="sidebar-logo">Health Guardian</div>
           <div class="sidebar-user">
             <div id="sidebar-user-name">Người dùng</div>
-            <div id="sidebar-user-role">Caregiver</div>
+            <div id="sidebar-user-role">Người giám sát</div>
           </div>
         </div>
 
         <nav class="sidebar-menu">
-          <div class="sidebar-section-title">TRANG CHÍNH</div>
           <button class="sidebar-item active" data-page="overview">
             <i class="fas fa-chart-line"></i> Tổng quan
           </button>
@@ -157,7 +196,6 @@
             <i class="fas fa-users"></i> Thiết bị / Bệnh nhân
           </button>
 
-          <div class="sidebar-section-title">TÀI KHOẢN</div>
           <button class="sidebar-item" data-page="settings">
             <i class="fas fa-cog"></i> Cài đặt
           </button>
@@ -167,19 +205,21 @@
       <!-- MAIN CONTENT -->
       <main class="main">
         <!-- TAB TITLE -->
-          <div class="tab-header single">
-              <h2>TỔNG QUAN</h2>
-          </div>
+        <div class="tab-header single">
+          <h2 id="main-tab-title">TỔNG QUAN</h2>
+        </div>
 
         <!-- ========== OVERVIEW ========== -->
         <section id="page-overview" class="page active">
           <div class="overview-header">
-            <h2>Overview - <span id="ov-patient-name">Patient A</span></h2>
-            <select id="ov-patient-select">
-              <option>Patient A</option>
-              <option>Patient B</option>
-            </select>
-          </div>
+              <div class="ov-controls">
+                <select id="ov-patient-select">
+                  <option value="" selected disabled>Chọn bệnh nhân...</option>
+                </select>
+                <input id="ov-device-id-input" type="text" placeholder="Nhập DEVICE ID ..." autocomplete="off">
+                <button id="ov-view-device-btn" class="btn-primary">Xem thiết bị</button>
+              </div>
+            </div>
 
           <div class="overview-container">
             <!-- Row 1: cards -->
@@ -207,6 +247,15 @@
                 <div class="stat-value" id="ov-spo2-value">-- %</div>
                 <div class="stat-sub" id="ov-spo2-status">Trạng thái: --</div>
               </div>
+
+              <!-- Ô THÔNG BÁO -->
+              <div class="stat-card" id="ov-notify-card">
+                <div class="stat-title">
+                  <i class="fas fa-bell"></i> Thông báo
+                </div>
+                <div class="stat-value" id="ov-notify-count">0</div>
+                <div class="stat-sub" id="ov-notify-text">Không có cảnh báo mới</div>
+              </div>
             </div>
 
             <!-- Row 2: device status -->
@@ -220,7 +269,7 @@
                 <div class="device-body">
                   <div>Last seen: <span id="ov-lastseen">--</span></div>
                   <div>Pin: <span id="ov-battery">-- %</span></div>
-                  <div>Network: <span id="ov-network">--</span></div>
+                  <!-- Network display removed: device pushes no longer include network field -->
                   <div>Data freshness: <span id="ov-freshness">--</span></div>
                 </div>
               </div>
@@ -248,10 +297,8 @@
         <!-- ========== HISTORY ========== -->
         <section id="page-history" class="page">
           <div class="page-header-row">
-            <h2>History - <span id="his-patient-name">Patient A</span></h2>
             <select id="his-patient-select">
-              <option>Patient A</option>
-              <option>Patient B</option>
+              <option value="" selected disabled>Chọn bệnh nhân...</option>
             </select>
           </div>
 
@@ -315,10 +362,8 @@
         <!-- ========== ALERTS ========== -->
         <section id="page-alerts" class="page">
           <div class="page-header-row">
-            <h2>Alerts - <span id="al-patient-name">Patient A</span></h2>
             <select id="al-patient-select">
-              <option>Patient A</option>
-              <option>Patient B</option>
+              <option value="" selected disabled>Chọn bệnh nhân...</option>
             </select>
           </div>
 
@@ -328,9 +373,16 @@
               <select id="al-type">
                 <option value="all">Tất cả</option>
                 <option value="HR_HIGH">HR High</option>
-                <option value="BP_HIGH">BP High</option>
-                <option value="BP_LOW">BP Low</option>
-                <option value="DEVICE_OFFLINE">Device Offline</option>
+                <option value="HR_MAX">HR Max</option>
+                <option value="HR_MIN">HR Min</option>
+                <option value="SPO2_MAX">SpO₂ Max</option>
+                <option value="SPO2_MIN">SpO₂ Min</option>
+                <!-- BP High removed -->
+                <option value="BP_SYS_MAX">BP Sys Max</option>
+                <option value="BP_SYS_MIN">BP Sys Min</option>
+                <option value="BP_DIA_MAX">BP Dia Max</option>
+                <option value="BP_DIA_MIN">BP Dia Min</option>
+                <!-- BP Low removed -->
               </select>
             </div>
             <div class="filter-group">
@@ -359,60 +411,184 @@
         <!-- ========== DEVICES / PATIENTS ========== -->
         <section id="page-patients" class="page">
           <div class="page-header-row">
-            <h2>Devices / Patients</h2>
-            <button class="btn-primary" id="pt-add-btn">
-              <i class="fas fa-user-plus"></i> Add Patient
-            </button>
+          </div>
+
+          <div class="placeholder-box">
+            <p><strong>Hướng dẫn chọn chế độ:</strong></p>
+            <p style="margin-top:8px; color:#374151;">
+              <strong>Offline Mode:</strong> Nếu chỉ cần đo tại chỗ bật máy lên và đo bình thường.<br>
+              <strong>Online Mode:</strong> Nếu muốn người nhà xem từ xa tạo mã ID trên Portal, sau đó nhập đúng mã ID đó trên thiết bị để đồng bộ.
+            </p>
+          </div>
+
+          <div class="placeholder-box">
+            <p>Tạo mã ID cho Online Mode:</p>
+             <div class="patients-form">
+               <input type="text" id="bind-pair-code" placeholder="Mã 5 số cho Online Mode" inputmode="numeric" pattern="[0-9]*" maxlength="5" autocomplete="off">
+               <div class="device-actions">
+                 <button class="btn-secondary" id="device-link-btn">
+                   <i class="fas fa-link"></i> Xác nhận mã ID
+                 </button>
+               </div>
+             </div>
+          </div>
+
+          <div class="placeholder-box">
+            <p>Thêm bệnh nhân mới:</p>
+            <p style="margin-top:6px; color:#374151; font-size:13px;">
+            </p>
+            <div class="patients-form">
+              <input type="text" id="pt-name" placeholder="Tên bệnh nhân">
+              <input type="number" id="pt-age" placeholder="Tuổi">
+              <select id="pt-sex">
+                <option value="Nam">Nam</option>
+                <option value="Nữ">Nữ</option>
+              </select>
+              <button class="btn-primary" id="pt-add-btn">
+                <i class="fas fa-user-plus"></i> Thêm
+              </button>
+            </div>
+            <small id="pt-status" class="phone-status-text"></small>
           </div>
 
           <div id="patients-list" class="patients-list">
-            <!-- JS render mock patients -->
+            <!-- JS render patients -->
           </div>
         </section>
 
         <!-- ========== SETTINGS ========== -->
-        <section id="page-settings" class="page">
-          <div class="page-header-row">
-            <h2>Cài đặt</h2>
+            <section id="page-settings" class="page">
+        <div class="page-header-row">
+          <select id="set-patient-select">
+            <option value="" selected disabled>Chọn bệnh nhân...</option>
+          </select>
+        </div>
+
+        <div class="placeholder-box">
+        <p>Ngưỡng cảnh báo:</p>
+        <div class="settings-grid">
+          <!-- Desktop: 4 columns -> two visual rows
+               Row A (top): HR max, HR min, SpO2 max, SpO2 min
+               Row B (bottom): BP Sys max, BP Sys min, BP Dia max, BP Dia min -->
+
+          <!-- HR max -->
+          <div>
+            <label>HR max</label>
+            <input type="number" id="th-hr-max">
           </div>
 
-          <div class="placeholder-box">
-            <p>Ngưỡng cảnh báo (demo UI):</p>
-            <div class="settings-grid">
-              <div>
-                <label>HR min</label>
-                <input type="number" value="50">
-              </div>
-              <div>
-                <label>HR max</label>
-                <input type="number" value="100">
-              </div>
-              <div>
-                <label>BP Sys max</label>
-                <input type="number" value="140">
-              </div>
-              <div>
-                <label>BP Dia max</label>
-                <input type="number" value="90">
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ========== PERSONAL INFO ========== -->
-          <div class="page-header-row">
-            <h2>Thông tin cá nhân</h2>
+          <!-- HR min -->
+          <div>
+            <label>HR min</label>
+            <input type="number" id="th-hr-min">
           </div>
 
-          <div class="placeholder-box">
-            <p>Email: <span id="pi-email"></span></p>
-            <p>Role: Caregiver</p>
+          <!-- SpO2 max -->
+          <div>
+            <label>SpO₂ max</label>
+            <input type="number" id="th-spo2-max">
           </div>
-        </section>
+
+          <!-- SpO2 min -->
+          <div>
+            <label>SpO₂ min</label>
+            <input type="number" id="th-spo2-min">
+          </div>
+
+          <!-- BP Sys max -->
+          <div>
+            <label>BP Sys max</label>
+            <input type="number" id="th-bp-sys-max">
+          </div>
+
+          <!-- BP Sys min -->
+          <div>
+            <label>BP Sys min</label>
+            <input type="number" id="th-bp-sys-min">
+          </div>
+
+          <!-- BP Dia max -->
+          <div>
+            <label>BP Dia max</label>
+            <input type="number" id="th-bp-dia-max">
+          </div>
+
+          <!-- BP Dia min -->
+          <div>
+            <label>BP Dia min</label>
+            <input type="number" id="th-bp-dia-min">
+          </div>
+
+        </div>
+
+        <!-- NÚT LƯU / XÓA NGƯỠNG -->
+        <div class="threshold-actions">
+          <button class="btn-primary" id="threshold-save-btn">Lưu ngưỡng</button>
+          <button class="btn-secondary" id="threshold-delete-btn">Xóa ngưỡng</button>
+        </div>
+        <small id="threshold-status" class="phone-status-text"></small>
+
+        <!-- ====== PHẦN SỐ ĐIỆN THOẠI ====== -->
+        <hr style="margin:20px 0; border:none; border-top:1px solid #e5e7eb;">
+
+        <p>Số điện thoại nhận cảnh báo:</p>
+        <div class="phone-row">
+          <input
+            type="tel"
+            id="alert-phone"
+            placeholder="Nhập số điện thoại (vd: 0901234567)">
+          <div class="phone-actions">
+            <button class="btn-primary" id="phone-save-btn">
+              Lưu
+            </button>
+            <button class="btn-secondary" id="phone-delete-btn">
+              Xóa
+            </button>
+          </div>
+        </div>
+
+        <small id="phone-status" class="phone-status-text"></small>
+      </div>
+      </section>
       </main>
     </div>
   </div>
 
+  <!-- Overlay used for mobile sidebar -->
+  <div class="overlay" aria-hidden="true"></div>
+
+  <!-- bottom navigation removed: mobile menu is via top-left hamburger -> sidebar -->
+
+  <!-- JS chính -->
+  <!-- Bootstrap Bundle (with Popper) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-HoA6kJq+Y3l5kM6z9V2JZ4Y1qD4YxQ2k1K9m2V3Y1kQ" crossorigin="anonymous"></script>
+
+  <script src="modules.state.js"></script>
+  <script src="modules.selectors.js"></script>
+  <script src="modules.alerts.js"></script>
+  <script src="modules.patients.js"></script>
+  <script src="modules.settings.js"></script>
   <script src="app.js"></script>
+
+  <!-- Service worker registration for PWA -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('./service-worker.js')
+          .then(reg => {
+            console.log('ServiceWorker registered:', reg.scope);
+            // If there's an updated worker waiting, tell it to skipWaiting so it activates immediately
+            if (reg.waiting) {
+              reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+            // Listen for controller change and reload so the page uses the fresh assets
+            navigator.serviceWorker.addEventListener('controllerchange', function() {
+              window.location.reload();
+            });
+          })
+          .catch(err => console.warn('ServiceWorker registration failed:', err));
+      });
+    }
+  </script>
 </body>
 </html>

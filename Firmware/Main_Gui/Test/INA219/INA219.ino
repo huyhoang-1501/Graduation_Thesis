@@ -3,7 +3,7 @@
 #include <LiquidCrystal_PCF8574.h>
 
 // ===== Cấu hình pin =====
-const float BATTERY_CAPACITY_mAh = 3500.0;  // pin EVE 18650 3500mAh
+const float BATTERY_CAPACITY_mAh = 2600.0;  // 2S1P: dung lượng mAh bằng 1 cell
 
 // INA219
 Adafruit_INA219 ina219;

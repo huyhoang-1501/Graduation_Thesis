@@ -1,0 +1,9 @@
+1. Install node js 
+2. Run cmd: npm install -g firebase-tools --unsafe-perm=true
+3. firebase login
+4. firebase init
+5. firebase deploy --only hosting --project graduation-thesis-3a3df
+
+Link: 
+Project Console: https://console.firebase.google.com/project/graduation-thesis-3a3df/overview
+Hosting URL: https://graduation-thesis-3a3df.web.app

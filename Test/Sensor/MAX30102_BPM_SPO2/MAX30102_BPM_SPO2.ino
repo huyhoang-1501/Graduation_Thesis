@@ -11,12 +11,9 @@ MAX30105 particleSensor;
 #define NO_FINGER_THRESHOLD 10000
 // Amplitude thresholds (tune if needed)
 
-
 uint32_t irBuffer[BUFFER_SIZE];
 uint32_t redBuffer[BUFFER_SIZE];
-
 // (No processed buffers — pass raw data to Maxim algorithm)
-
 int32_t bufferLength = BUFFER_SIZE;
 int32_t spo2;
 int8_t validSPO2;
@@ -127,6 +124,21 @@ void Max30102_hr_spo2()
   }
 
   // Pass raw buffers directly to Maxim's algorithm (it handles DC removal)
+=======
+void Max30102_hr_spo2()
+{
+  for (byte i = 0; i < BUFFER_SIZE; i++)
+  {
+    while (particleSensor.available() == false)
+      particleSensor.check();
+
+    redBuffer[i] = particleSensor.getRed();
+    irBuffer[i] = particleSensor.getIR();
+    particleSensor.nextSample();
+
+  }
+
+>>>>>>> main
   maxim_heart_rate_and_oxygen_saturation(
     irBuffer,
     bufferLength,
@@ -136,7 +148,6 @@ void Max30102_hr_spo2()
     &heartRate,
     &validHeartRate
   );
-
   // Apply EMA to computed HR and SpO2 if valid
   if (validHeartRate) {
     float filteredHR = applyEMA((float)heartRate, emaHR, EMA_ALPHA_HR, emaHRInit);
@@ -155,6 +166,15 @@ void Max30102_hr_spo2()
   } else {
     Serial.println(" | SpO2 = - %");
   }
+  Serial.print("HR = ");
+  Serial.print(heartRate);
+  Serial.print(" bpm");
+
+  Serial.print(" | SpO2 = ");
+  Serial.print(spo2);
+  Serial.println(" %");
+
+  delay(500);
 }
 
 void setup()
@@ -172,7 +192,6 @@ void setup()
   }
 
   Serial.println("Place your finger on sensor");
-
   byte ledBrightness = 30; //Options: 0=Off to 255=50mA
   byte sampleAverage = 4; //Options: 1, 2, 4, 8, 16, 32
   byte ledMode = 2; //Options: 1 = Red only, 2 = Red + IR, 3 = Red + IR + Green
@@ -181,7 +200,9 @@ void setup()
   int adcRange = 4096; //Options: 2048, 4096, 8192, 16384
 
   particleSensor.setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange); //Configure sensor with these settings
-
+  particleSensor.setup(); 
+  particleSensor.setPulseAmplitudeRed(0x0A);
+  particleSensor.setPulseAmplitudeIR(0x0A);
 }
 
 

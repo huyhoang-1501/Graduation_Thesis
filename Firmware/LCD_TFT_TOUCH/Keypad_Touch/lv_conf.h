@@ -8,9 +8,9 @@
 #define LV_COLOR_DEPTH     16
 #define LV_COLOR_16_SWAP   1
 
-/* Màn hình 320x480 (Landscape) */
+/* Màn hình 480x320 (Landscape) - match TFT rotation in Main_Gui.ino */
 #define LV_HOR_RES_MAX     320
-#define LV_VER_RES_MAX      480
+#define LV_VER_RES_MAX     480
 
 /*====================
    MEMORY SETTINGS
@@ -22,7 +22,7 @@
    MISC
  *====================*/
 
-#define LV_TICK_CUSTOM     0   // Dùng lv_timer_handler() trong loop()
+#define LV_TICK_CUSTOM     1   // using custom lv_tick_inc() from esp_timer (Main_Gui)
 
 /*====================
    MODULES (WIDGETS)

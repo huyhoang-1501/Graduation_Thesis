@@ -4,11 +4,11 @@
 #include <ArduinoJson.h>
 #include <TinyGPSPlus.h>
 
-const char* WIFI_SSID = "HUY HOANG";
-const char* WIFI_PASS = "123456789";
+const char* WIFI_SSID = "Phong Tro tang 3.2";
+const char* WIFI_PASS = "99999999";
 
-const char* BOT_TOKEN = "";
-const char* CHAT_ID   = ""; // chat riêng: số dương
+const char* BOT_TOKEN = "********************"; // token bot (cấu hình với BotFather)
+const char* CHAT_ID   = "***********"; // user id (chat riêng) hoặc group id (âm)
 
 static const int GPS_RX_PIN = 16;
 static const int GPS_TX_PIN = 17;
