@@ -191,9 +191,8 @@ body {
   background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
   border-radius: 8px;
 }
-.sidebar-logo { font-weight: bold; font-size: 20px; }
-.sidebar-logo { font-weight: bold; font-size: 22px; color: #cfe7ff; letter-spacing: .2px; }
-.sidebar-user div:first-child { font-weight: 700; font-size: 18px; color:#ffffff; }
+.sidebar-logo { font-weight: bold; font-size: 26px; color: #cfe7ff; letter-spacing: .2px; }
+.sidebar-user div:first-child { font-weight: 700; font-size: 20px; color:#ffffff; }
 .sidebar-user div:nth-child(2) { font-size: 13px; color: rgba(255,255,255,0.8); margin-top:2px; }
 .sidebar-user {
   /* allow user name/role to take more room when sidebar is wider */
@@ -211,10 +210,10 @@ body {
 .sidebar-menu { display:flex; flex-direction:column; gap:5px; }
 .sidebar-item {
   width:100%; text-align:left; background:transparent; border:none;
-  color:#fff; padding:8px 10px; border-radius:4px; cursor:pointer;
-  font-size:14px;
+  color:#fff; padding:12px 14px; border-radius:6px; cursor:pointer;
+  font-size:16px; font-weight:600;
 }
-.sidebar-item i { width:20px; }
+.sidebar-item i { width:28px; font-size:18px; display:inline-block; text-align:center; }
 .sidebar-item:hover,
 .sidebar-item.active { background:rgba(255,255,255,0.15); }
 
@@ -758,7 +757,7 @@ body {
   .sidebar-user { max-width: none; word-break: normal; white-space: normal; }
   /* mobile: make sidebar header bigger like UTE sample */
   .sidebar-header { align-items: center; text-align: center; padding-top: 18px; }
-  .sidebar-logo { font-size: 22px; }
+  .sidebar-logo { font-size: 24px; }
   .sidebar-header img, .topbar-logo { display: none; }
   .sidebar-header::before {
     content: '';
