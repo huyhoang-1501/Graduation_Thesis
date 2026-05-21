@@ -17,6 +17,17 @@ function initPatientSelectors() {
       const pid = sel.value;
       if (!pid) return;
 
+      // If this selector requires a DEVICE ID to be present (Overview), enforce it
+      if (options.requireDeviceId) {
+        const did = document.getElementById('ov-device-id-input')?.value || '';
+        if (!did.trim()) {
+          alert('Vui lòng nhập DEVICE ID trước khi chọn bệnh nhân.');
+          // reset select to placeholder
+          try { sel.selectedIndex = 0; sel.value = ''; } catch (e) { /* ignore */ }
+          return;
+        }
+      }
+
       if (options.keepCurrentPage) {
         currentPatientId = pid;
 
@@ -45,7 +56,7 @@ function initPatientSelectors() {
     });
   }
 
-  attachHandler(ovSel);
+  attachHandler(ovSel, { requireDeviceId: true });
   attachHandler(hisSel);
   attachHandler(alSel);
   attachHandler(setSel, { keepCurrentPage: true });
@@ -62,8 +73,11 @@ function refreshPatientDropdowns(patientsData) {
 
   sels.forEach(sel => {
     if (!sel) return;
-
-    const current = sel.value; // cố gắng giữ lựa chọn hiện tại
+    // If there's only one (or zero) patient in the list, avoid auto-selecting
+    // it on page load/refresh. This prevents the browser restoring a previous
+    // selection and makes the dashboard start with no patient chosen.
+    const totalPatients = Object.keys(patientsData).length;
+    const current = (totalPatients <= 1) ? '' : sel.value; // cố gắng giữ lựa chọn hiện tại
     sel.innerHTML = "";
 
     const placeholder = document.createElement("option");
@@ -84,6 +98,19 @@ function refreshPatientDropdowns(patientsData) {
     // Nếu current rỗng hoặc không còn tồn tại thì để placeholder được chọn
     if (!sel.value) {
       placeholder.selected = true;
+    }
+
+    // Force placeholder selection on page load when there is only one (or
+    // zero) patient. Some browsers restore form state on reload which can
+    // re-select the option — override that by explicitly setting selectedIndex
+    // to 0 and clearing the value.
+    if (totalPatients <= 1) {
+      try {
+        sel.selectedIndex = 0;
+        sel.value = '';
+      } catch (e) {
+        // ignore
+      }
     }
   });
 }

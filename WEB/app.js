@@ -411,6 +411,10 @@ function showDeviceById(deviceId) {
     // Clear patient selector selection to indicate device view
     const ovSel = document.getElementById('ov-patient-select');
     if (ovSel) ovSel.value = '';
+    // mark that user is viewing device by ID explicitly so patient selection
+    // does not override this view
+    window._deviceViewMode = 'device';
+    window._deviceViewedId = deviceId;
   } catch (err) {
     console.error('showDeviceById error', err);
     alert('Lỗi khi đọc device từ Firebase.');

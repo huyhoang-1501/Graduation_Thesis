@@ -143,6 +143,12 @@ function initPatientsModule() {
     }
 
     if (action === "view") {
+      // Require DEVICE ID present in Overview before allowing view via Patients tab
+      const did = document.getElementById('ov-device-id-input')?.value || '';
+      if (!did.trim()) {
+        alert('Vui lòng nhập DEVICE ID ở tab Tổng quan trước khi xem bệnh nhân.');
+        return;
+      }
       currentPatientId = pid;
       showOverviewForPatient(pid);
     }
@@ -155,6 +161,72 @@ function initPatientsModule() {
 // Global device listener state to keep Overview in sync with /devices/<deviceId>
 window._currentDeviceRef = null;
 window._currentDeviceListener = null;
+
+// Helper to attach the realtime listener to a device node (reused by both
+// showOverviewForPatient and showDeviceById)
+function attachListenerToDevice(devId) {
+  if (!devId) return;
+  const devRef = db.ref("devices/" + devId);
+  // detach previous listener if any
+  if (window._currentDeviceRef && window._currentDeviceListener) {
+    try { window._currentDeviceRef.off('value', window._currentDeviceListener); } catch (e) { /* ignore */ }
+  }
+  window._currentDeviceRef = devRef;
+  window._currentDeviceListener = devRef.on('value', snap => {
+    const d = snap.val() || {};
+
+    // battery
+    const battEl = document.getElementById("ov-battery");
+    if (battEl) battEl.textContent = (d.batteryPercent != null) ? (d.batteryPercent + " %") : "-- %";
+
+    // last seen & freshness
+    const now = Date.now();
+    const lastSeenRaw = d.lastSeen || d.lastSeenAt || 0;
+    const lastSeen = Number(lastSeenRaw) || 0;
+    const lastEl = document.getElementById('ov-lastseen');
+    const freshnessEl = document.getElementById('ov-freshness');
+    if (lastEl) {
+      if (lastSeen) lastEl.textContent = new Date(lastSeen).toLocaleString();
+      else lastEl.textContent = '--';
+    }
+
+    // compute derived status based on lastSeen
+    let derivedStatus = (d.status || 'offline');
+    const ONLINE_THRESHOLD = 3 * 60 * 1000; // 3 minutes
+    if (lastSeen) {
+      const age = now - lastSeen;
+      derivedStatus = (age < ONLINE_THRESHOLD) ? 'online' : 'offline';
+    } else {
+      derivedStatus = d.status || 'offline';
+    }
+
+    // badge
+    const badge = document.getElementById('ov-device-badge');
+    if (badge) {
+      badge.textContent = derivedStatus.toUpperCase();
+      badge.classList.remove('badge-online','badge-offline');
+      if (derivedStatus === 'online') badge.classList.add('badge-online');
+      else badge.classList.add('badge-offline');
+    }
+
+    // freshness text
+    if (freshnessEl) {
+      if (!lastSeen) freshnessEl.textContent = '--';
+      else {
+        const sec = Math.floor((now - lastSeen) / 1000);
+        if (sec < 60) freshnessEl.textContent = 'Cập nhật mới nhất';
+        else if (sec < 3600) freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 60) + ' phút';
+        else freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 3600) + ' giờ';
+      }
+    }
+
+    // optional network indicator
+    const netEl = document.getElementById('ov-network');
+    if (netEl) netEl.textContent = d.network || '--';
+  });
+
+  const idInput = document.getElementById('ov-device-id-input'); if (idInput) idInput.value = devId;
+}
 
 function showOverviewForPatient(patientId) {
   const pCache = patientsCache[patientId];
@@ -193,6 +265,13 @@ function showOverviewForPatient(patientId) {
   // We no longer store deviceId inside /patients; instead, find devices with
   // devices/<deviceId>.patientId === patientId.
   try {
+    // If the user explicitly opened a device view by ID, do not override
+    // that listener when switching patients — the device panel should
+    // remain showing the manually-entered DEVICE ID.
+    if (window._deviceViewMode === 'device') {
+      // still load patient info/measurements below, but skip attaching
+      // a device listener that would replace the explicit device view.
+    } else {
     // detach previous listener
     if (window._currentDeviceRef && window._currentDeviceListener) {
       window._currentDeviceRef.off('value', window._currentDeviceListener);
@@ -206,71 +285,47 @@ function showOverviewForPatient(patientId) {
         const devs = devSnap.val() || {};
         const keys = Object.keys(devs);
         if (keys.length === 0) {
-          // no linked device
-          const battEl = document.getElementById("ov-battery"); if (battEl) battEl.textContent = "-- %";
-          const lastEl = document.getElementById("ov-lastseen"); if (lastEl) lastEl.textContent = "--";
-          const badge = document.getElementById("ov-device-badge"); if (badge) { badge.textContent = "OFFLINE"; badge.classList.remove("badge-online","badge-stale"); badge.classList.add("badge-offline"); }
-          return;
+          // no linked device found via query. Try a loose fallback scan to handle
+          // possible type mismatches (e.g. numeric vs string patientId stored in DB).
+          return db.ref('devices').once('value').then(allSnap => {
+            const all = allSnap.val() || {};
+            let foundId = null;
+            Object.keys(all).forEach(k => {
+              const dv = all[k] || {};
+              try {
+                if (String(dv.patientId) === String(patientId)) {
+                  if (!foundId) foundId = k;
+                } else if (!isNaN(Number(dv.patientId)) && !isNaN(Number(patientId)) && Number(dv.patientId) === Number(patientId)) {
+                  if (!foundId) foundId = k;
+                }
+              } catch (e) {
+                // ignore coercion errors
+              }
+            });
+
+            if (!foundId) {
+              const battEl = document.getElementById("ov-battery"); if (battEl) battEl.textContent = "-- %";
+              const lastEl = document.getElementById("ov-lastseen"); if (lastEl) lastEl.textContent = "--";
+              const badge = document.getElementById("ov-device-badge"); if (badge) { badge.textContent = "OFFLINE"; badge.classList.remove("badge-online","badge-stale"); badge.classList.add("badge-offline"); }
+              const idInput = document.getElementById('ov-device-id-input'); if (idInput) idInput.value = '';
+              return;
+            }
+
+            // attach listener to the loosely-matched device
+            attachListenerToDevice(foundId);
+            return;
+          }).catch(e => {
+            console.error('device fallback lookup error', e);
+          });
         }
 
         // pick the first device found (system expects at most one device per patient)
         const deviceId = keys[0];
-        const devRef = db.ref("devices/" + deviceId);
-        window._currentDeviceRef = devRef;
-        window._currentDeviceListener = devRef.on('value', snap => {
-          const d = snap.val() || {};
 
-          // battery
-          const battEl = document.getElementById("ov-battery");
-          if (battEl) battEl.textContent = (d.batteryPercent != null) ? (d.batteryPercent + " %") : "-- %";
-
-          // last seen & freshness
-          const now = Date.now();
-          const lastSeenRaw = d.lastSeen || d.lastSeenAt || 0;
-          const lastSeen = Number(lastSeenRaw) || 0;
-          const lastEl = document.getElementById('ov-lastseen');
-          const freshnessEl = document.getElementById('ov-freshness');
-          if (lastEl) {
-            if (lastSeen) lastEl.textContent = new Date(lastSeen).toLocaleString();
-            else lastEl.textContent = '--';
-          }
-
-          // compute derived status based on lastSeen (online vs offline only)
-          let derivedStatus = (d.status || 'offline');
-          const ONLINE_THRESHOLD = 3 * 60 * 1000; // 3 minutes
-          if (lastSeen) {
-            const age = now - lastSeen;
-            derivedStatus = (age < ONLINE_THRESHOLD) ? 'online' : 'offline';
-          } else {
-            derivedStatus = d.status || 'offline';
-          }
-
-          // badge
-          const badge = document.getElementById('ov-device-badge');
-          if (badge) {
-            badge.textContent = derivedStatus.toUpperCase();
-            badge.classList.remove('badge-online','badge-offline');
-            if (derivedStatus === 'online') badge.classList.add('badge-online');
-            else badge.classList.add('badge-offline');
-          }
-
-          // freshness text
-          if (freshnessEl) {
-            if (!lastSeen) freshnessEl.textContent = '--';
-            else {
-              const sec = Math.floor((now - lastSeen) / 1000);
-              if (sec < 60) freshnessEl.textContent = 'Cập nhật mới nhất';
-              else if (sec < 3600) freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 60) + ' phút';
-              else freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 3600) + ' giờ';
-            }
-          }
-
-          // optional network indicator
-          const netEl = document.getElementById('ov-network');
-          if (netEl) netEl.textContent = d.network || '--';
-        });
+        attachListenerToDevice(deviceId);
       })
       .catch(e => console.error('device lookup error', e));
+    }
   } catch (e) {
     console.error('device listener error', e);
   }
