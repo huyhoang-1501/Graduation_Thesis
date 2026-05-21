@@ -224,23 +224,50 @@ function showOverviewForPatient(patientId) {
           const battEl = document.getElementById("ov-battery");
           if (battEl) battEl.textContent = (d.batteryPercent != null) ? (d.batteryPercent + " %") : "-- %";
 
-          // last seen
-          const lastEl = document.getElementById("ov-lastseen");
+          // last seen & freshness
+          const now = Date.now();
+          const lastSeenRaw = d.lastSeen || d.lastSeenAt || 0;
+          const lastSeen = Number(lastSeenRaw) || 0;
+          const lastEl = document.getElementById('ov-lastseen');
+          const freshnessEl = document.getElementById('ov-freshness');
           if (lastEl) {
-            if (d.lastSeen) lastEl.textContent = new Date(d.lastSeen).toLocaleString();
+            if (lastSeen) lastEl.textContent = new Date(lastSeen).toLocaleString();
             else lastEl.textContent = '--';
           }
 
-          // device status badge
-          const badge = document.getElementById("ov-device-badge");
-          if (badge) {
-            const status = (d.status || 'offline');
-            badge.textContent = status.toUpperCase();
-            badge.classList.remove("badge-online","badge-offline","badge-stale");
-            if (status === 'online') badge.classList.add("badge-online");
-            else if (status === 'stale') badge.classList.add("badge-stale");
-            else badge.classList.add("badge-offline");
+          // compute derived status based on lastSeen (online vs offline only)
+          let derivedStatus = (d.status || 'offline');
+          const ONLINE_THRESHOLD = 3 * 60 * 1000; // 3 minutes
+          if (lastSeen) {
+            const age = now - lastSeen;
+            derivedStatus = (age < ONLINE_THRESHOLD) ? 'online' : 'offline';
+          } else {
+            derivedStatus = d.status || 'offline';
           }
+
+          // badge
+          const badge = document.getElementById('ov-device-badge');
+          if (badge) {
+            badge.textContent = derivedStatus.toUpperCase();
+            badge.classList.remove('badge-online','badge-offline');
+            if (derivedStatus === 'online') badge.classList.add('badge-online');
+            else badge.classList.add('badge-offline');
+          }
+
+          // freshness text
+          if (freshnessEl) {
+            if (!lastSeen) freshnessEl.textContent = '--';
+            else {
+              const sec = Math.floor((now - lastSeen) / 1000);
+              if (sec < 60) freshnessEl.textContent = 'Cập nhật mới nhất';
+              else if (sec < 3600) freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 60) + ' phút';
+              else freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 3600) + ' giờ';
+            }
+          }
+
+          // optional network indicator
+          const netEl = document.getElementById('ov-network');
+          if (netEl) netEl.textContent = d.network || '--';
         });
       })
       .catch(e => console.error('device lookup error', e));

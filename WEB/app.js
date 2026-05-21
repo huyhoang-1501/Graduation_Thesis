@@ -353,9 +353,8 @@ function showDeviceById(deviceId) {
 
     const devRef = db.ref('devices/' + deviceId);
     window._currentDeviceRef = devRef;
-    // derive online/offline/stale from lastSeen timestamp (firmware may not flip status to offline)
+    // derive online/offline from lastSeen timestamp (treat previously 'stale' as offline)
     const ONLINE_THRESHOLD = 3 * 60 * 1000; // 3 minutes
-    const STALE_THRESHOLD = 30 * 60 * 1000; // 30 minutes
 
     window._currentDeviceListener = devRef.on('value', snap => {
       const d = snap.val() || {};
@@ -375,13 +374,11 @@ function showDeviceById(deviceId) {
         else lastEl.textContent = '--';
       }
 
-      // compute derived status based on lastSeen (more reliable than trusting firmware-written `status` field)
+      // compute derived status based on lastSeen (online vs offline only)
       let derivedStatus = (d.status || 'offline');
       if (lastSeen) {
         const age = now - lastSeen;
-        if (age < ONLINE_THRESHOLD) derivedStatus = 'online';
-        else if (age < STALE_THRESHOLD) derivedStatus = 'stale';
-        else derivedStatus = 'offline';
+        derivedStatus = (age < ONLINE_THRESHOLD) ? 'online' : 'offline';
       } else {
         derivedStatus = d.status || 'offline';
       }
@@ -390,9 +387,8 @@ function showDeviceById(deviceId) {
       const badge = document.getElementById('ov-device-badge');
       if (badge) {
         badge.textContent = derivedStatus.toUpperCase();
-        badge.classList.remove('badge-online','badge-offline','badge-stale');
+        badge.classList.remove('badge-online','badge-offline');
         if (derivedStatus === 'online') badge.classList.add('badge-online');
-        else if (derivedStatus === 'stale') badge.classList.add('badge-stale');
         else badge.classList.add('badge-offline');
       }
 

@@ -298,7 +298,6 @@ body {
 }
 .badge-online { background:#16a34a; }
 .badge-offline { background:#dc2626; }
-.badge-stale { background:#f59e0b; }
 
 .panel {
   background:#fff; border-radius:6px;

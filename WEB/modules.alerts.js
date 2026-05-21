@@ -49,7 +49,8 @@ function renderAlertsWithFilters() {
     div.className = "alert-item";
     const iconClass = a.severity === "danger"
       ? "fa-triangle-exclamation" : "fa-circle-exclamation";
-    const badgeClass = a.severity === "danger" ? "badge-offline" : "badge-stale";
+    // Use badge-offline for non-danger alerts too (remove 'stale' state)
+    const badgeClass = "badge-offline";
     const statusText = a.status === "unacked" ? "Chưa xem" : "Đã xem";
 
     div.innerHTML = `
