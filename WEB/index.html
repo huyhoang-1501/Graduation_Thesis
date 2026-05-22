@@ -189,9 +189,7 @@
           <button class="sidebar-item" data-page="history">
             <i class="fas fa-history"></i> Lịch sử
           </button>
-          <button class="sidebar-item" data-page="alerts">
-            <i class="fas fa-bell"></i> Cảnh báo
-          </button>
+          <!-- Alerts tab removed -->
           <button class="sidebar-item" data-page="patients">
             <i class="fas fa-users"></i> Thiết bị / Bệnh nhân
           </button>
@@ -360,54 +358,7 @@
           </div>
         </section>
 
-        <!-- ========== ALERTS ========== -->
-        <section id="page-alerts" class="page">
-          <div class="page-header-row">
-            <select id="al-patient-select">
-              <option value="" selected disabled>Chọn bệnh nhân...</option>
-            </select>
-          </div>
-
-          <div class="alerts-filters">
-            <div class="filter-group">
-              <label>Loại</label>
-              <select id="al-type">
-                <option value="all">Tất cả</option>
-                <option value="HR_HIGH">HR High</option>
-                <option value="HR_MAX">HR Max</option>
-                <option value="HR_MIN">HR Min</option>
-                <option value="SPO2_MAX">SpO₂ Max</option>
-                <option value="SPO2_MIN">SpO₂ Min</option>
-                <!-- BP High removed -->
-                <option value="BP_SYS_MAX">BP Sys Max</option>
-                <option value="BP_SYS_MIN">BP Sys Min</option>
-                <option value="BP_DIA_MAX">BP Dia Max</option>
-                <option value="BP_DIA_MIN">BP Dia Min</option>
-                <!-- BP Low removed -->
-              </select>
-            </div>
-            <div class="filter-group">
-              <label>Mức độ</label>
-              <select id="al-severity">
-                <option value="all">Tất cả</option>
-                <option value="warning">Warning</option>
-                <option value="danger">Danger</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label>Trạng thái</label>
-              <select id="al-status">
-                <option value="all">Tất cả</option>
-                <option value="unacked">Chưa xem</option>
-                <option value="acked">Đã xem</option>
-              </select>
-            </div>
-          </div>
-
-          <div id="alerts-list" class="alerts-list">
-            <!-- JS render mock alerts -->
-          </div>
-        </section>
+        <!-- Alerts page removed -->
 
         <!-- ========== DEVICES / PATIENTS ========== -->
         <section id="page-patients" class="page">
@@ -566,7 +517,6 @@
 
   <script src="modules.state.js"></script>
   <script src="modules.selectors.js"></script>
-  <script src="modules.alerts.js"></script>
   <script src="modules.patients.js"></script>
   <script src="modules.settings.js"></script>
   <script src="app.js"></script>

@@ -293,6 +293,14 @@ body {
   flex: 0 0 160px; /* narrower small width */
   padding:10px 12px;
 }
+.notify-small {
+  /* center contents vertically and horizontally for a compact notification card */
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* vertical centering */
+  align-items: center;     /* horizontal centering */
+  text-align: center;
+}
 .notify-small .stat-value { font-size:24px; }
 .stat-sub {
   font-size:12px; color:#6b7280; margin-top:4px;
@@ -352,8 +360,7 @@ body {
    remain responsive on narrow viewports. Mobile overrides below keep touch-friendly sizing. */
 #set-patient-select,
 #ov-patient-select,
-#his-patient-select,
-#al-patient-select {
+#his-patient-select {
   display: inline-block;
   box-sizing: border-box;
   min-width: 220px; /* sensible base width to match Settings on desktop */
@@ -412,8 +419,7 @@ body {
 }
 
 /* HISTORY + ALERTS FILTERS */
-.history-filters,
-.alerts-filters {
+.history-filters {
   display:flex;
   flex-wrap:wrap;
   gap:12px;
@@ -440,15 +446,12 @@ body {
 
 /* Make filter groups distribute space evenly so the three "Tất cả" boxes match width.
    Use a sensible base width so groups are equal on desktop but still shrink on small screens. */
-.alerts-filters .filter-group,
 .history-filters .filter-group {
   flex: 1 1 220px; /* grow/shrink with a preferred base width */
   min-width: 140px; /* prevent becoming too small on narrow viewports */
 }
 
 /* Ensure inputs/selects expand to fill their group's width */
-.alerts-filters .filter-group input,
-.alerts-filters .filter-group select,
 .history-filters .filter-group input,
 .history-filters .filter-group select {
   width: 100%;
@@ -475,38 +478,7 @@ body {
 }
 
 /* ALERTS LIST */
-.alerts-list {
-  margin-top:8px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-.alert-item {
-  background:#fff;
-  border-radius:4px;
-  border:1px solid #e5e7eb;
-  padding:8px 10px;
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  font-size:13px;
-}
-.alert-main {
-  display:flex;
-  gap:8px;
-}
-.alert-icon {
-  font-size:18px;
-  margin-top:2px;
-}
-.alert-content div {
-  margin-bottom:2px;
-}
-.alert-actions {
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-}
+/* Alerts styles removed (alerts page has been deleted) */
 
 /* PATIENTS LIST */
 .patients-list {
@@ -743,6 +715,44 @@ body {
   .patients-form select { width: 100%; }
   .patients-form button { width: 100%; }
 
+  /* Mobile: compact/small notification card (kept small and tidy) */
+  .notify-small {
+    flex: 0 0 140px; /* fixed compact width */
+    width: auto;
+    display: flex;
+    flex-direction: column; /* stacked: count above, label below */
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #e6eef8;
+    box-shadow: 0 6px 12px rgba(6, 30, 60, 0.04);
+  }
+
+  .notify-small .stat-title {
+    font-size: 11px;
+    color: #6b7280;
+    margin: 0;
+    text-transform: none;
+    display: block;
+  }
+
+  .notify-small .stat-title i { font-size: 16px; color: #ffb020; margin-right:6px; }
+
+  .notify-small .stat-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: #00548a;
+    line-height: 1;
+  }
+
+  .notify-small .stat-sub {
+    font-size: 12px;
+    color: #6b7280;
+    margin: 0;
+  }
+
   /* Device actions: keep device buttons side-by-side on mobile while inputs stack */
   .device-actions {
     display: flex;
@@ -755,7 +765,7 @@ body {
     min-width: 0;
   }
 
-  .history-filters, .alerts-filters { flex-direction: column; align-items: flex-start; }
+  .history-filters { flex-direction: column; align-items: flex-start; }
   .filter-actions { width: 100%; display: flex; gap: 8px; }
 
   /* Hide Export CSV on mobile to simplify the UI */
@@ -882,7 +892,7 @@ body {
   .patients-form { gap: 12px; }
   /* Reduce vertical spacing between filter groups on mobile so controls sit closer together */
   /* tightened from 8px -> 6px to make selects sit closer on small screens */
-  .history-filters, .alerts-filters { gap:4px; }
+  .history-filters { gap:4px; }
 
   /* Make date-range sub-controls tighter and align the "đến" label to the left, matching the
      visual style of the 'Ngày / Khoảng thời gian' label on mobile. This keeps sizes compact
@@ -903,16 +913,14 @@ body {
     line-height: 1.2;
   }
 
-  /* Alerts: keep alert filter inputs closer together on mobile */
-  .alerts-filters .filter-group { gap: 4px; }
+  /* Alerts filters removed - keep only history filters on mobile */
 
   /* Make History/Alerts/Overview patient selects match the Settings tab patient select on mobile
      - Use the same inline-block sizing and touch-friendly padding as the Settings select so all
        four selects look identical on small viewports. Remove conflicting full-width overrides. */
   #set-patient-select,
   #ov-patient-select,
-  #his-patient-select,
-  #al-patient-select {
+  #his-patient-select {
     display: inline-block;
     box-sizing: border-box;
     width: auto;
@@ -928,9 +936,7 @@ body {
   }
   /* keep other filter inputs/selects compact and touch-friendly */
   .history-filters .filter-group input,
-  .history-filters .filter-group select,
-  .alerts-filters .filter-group input,
-  .alerts-filters .filter-group select {
+  .history-filters .filter-group select {
     min-height: 36px !important;
     padding: 6px 8px !important;
     font-size: 13px !important;
@@ -940,15 +946,13 @@ body {
   /* Arrange History/Alerts filter groups to match mobile screenshots:
      - Stack groups vertically but keep their controls compact (not full-width).
      - Provide consistent vertical spacing and keep selects/inputs a comfortable max-width. */
-  .history-filters,
-  .alerts-filters {
+  .history-filters {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px; /* slightly larger gap like screenshots */
   }
 
-  .history-filters .filter-group,
-  .alerts-filters .filter-group {
+  .history-filters .filter-group {
     width: 100%;
     max-width: 360px; /* group won't stretch forever on wide phones */
     display: flex;
@@ -981,13 +985,7 @@ body {
   }
 
   /* Alerts: stack small selects vertically and keep them compact like the screenshot */
-  .alerts-filters .filter-group input,
-  .alerts-filters .filter-group select {
-    display: inline-block;
-    width: auto;
-    max-width: 220px;
-    box-sizing: border-box;
-  }
+  /* Alerts filters removed; no mobile overrides needed for them */
 
   /* Make filter action buttons (Lọc / Export) full width and visually separated */
   .filter-actions { width: 100%; display: flex; gap: 8px; }
@@ -1019,9 +1017,7 @@ body {
   /* Ensure History + Alerts patient selects use the same compact/touch-friendly sizing
      (some filter-group rules may force width:100%; this override restores the compact look). */
   #his-patient-select,
-  #al-patient-select,
-  .page#page-history .page-header-row select,
-  .page#page-alerts .page-header-row select {
+  .page#page-history .page-header-row select {
     display: inline-block !important;
     box-sizing: border-box !important;
     width: auto !important;
