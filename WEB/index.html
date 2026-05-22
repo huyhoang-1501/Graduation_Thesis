@@ -258,10 +258,8 @@
                         class="badge badge-offline">OFFLINE</span>
                 </div>
                 <div class="device-body">
-                  <div>Last seen: <span id="ov-lastseen">--</span></div>
+                   <div>Truy cập gần nhất: <span id="ov-lastseen">--</span> <small id="ov-freshness" style="color:#6b7280; font-size:12px; margin-left:8px;">--</small></div>
                   <div>Pin: <span id="ov-battery">-- %</span></div>
-                  <!-- Network display removed: device pushes no longer include network field -->
-                  <div>Data freshness: <span id="ov-freshness">--</span></div>
                 </div>
               </div>
               <!-- small notification card placed beside device status -->
@@ -540,6 +538,32 @@
           .catch(err => console.warn('ServiceWorker registration failed:', err));
       });
     }
+  </script>
+
+  <!-- Hide only the faded placeholder (ov-freshness) but keep ov-lastseen visible even when it's '--' -->
+  <script>
+    (function(){
+      const id = 'ov-freshness';
+
+      function updatePlaceholder() {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const txt = el.textContent.trim();
+        if (txt === '--' || txt === '-- %' || txt === '' ) {
+          el.style.display = 'none';
+        } else {
+          el.style.display = '';
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        updatePlaceholder();
+        const node = document.getElementById(id);
+        if (node) {
+          new MutationObserver(updatePlaceholder).observe(node, { childList: true, characterData: true, subtree: true });
+        }
+      });
+    })();
   </script>
 </body>
 </html>
