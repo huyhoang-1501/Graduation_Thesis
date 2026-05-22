@@ -480,11 +480,16 @@ function showDeviceById(deviceId) {
           // Optionally update chart
           if (miniChart && rec.hr != null) {
             try {
+              const MAX_POINTS = 60;
               miniChart.data.labels.push('');
-              miniChart.data.datasets[0].data.push(rec.hr);
-              if (miniChart.data.labels.length > 60) {
+              // keep datasets aligned; push null when value missing
+              miniChart.data.datasets[0].data.push(rec.hr != null ? rec.hr : null);
+              miniChart.data.datasets[1].data.push(rec.spo2 != null ? rec.spo2 : null);
+              miniChart.data.datasets[2].data.push(rec.bpSys != null ? rec.bpSys : null);
+              miniChart.data.datasets[3].data.push(rec.bpDia != null ? rec.bpDia : null);
+              if (miniChart.data.labels.length > MAX_POINTS) {
                 miniChart.data.labels.shift();
-                miniChart.data.datasets[0].data.shift();
+                miniChart.data.datasets.forEach(ds => ds.data.shift());
               }
               miniChart.update();
             } catch (e) { /* ignore chart errors */ }
@@ -512,11 +517,15 @@ function showDeviceById(deviceId) {
             }
             if (miniChart && rec.hr != null) {
               try {
+                const MAX_POINTS = 60;
                 miniChart.data.labels.push('');
-                miniChart.data.datasets[0].data.push(rec.hr);
-                if (miniChart.data.labels.length > 60) {
+                miniChart.data.datasets[0].data.push(rec.hr != null ? rec.hr : null);
+                miniChart.data.datasets[1].data.push(rec.spo2 != null ? rec.spo2 : null);
+                miniChart.data.datasets[2].data.push(rec.bpSys != null ? rec.bpSys : null);
+                miniChart.data.datasets[3].data.push(rec.bpDia != null ? rec.bpDia : null);
+                if (miniChart.data.labels.length > MAX_POINTS) {
                   miniChart.data.labels.shift();
-                  miniChart.data.datasets[0].data.shift();
+                  miniChart.data.datasets.forEach(ds => ds.data.shift());
                 }
                 miniChart.update();
               } catch (e) { /* ignore chart errors */ }
@@ -965,20 +974,74 @@ function initMiniChart() {
     type: "line",
     data: {
       labels: [],
-      datasets: [{
-        label: "Heart Rate (bpm)",
-        data: [],
-        borderColor: "#ef4444",
-        backgroundColor: "rgba(239,68,68,0.15)",
-        fill: true,
-        tension: 0.3
-      }]
+      datasets: [
+        {
+          label: "Nhịp Tim (bpm)",
+          data: [],
+          borderColor: "#ef4444",
+          backgroundColor: "rgba(239,68,68,0.15)",
+          fill: true,
+          tension: 0.3,
+          yAxisID: 'y'
+        },
+        {
+          label: "SpO₂ (%)",
+          data: [],
+          borderColor: "#3b82f6",
+          backgroundColor: "rgba(59,130,246,0.12)",
+          fill: true,
+          tension: 0.3,
+          yAxisID: 'ySpo2'
+        },
+        {
+          label: "BP Sys (mmHg)",
+          data: [],
+          borderColor: "#f59e0b",
+          backgroundColor: "rgba(245,158,11,0.08)",
+          fill: false,
+          tension: 0.2,
+          yAxisID: 'yBp'
+        },
+        {
+          label: "BP Dia (mmHg)",
+          data: [],
+          borderColor: "#10b981",
+          backgroundColor: "rgba(16,185,129,0.08)",
+          fill: false,
+          tension: 0.2,
+          yAxisID: 'yBp'
+        }
+      ]
     },
     options: {
       responsive: true,
       scales: {
         x: { display: false },
-        y: { beginAtZero: false }
+        y: {
+          // primary axis for HR
+          type: 'linear',
+          display: true,
+          position: 'left',
+          beginAtZero: false
+        },
+        ySpo2: {
+          // SpO2 percentage (0-100)
+          type: 'linear',
+          display: true,
+          position: 'right',
+          suggestedMin: 70,
+          suggestedMax: 100,
+          grid: { drawOnChartArea: false }
+        },
+        yBp: {
+          // Blood pressure axis
+          type: 'linear',
+          display: false,
+          position: 'right',
+          suggestedMin: 40,
+          suggestedMax: 200,
+          grid: { drawOnChartArea: false }
+        }
       }
     }
   });
@@ -1006,9 +1069,7 @@ function mockUpdateOverview() {
   document.getElementById("ov-bp-value").textContent = "120 / 80 mmHg";
   document.getElementById("ov-spo2-value").textContent = "97 %";
 
-  document.getElementById("ov-hr-status").textContent = "Trạng thái: Bình thường";
-  document.getElementById("ov-bp-status").textContent = "Trạng thái: Bình thường";
-  document.getElementById("ov-spo2-status").textContent = "Trạng thái: Bình thường";
+  // Status sub-lines for the stat cards were removed from the UI; skip setting them
 
   const badge = document.getElementById("ov-device-badge");
   badge.textContent = "ONLINE";
@@ -1033,13 +1094,22 @@ function mockUpdateOverview() {
 
   if (miniChart) {
     const labels = [];
-    const data = [];
+    const hrData = [];
+    const spo2Data = [];
+    const bpSysData = [];
+    const bpDiaData = [];
     for (let i = 0; i < 12; i++) {
       labels.push("");
-      data.push(70 + Math.round(Math.random() * 10));
+      hrData.push(60 + Math.round(Math.random() * 30));
+      spo2Data.push(94 + Math.round(Math.random() * 5));
+      bpSysData.push(110 + Math.round(Math.random() * 20));
+      bpDiaData.push(70 + Math.round(Math.random() * 15));
     }
     miniChart.data.labels = labels;
-    miniChart.data.datasets[0].data = data;
+    miniChart.data.datasets[0].data = hrData;
+    if (miniChart.data.datasets[1]) miniChart.data.datasets[1].data = spo2Data;
+    if (miniChart.data.datasets[2]) miniChart.data.datasets[2].data = bpSysData;
+    if (miniChart.data.datasets[3]) miniChart.data.datasets[3].data = bpDiaData;
     miniChart.update();
   }
 
@@ -1122,15 +1192,11 @@ window.addEventListener('resize', () => {
   }, 120);
 });
 
-// ========== HISTORY: (tạm thời) mock UI, có thể nâng cấp sau ==========
 function initOtherPages() {
-  // Do not render mock data in History. Clear any placeholder content so real data
-  // from Firebase can be rendered when the user requests it.
   renderMockHistory();
 }
 
 function renderMockHistory() {
-  // Clear any placeholder/mock content in the History tab.
   const tbody = document.getElementById("history-table-body");
   if (tbody) tbody.innerHTML = "";
 
