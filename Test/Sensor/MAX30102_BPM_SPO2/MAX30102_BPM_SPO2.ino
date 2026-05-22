@@ -200,9 +200,9 @@ void setup()
   int adcRange = 4096; //Options: 2048, 4096, 8192, 16384
 
   particleSensor.setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange); //Configure sensor with these settings
-  particleSensor.setup(); 
-  particleSensor.setPulseAmplitudeRed(0x0A);
-  particleSensor.setPulseAmplitudeIR(0x0A);
+  // particleSensor.setup(); 
+  // particleSensor.setPulseAmplitudeRed(0x0A);
+  // particleSensor.setPulseAmplitudeIR(0x0A);
 }
 
 
