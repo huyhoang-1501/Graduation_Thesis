@@ -291,15 +291,14 @@ body {
 /* small notification card variant used beside device status */
 .notify-small {
   flex: 0 0 160px; /* narrower small width */
-  padding:10px 12px;
-}
-.notify-small {
-  /* center contents vertically and horizontally for a compact notification card */
+  /* keep a bit of internal padding but push contents toward the left edge */
+  padding: 10px 12px 10px 8px;
+  /* layout: stack items vertically and align them to the left */
   display: flex;
   flex-direction: column;
-  justify-content: center; /* vertical centering */
-  align-items: center;     /* horizontal centering */
-  text-align: center;
+  justify-content: center; /* vertical centering within the card */
+  align-items: flex-start;  /* align contents to the left */
+  text-align: left;
 }
 .notify-small .stat-value { font-size:24px; }
 .stat-sub {
@@ -403,9 +402,10 @@ body {
     align-items: center;
   }
   .ov-controls select {
-    grid-column: 1 / -1;
-    width: 100%;
-    min-width: 0;
+    grid-column: 1;
+    width: auto;
+    max-width: 320px;
+    min-width: 160px;
   }
   #ov-device-id-input {
     grid-column: 1;
@@ -721,9 +721,10 @@ body {
     width: auto;
     display: flex;
     flex-direction: column; /* stacked: count above, label below */
-    align-items: center;
+    /* keep mobile consistent with left-aligned layout */
+    align-items: flex-start;
     gap: 6px;
-    padding: 8px 10px;
+    padding: 8px 10px 8px 8px;
     border-radius: 10px;
     background: #ffffff;
     border: 1px solid #e6eef8;
@@ -891,14 +892,15 @@ body {
   /* Give more vertical breathing room on mobile */
   .patients-form { gap: 12px; }
   /* Reduce vertical spacing between filter groups on mobile so controls sit closer together */
-  /* tightened from 8px -> 6px to make selects sit closer on small screens */
-  .history-filters { gap:4px; }
+  /* Use a single, consistent gap so controls aren't too far apart. */
+  .history-filters { gap:8px; margin-bottom:8px; }
 
   /* Make date-range sub-controls tighter and align the "đến" label to the left, matching the
      visual style of the 'Ngày / Khoảng thời gian' label on mobile. This keeps sizes compact
      and consistent with the screenshots the user provided. */
   .history-filters .filter-group {
-    gap: 4px; /* reduce vertical space inside the group */
+    gap: 6px; /* reduced vertical space inside group for tighter stacking */
+    margin-bottom: 6px;
   }
 
   /* Make the inline "đến" text match label size and weight and align left with the label */
@@ -949,7 +951,7 @@ body {
   .history-filters {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px; /* slightly larger gap like screenshots */
+    gap: px; /* consistent mobile gap so controls sit closer */
   }
 
   .history-filters .filter-group {
@@ -982,6 +984,26 @@ body {
     width: auto;
     max-width: 320px;
     box-sizing: border-box;
+  }
+
+  /* Ensure header containers are positioned so notification card can sit at top-right
+     aligned with the patient/device controls on mobile. This keeps the notify box
+     visually level with the ov-controls (patient select + Device ID + button). */
+  .overview-header,
+  .page-header-row {
+    position: relative;
+  }
+
+  /* Place the small notification card at the top-right of the header and vertically
+     center it relative to the header's content (so it lines up with ov-controls). */
+  .overview-header .notify-small,
+  .page-header-row .notify-small {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 5;
+    margin: 0; /* remove any extra margin that could push it down */
   }
 
   /* Alerts: stack small selects vertically and keep them compact like the screenshot */
