@@ -189,6 +189,9 @@
           <button class="sidebar-item" data-page="history">
             <i class="fas fa-history"></i> Lịch sử
           </button>
+          <button class="sidebar-item" data-page="location">
+            <i class="fas fa-map-marker-alt"></i> Vị trí của thiết bị
+          </button>
           <!-- Alerts tab removed -->
           <button class="sidebar-item" data-page="patients">
             <i class="fas fa-users"></i> Thiết bị / Bệnh nhân
@@ -275,18 +278,14 @@
             <!-- Row 3: mini chart + map -->
             <div class="overview-row overview-row-2col">
               <div class="panel">
-                <div class="panel-header">Biểu đồ 1 giờ gần nhất</div>
-                <div class="panel-body">
-                  <canvas id="miniChart"></canvas>
-                </div>
-              </div>
+                    <div class="panel-header">Biểu đồ 1 giờ gần nhất</div>
+                    <div class="panel-body">
+                      <canvas id="miniChart"></canvas>
+                    </div>
+                  </div>
 
-              <div class="panel">
-                <div class="panel-header">Vị trí gần nhất</div>
-                <div class="panel-body">
-                  <div id="map" style="width:100%; height:260px;"></div>
-                </div>
-              </div>
+                  <!-- Map moved to its own tab: "Vị trí của thiết bị" -->
+              
             </div>
           </div>
         </section>
@@ -352,6 +351,16 @@
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========== LOCATION (MAP) ========== -->
+        <section id="page-location" class="page">
+          <div class="panel">
+            <div class="panel-header">Vị trí gần nhất</div>
+            <div class="panel-body">
+              <div id="map" style="width:100%; min-height:260px;"></div>
             </div>
           </div>
         </section>

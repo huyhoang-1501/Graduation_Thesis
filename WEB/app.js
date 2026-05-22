@@ -658,6 +658,7 @@ function initSidebarNavigation() {
     overview: "TỔNG QUAN",
     history: "LỊCH SỬ",
     alerts: "CẢNH BÁO",
+    location: "VỊ TRÍ CỦA THIẾT BỊ",
     patients: "THIẾT BỊ / BỆNH NHÂN",
     settings: "CÀI ĐẶT"
   };
@@ -681,6 +682,17 @@ function initSidebarNavigation() {
     pages.forEach(p => p.classList.remove("active"));
     const target = document.getElementById("page-" + pageName);
     if (target) target.classList.add("active");
+    // If user opened the Location page, ensure the Leaflet map is initialized
+    if (pageName === 'location') {
+      // small delay so the container is visible/animated; then set height and init or resize
+      setTimeout(() => {
+        try {
+          adjustMapHeight();
+          if (!leafletMap) initMap();
+          else leafletMap.invalidateSize();
+        } catch (e) { /* ignore */ }
+      }, 200);
+    }
   }
     // no global page helper required (bottom-nav removed)
 }
@@ -985,7 +997,7 @@ function initMap() {
 
   // Leaflet needs an invalidateSize call if container size changed; defer slightly
   setTimeout(() => {
-    try { leafletMap.invalidateSize(); } catch (e) { /* ignore */ }
+    try { adjustMapHeight(); leafletMap.invalidateSize(); } catch (e) { /* ignore */ }
   }, 250);
 }
 
@@ -1085,6 +1097,30 @@ function updateMapLocation(lat, lng) {
   leafletMarker.setLatLng([lat, lng]);
   leafletMap.setView([lat, lng], 15);
 }
+
+// Adjust map container height to fill available viewport space
+function adjustMapHeight() {
+  const mapDiv = document.getElementById('map');
+  if (!mapDiv) return;
+  // distance from top of viewport to top of map
+  const top = mapDiv.getBoundingClientRect().top;
+  // leave a small bottom gap (20px)
+  let avail = window.innerHeight - top - 20;
+  if (avail < 260) avail = 260; // ensure usable minimum
+  mapDiv.style.height = avail + 'px';
+  // if map already exists, invalidate size so Leaflet redraws
+  if (leafletMap) {
+    try { leafletMap.invalidateSize(); } catch (e) { /* ignore */ }
+  }
+}
+
+// Resize handler with small debounce
+window.addEventListener('resize', () => {
+  if (window._mapResizeTimer) clearTimeout(window._mapResizeTimer);
+  window._mapResizeTimer = setTimeout(() => {
+    adjustMapHeight();
+  }, 120);
+});
 
 // ========== HISTORY: (tạm thời) mock UI, có thể nâng cấp sau ==========
 function initOtherPages() {
