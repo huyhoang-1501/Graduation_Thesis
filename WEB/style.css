@@ -404,13 +404,14 @@ body {
   .ov-controls select {
     grid-column: 1;
     width: auto;
-    max-width: 320px;
-    min-width: 160px;
+    max-width: 180px; /* reduce on mobile to match History tab appearance */
+    min-width: 120px;
   }
   #ov-device-id-input {
     grid-column: 1;
-    width: 100%;
-    min-width: 0;
+    width: auto;            /* don't force full-width on mobile */
+    max-width: 180px;      /* match the patient select width */
+    min-width: 120px;
   }
   #ov-view-device-btn {
     grid-column: 2;
@@ -638,420 +639,68 @@ body {
 
 /* ========== MOBILE / RESPONSIVE ========== */
 @media (max-width: 768px) {
-  .menu-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    background: transparent;
-    color: #fff;
-    border: none;
-    font-size: 20px;
-    margin-right: 8px;
-    cursor: pointer;
-  }
-
-  .topbar { padding: 0 12px; }
-    /* Make topbar fixed on small screens so content sits beneath it; this prevents
-      the large empty gap when .main uses margin-top:60px. Kept only for mobile. */
-    .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1300; }
+  /* Topbar & menu */
+  .menu-btn { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px; background: transparent; color: #fff; border: none; font-size: 20px; margin-right: 8px; cursor: pointer; }
+  .topbar { padding: 0 12px; position: fixed; top: 0; left: 0; right: 0; z-index: 1300; }
   .topbar-title { display: none; }
 
-  /* Sidebar becomes off-canvas */
-  .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 300px;
-    max-width: 85%;
-    transform: translateX(-120%);
-    transition: transform .28s ease, box-shadow .28s ease;
-    z-index: 1200;
-    padding-top: 70px;
-    box-shadow: 6px 0 18px rgba(0,0,0,0.18);
-    will-change: transform;
-  }
-
-  /* When sidebar open (body class) slide in */
+  /* Sidebar off-canvas */
+  .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 300px; max-width: 85%; transform: translateX(-120%); transition: transform .28s ease, box-shadow .28s ease; z-index: 1200; padding-top: 70px; box-shadow: 6px 0 18px rgba(0,0,0,0.18); }
   body.sidebar-open .sidebar { transform: translateX(0); }
 
-  /* Main content flows under topbar on mobile */
+  /* Main content under topbar */
   .layout { flex-direction: column; }
   .main { padding: 12px; margin-top: 60px; }
 
-  /* Overlay to dim background */
-  .overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.5);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity .28s ease;
-    z-index: 1100;
-  }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); opacity: 0; pointer-events: none; transition: opacity .28s ease; z-index: 1100; }
   body.sidebar-open .overlay { opacity: 1; pointer-events: auto; }
 
-  /* Make overview rows stack vertically */
-  .overview-row,
-  .overview-row-2col { flex-direction: column; }
+  /* Stack overview rows */
+  .overview-row, .overview-row-2col { flex-direction: column; }
+  .stat-card, .panel { width: 100%; }
 
-  .stat-card { width: 100%; }
-  .panel { width: 100%; }
-  /* Tables and forms adapt */
-  /* Inputs stack vertically but phone actions (save/delete) are shown in a single row */
-  .phone-row { flex-direction: column; gap: 8px; align-items: stretch; }
-  /* keep input full width */
-  .phone-row input { width: 100%; }
-  /* phone action buttons grouped side-by-side similar to threshold-actions */
-  .phone-actions { display:flex; gap:10px; }
-  .phone-actions button { flex: 1; min-width: 120px; }
+  /* Device actions/layout */
+  .device-actions { display: flex; gap: 8px; width: 100%; }
+  .device-actions button { flex: 1 1 0; width: auto; min-width: 0; }
+  .ov-controls { row-gap: 10px; }
+  #ov-view-device-btn { width: auto !important; min-height: 36px !important; padding: 6px 10px !important; font-size: 13px !important; line-height: 1.2; }
 
-  /* Stack patient/device form controls on mobile for predictable layout */
-  .patients-form { flex-direction: column; align-items: stretch; }
-  .patients-form input,
-  .patients-form select { width: 100%; }
-  .patients-form button { width: 100%; }
+  /* General touch-friendly inputs/buttons */
+  .main input[type="text"], .main input[type="number"], .main input[type="tel"], .main input[type="date"], .main select, .patients-form input, .phone-row input, .filter-group input, .filter-group select, .input-group-login input { min-height: 44px; font-size: 15px; padding: 10px 12px; border-radius: 8px; }
+  .patients-form button, .phone-row button, .filter-actions button, .btn-primary, .btn-secondary, .btn-ghost { min-height: 44px; padding: 10px 12px; font-size: 15px; }
 
-  /* Mobile: compact/small notification card (kept small and tidy) */
-  .notify-small {
-    flex: 0 0 140px; /* fixed compact width */
-    width: auto;
-    display: flex;
-    flex-direction: column; /* stacked: count above, label below */
-    /* keep mobile consistent with left-aligned layout */
-    align-items: flex-start;
-    gap: 6px;
-    padding: 8px 10px 8px 8px;
-    border-radius: 10px;
-    background: #ffffff;
-    border: 1px solid #e6eef8;
-    box-shadow: 0 6px 12px rgba(6, 30, 60, 0.04);
-  }
+  /* Patients/forms compact */
+  .patients-form { flex-direction: column; align-items: stretch; gap: 12px; }
+  .patients-form input, .patients-form select { width: 100%; }
 
-  .notify-small .stat-title {
-    font-size: 11px;
-    color: #6b7280;
-    margin: 0;
-    text-transform: none;
-    display: block;
-  }
-
-  .notify-small .stat-title i { font-size: 16px; color: #ffb020; margin-right:6px; }
-
-  .notify-small .stat-value {
-    font-size: 20px;
-    font-weight: 800;
-    color: #00548a;
-    line-height: 1;
-  }
-
-  .notify-small .stat-sub {
-    font-size: 12px;
-    color: #6b7280;
-    margin: 0;
-  }
-
-  /* Device actions: keep device buttons side-by-side on mobile while inputs stack */
-  .device-actions {
-    display: flex;
-    gap: 8px;
-    width: 100%;
-  }
-  .device-actions button {
-    flex: 1 1 0;
-    width: auto; /* override full-width rule */
-    min-width: 0;
-  }
-
-  .history-filters { flex-direction: column; align-items: flex-start; }
+  /* HISTORY: compact, non-stretching filter groups */
+  .history-filters { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+  .history-filters .filter-group { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 6px; }
+  .history-filters .filter-group input[type="date"] { width: 100%; max-width: 360px; box-sizing: border-box; padding: 10px 12px !important; min-height: 36px !important; border-radius: 8px !important; border: 2px solid #e6e9ef !important; background: #fff !important; font-size: 14px !important; }
+  .history-filters .filter-group input:not([type="date"]), .history-filters .filter-group select { display: inline-block; width: auto; max-width: 320px; box-sizing: border-box; }
   .filter-actions { width: 100%; display: flex; gap: 8px; }
+  .filter-actions .btn-primary, .filter-actions .btn-secondary { flex: 0 0 auto; width: auto; }
+  #his-patient-select, #his-type { max-width: 180px; min-width: 120px; }
+  #his-date-from, #his-date-to { max-width: 160px; min-width: 120px; }
+  #his-apply-btn { flex: 0 0 auto; min-width: 96px; }
 
-  /* Hide Export CSV on mobile to simplify the UI */
+  /* Hide Export CSV on mobile to simplify UI */
   #his-export-btn { display: none; }
 
-  .sidebar-user { max-width: none; word-break: normal; white-space: normal; }
-  /* mobile: make sidebar header bigger like UTE sample */
-  .sidebar-header { align-items: center; text-align: center; padding-top: 18px; }
-  .sidebar-logo { font-size: 24px; }
-  .sidebar-header img, .topbar-logo { display: none; }
-  .sidebar-header::before {
-    content: '';
-    display:block;
-    width:100%;
-    height:140px;
-    background-image: url('image/healthcare.png');
-    background-repeat:no-repeat;
-    background-position:center 20px;
-    background-size: 120px 120px;
-    margin-bottom: 6px;
-  }
-  /* Remove login background image on mobile for better readability */
-  #login-section {
-    background-image: none !important;
-    background-size: initial !important;
-    background-position: initial !important;
-    background-repeat: initial !important;
-    background-color: #dbeafe; /* keep fallback color */
-  }
-  
-  /* Bottom navigation */
-  /* bottom nav removed - mobile menu uses sidebar */
-}
+  /* Patient select sizing consistent */
+  #set-patient-select, #ov-patient-select, #his-patient-select { display: inline-block; box-sizing: border-box; width: auto; max-width: 320px; min-width: 120px; padding: 10px 12px !important; min-height: 44px !important; font-size: 15px !important; line-height: 1.2 !important; border-radius: 8px !important; border: 2px solid #e6e9ef !important; background: #fff !important; }
 
-/* Mobile touch-friendly adjustments */
-@media (max-width: 768px) {
-  /* Increase touch target sizes and readable font sizes */
-  .main input[type="text"],
-  .main input[type="number"],
-  .main input[type="tel"],
-  .main input[type="date"],
-  .main select,
-  .patients-form input,
-  .phone-row input,
-  .filter-group input,
-  .filter-group select,
-  .input-group-login input {
-    min-height: 44px;
-    font-size: 15px;
-    padding: 10px 12px;
-    border-radius: 8px;
-  }
+  /* Notification card placement */
+  .overview-header, .page-header-row { position: relative; }
+  .overview-header .notify-small, .page-header-row .notify-small { position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 5; margin: 0; }
 
-  .patients-form button,
-  .phone-row button,
-  .filter-actions button,
-  .btn-primary,
-  .btn-secondary,
-  .btn-ghost {
-    width: 100%;
-    min-height: 44px;
-    padding: 10px 12px;
-    font-size: 15px;
-  }
+  /* Make inline "đến" label behave like a normal label on mobile */
+  .history-filters .filter-group span { font-size: 13px; font-weight: normal; color: #374151; align-self: flex-start; width: 100%; text-align: left; line-height: 1.2; margin: 0; }
 
-  /* Make patient/device form controls compact but touch-friendly on mobile.
-     Use auto height so inputs don't look like large textareas; keep a sensible minimum. */
-  .patients-form input,
-  .patients-form select,
-  #bind-device-id,
-  #bind-pair-code,
-  #pt-name,
-  #pt-age,
-  #pt-sex {
-    height: auto;
-    min-height: 36px;
-    padding: 8px 10px;
-    line-height: 1.2;
-  }
+  /* Ensure filter inputs inside history are compact and touch-friendly */
+  .history-filters .filter-group input, .history-filters .filter-group select { min-height: 36px !important; padding: 6px 8px !important; font-size: 13px !important; line-height: 1.2; }
 
-  /* Ensure grouped phone action buttons are comfortable and equal-width */
-  .phone-actions button { min-height: 44px; }
-
-  /* Slightly larger labels for accessibility */
-  .filter-group label,
-  .settings-grid label,
-  .input-group-login label {
-    font-size: 15px;
-  }
-
-  /* History date range: make the "đến" text match the label style on mobile */
-  /* make the "đến" text match the normal label style (not bold) on mobile */
-  .history-filters .filter-group span {
-    font-size: 13px;
-    font-weight: normal;
-    color: #374151;
-    align-self: flex-start; /* stick to the left edge */
-    width: 100%;
-    text-align: left;
-    line-height: 1.2;
-    margin-top: 2px;
-    margin-bottom: -2px; /* visually tighten between the two date inputs */
-  }
-
-  /* Make patients/device inputs match the alert phone input size and padding on mobile */
-  .patients-form input,
-  .patients-form select,
-  #bind-device-id,
-  #bind-pair-code,
-  #pt-name,
-  #pt-age,
-  #pt-sex,
-  #alert-phone {
-    padding: 6px 8px !important;
-    font-size: 13px !important;
-    min-height: 36px !important;
-    max-height: 40px !important;
-    line-height: 1.1 !important;
-  }
-  /*
-        Phần điều chỉnh các khoảng cách và kích thước của các phần tử trong trang để phù hợp với thiết bị di động.
-  */
-  /* Give more vertical breathing room on mobile */
-  .patients-form { gap: 12px; }
-  /* Reduce vertical spacing between filter groups on mobile so controls sit closer together */
-  /* Use a single, consistent gap so controls aren't too far apart. */
-  .history-filters { gap:8px; margin-bottom:8px; }
-
-  /* Make date-range sub-controls tighter and align the "đến" label to the left, matching the
-     visual style of the 'Ngày / Khoảng thời gian' label on mobile. This keeps sizes compact
-     and consistent with the screenshots the user provided. */
-  .history-filters .filter-group {
-    gap: 6px; /* reduced vertical space inside group for tighter stacking */
-    margin-bottom: 6px;
-  }
-
-  /* Make the inline "đến" text match label size and weight and align left with the label */
-  .history-filters .filter-group span {
-    font-size: 13px;
-    font-weight: normal;
-    color: #374151; /* neutral dark gray consistent with labels */
-    align-self: flex-start; /* align to left edge like the label */
-    width: 100%;
-    text-align: left;
-    margin: 0; /* remove extra default spacing */
-    line-height: 1.2;
-  }
-
-  /* Alerts filters removed - keep only history filters on mobile */
-
-  /* Make History/Alerts/Overview patient selects match the Settings tab patient select on mobile
-     - Use the same inline-block sizing and touch-friendly padding as the Settings select so all
-       four selects look identical on small viewports. Remove conflicting full-width overrides. */
-  #set-patient-select,
-  #ov-patient-select,
-  #his-patient-select {
-    display: inline-block;
-    box-sizing: border-box;
-    width: auto;
-    max-width: 320px;
-    min-width: 160px;
-    padding: 10px 12px !important;
-    min-height: 44px !important;
-    font-size: 15px !important;
-    line-height: 1.2 !important;
-    border-radius: 8px !important;
-    border: 2px solid #e6e9ef !important;
-    background: #fff !important;
-  }
-  /* keep other filter inputs/selects compact and touch-friendly */
-  .history-filters .filter-group input,
-  .history-filters .filter-group select {
-    min-height: 36px !important;
-    padding: 6px 8px !important;
-    font-size: 13px !important;
-    line-height: 1.2;
-  }
-
-  /* Arrange History/Alerts filter groups to match mobile screenshots:
-     - Stack groups vertically but keep their controls compact (not full-width).
-     - Provide consistent vertical spacing and keep selects/inputs a comfortable max-width. */
-  .history-filters {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: px; /* consistent mobile gap so controls sit closer */
-  }
-
-  .history-filters .filter-group {
-    width: 100%;
-    max-width: 360px; /* group won't stretch forever on wide phones */
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-
-  /* Date inputs in History should span the group's width (full within the group's max-width)
-     so they look like the pill-style date controls in your screenshot. Other selects remain compact. */
-  .history-filters .filter-group input[type="date"] {
-    display: block;
-    width: 100%;
-    max-width: 360px;
-    box-sizing: border-box;
-    padding: 10px 12px !important;
-    min-height: 36px !important;
-    border-radius: 8px !important;
-    border: 2px solid #e6e9ef !important;
-    background: #fff !important;
-    font-size: 14px !important;
-  }
-
-  .history-filters .filter-group input:not([type="date"]),
-  .history-filters .filter-group select {
-    display: inline-block;
-    width: auto;
-    max-width: 320px;
-    box-sizing: border-box;
-  }
-
-  /* Ensure header containers are positioned so notification card can sit at top-right
-     aligned with the patient/device controls on mobile. This keeps the notify box
-     visually level with the ov-controls (patient select + Device ID + button). */
-  .overview-header,
-  .page-header-row {
-    position: relative;
-  }
-
-  /* Place the small notification card at the top-right of the header and vertically
-     center it relative to the header's content (so it lines up with ov-controls). */
-  .overview-header .notify-small,
-  .page-header-row .notify-small {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 5;
-    margin: 0; /* remove any extra margin that could push it down */
-  }
-
-  /* Alerts: stack small selects vertically and keep them compact like the screenshot */
-  /* Alerts filters removed; no mobile overrides needed for them */
-
-  /* Make filter action buttons (Lọc / Export) full width and visually separated */
-  .filter-actions { width: 100%; display: flex; gap: 8px; }
-  .filter-actions .btn-primary,
-  .filter-actions .btn-secondary { flex: 1; }
-
-  /* Overview controls: make Device ID + button smaller and keep them on one row */
-  .ov-controls { row-gap: 10px; }
-  #ov-view-device-btn {
-    width: auto !important; /* override global .btn-primary width:100% on mobile */
-    min-height: 36px !important;
-    padding: 6px 10px !important;
-    font-size: 13px !important;
-    line-height: 1.2;
-  }
-  .tab-header.single h2 { font-size: 20px; }
-
-  /* Page header selects: don't force full width on mobile — keep them just large enough for their content
-     but allow wrapping for very narrow viewports. This prevents the select from stretching across unrelated sections. */
-  .page-header-row select,
-  .overview-header select {
-    display: inline-block;
-    width: auto;
-    max-width: 320px; /* reasonable cap so it won't grow too wide */
-    min-width: 160px; /* keep a usable touch target */
-    margin-bottom: 10px;
-  }
-
-  /* Ensure History + Alerts patient selects use the same compact/touch-friendly sizing
-     (some filter-group rules may force width:100%; this override restores the compact look). */
-  #his-patient-select,
-  .page#page-history .page-header-row select {
-    display: inline-block !important;
-    box-sizing: border-box !important;
-    width: auto !important;
-    max-width: 320px !important;
-    min-width: 160px !important;
-    padding: 10px 12px !important;
-    min-height: 44px !important;
-    font-size: 15px !important;
-    line-height: 1.2 !important;
-    border-radius: 8px !important;
-    border: 2px solid #e6e9ef !important;
-    background: #fff !important;
-    margin-bottom: 10px !important;
-  }
+  /* Page header selects: compact inline sizing */
+  .page-header-row select, .overview-header select { display: inline-block; width: auto; max-width: 320px; min-width: 120px; margin-bottom: 10px; }
+  #his-patient-select, .page#page-history .page-header-row select { display: inline-block !important; box-sizing: border-box !important; width: auto !important; max-width: 320px !important; min-width: 120px !important; padding: 10px 12px !important; min-height: 44px !important; font-size: 15px !important; line-height: 1.2 !important; border-radius: 8px !important; border: 2px solid #e6e9ef !important; background: #fff !important; margin-bottom: 10px !important; }
 }
