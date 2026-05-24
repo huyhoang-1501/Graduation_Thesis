@@ -354,19 +354,27 @@ body {
   font-size:13px;
 }
 
-/* Make the patient select boxes consistent across Overview, Settings, History, Alerts
-   Give them a predictable min/max width so they match each other on desktop and
-   remain responsive on narrow viewports. Mobile overrides below keep touch-friendly sizing. */
+/* Unified patient select styling used in Overview, History and Settings.
+   Keeps controls visually identical across tabs and consistent on mobile.
+   We aim for a compact, touch-friendly control that won't be forced full-width. */
 #set-patient-select,
 #ov-patient-select,
-#his-patient-select {
+#his-patient-select,
+.overview-header select,
+.page-header-row select {
   display: inline-block;
   box-sizing: border-box;
-  min-width: 220px; /* sensible base width to match Settings on desktop */
-  max-width: 360px; /* won't grow endlessly on very wide screens */
-  width: auto; /* allow content-driven width within min/max bounds */
-  padding: 6px 8px;
-  font-size: 13px;
+  width: auto;             /* content-driven within min/max bounds */
+  min-width: 160px;       /* compact base for small screens */
+  max-width: 320px;       /* prevent growing too large on wide screens */
+  padding: 10px 12px;     /* touch-friendly padding */
+  min-height: 44px;       /* comfortable touch target */
+  font-size: 15px;
+  line-height: 1.2;
+  border-radius: 8px;
+  border: 2px solid #e6e9ef;
+  background: #fff;
+  margin-bottom: 10px;
 }
 
 /* Responsive controls in overview (Device ID + view button) */
@@ -1061,3 +1069,5 @@ body {
     margin-bottom: 10px !important;
   }
 }
+
+/* (merged into unified block above) */
