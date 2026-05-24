@@ -98,6 +98,7 @@ void openValve(int speed = 60);
 void closeValve();
 void stopAll();
 void measureBloodPressure();
+void processOscillometric();
 void i2c_recovery();
 void i2c_init();
 int requestFromWithRetry(uint8_t addr, uint8_t numBytes, uint8_t retries, uint16_t timeoutMs);
@@ -258,6 +259,10 @@ void i2c_recovery() {
   delay(200);
 }
 
+// ---- Constants borrowed from max_agr.ino
+#define NO_FINGER_THRESHOLD 10000
+
+
 // Helper: Wire.requestFrom with small retry+timeout, returns available byte count
 int requestFromWithRetry(uint8_t addr, uint8_t numBytes, uint8_t retries, uint16_t timeoutMs)
 {
@@ -366,24 +371,59 @@ bool readPressure(float &pressure_kPa, float &pressure_mmHg, int16_t &raw) {
 // ===== MAX30102: HR + SpO2 measurement (single-run helper) =====
 void Max30102_hr_spo2()
 {
-  for (byte i = 0; i < BUFFER_SIZE; i++)
-  {
-    // wait for data
-    unsigned long start = millis();
-    while (particleSensor.available() == false && (millis()-start) < 200) {
+  // Adapted from max_agr.ino: collect BUFFER_SIZE samples, detect finger, then run algorithm
+  uint64_t sumIR = 0;
+  uint64_t sumRed = 0;
+  uint32_t minIR = 0xFFFFFFFF;
+  uint32_t maxIR = 0;
+  uint32_t minRed = 0xFFFFFFFF;
+  uint32_t maxRed = 0;
+
+  int idx = 0;
+
+  unsigned long startTimeout;
+  while (idx < BUFFER_SIZE) {
+    particleSensor.check();
+    startTimeout = millis();
+    unsigned long sampleStart = millis();
+    // wait a short while for a sample to become available
+    while (!particleSensor.available() && (millis() - sampleStart) < 200) {
       particleSensor.check();
       delay(1);
     }
     if (!particleSensor.available()) {
+      // timeout waiting for sample
       Serial.println("MAX301: no sample available (timeout)");
       return;
     }
 
-    redBuffer[i] = particleSensor.getRed();
-    irBuffer[i] = particleSensor.getIR();
+    redBuffer[idx] = particleSensor.getRed();
+    irBuffer[idx] = particleSensor.getIR();
+
+    sumIR += irBuffer[idx];
+    sumRed += redBuffer[idx];
+
+    if (irBuffer[idx] < minIR) minIR = irBuffer[idx];
+    if (irBuffer[idx] > maxIR) maxIR = irBuffer[idx];
+    if (redBuffer[idx] < minRed) minRed = redBuffer[idx];
+    if (redBuffer[idx] > maxRed) maxRed = redBuffer[idx];
+
+    idx++;
     particleSensor.nextSample();
   }
 
+  uint32_t avgIR = (uint32_t)(sumIR / BUFFER_SIZE);
+  uint32_t avgRed = (uint32_t)(sumRed / BUFFER_SIZE);
+
+  if (avgIR < NO_FINGER_THRESHOLD) {
+    Serial.println("No finger");
+    delay(100);
+    return;
+  }
+
+  Serial.printf("IR=%d RED=%d\n", (int)avgIR, (int)avgRed);
+
+  // run Maxim algorithm to populate global result variables
   maxim_heart_rate_and_oxygen_saturation(
     irBuffer,
     bufferLength,
@@ -394,8 +434,7 @@ void Max30102_hr_spo2()
     &validHeartRate
   );
 
-  // store results in globals (do not print here) — printing will be rate-limited by caller
-
+  // Do not update EMA here - that is performed by the MAX301 task loop to keep timing consistent
 }
 
 // ===== Background BP task support (non-blocking wrapper) =====
@@ -449,33 +488,27 @@ void stopAll() {
 
 // ====================== ĐO HUYẾT ÁP ======================
 void measureBloodPressure() {
-  Serial.println("\n=== BẮT ĐẦU ĐO HUYẾT ÁP ===");
+  Serial.println("Bat dau do huyet ap");
+
+  float pressure_kPa = 0.0f;
+  float pressure_mmHg = 0.0f;
+  int16_t raw = 0;
 
   stopAll();
 
-  float pressure_kPa = 0.0;
-  float pressure_mmHg = 0.0;
-  int16_t raw = 0;
-
-  sampleCount = 0;
-
-  // ================== BƠM ==================
-  Serial.println("Đang bơm lên 180 mmHg...");
-  // ensure valve closed before pumping and run pump at max speed to reach target
+  // start pump and inflate
+  startPump(248);
   closeValve();
-  startPump(255);
 
   unsigned long startTime = millis();
-
   while (pressure_mmHg < TARGET_PRESSURE_MMHG) {
-    // handle pump timeout — allow a reduced inflation fallback
+    // timeout fallback like original code: if exceeded, allow proceed if above minimum
     if (millis() - startTime > PUMP_TIMEOUT_MS) {
       Serial.println("Timeout bơm!");
       if (pressure_mmHg >= MIN_PROCEED_PRESSURE_MMHG) {
-        Serial.printf("Reached %.1f mmHg which is >= %.1f mmHg (min). Proceeding with reduced inflation...\n",
-                      pressure_mmHg, MIN_PROCEED_PRESSURE_MMHG);
+        Serial.printf("Reached %.1f mmHg which is >= %.1f mmHg (min). Proceeding...\n", pressure_mmHg, MIN_PROCEED_PRESSURE_MMHG);
         stopPump();
-        break; // continue measurement with current pressure
+        break;
       } else {
         Serial.println("Inflation insufficient (< minimum). Aborting measurement.");
         openValve(220);
@@ -485,243 +518,130 @@ void measureBloodPressure() {
       }
     }
 
-    if (readPressure(pressure_kPa, pressure_mmHg, raw)) {
-      if (pressure_mmHg < 0 || pressure_mmHg > 300) continue;
-    }
-
-    delay(30);
+    readPressure(pressure_kPa, pressure_mmHg, raw);
+    delay(40);
   }
 
   stopPump();
-  Serial.printf("→ Đạt %.1f mmHg. Bắt đầu xả chậm...\n", pressure_mmHg);
+  Serial.println("Xa cham");
+  openValve(45);
 
-  // ================== XẢ CHẬM + LẤY MẪU ==================
-  openValve(40);
+  sampleCount = 0;
+  float prev = pressure_mmHg;
+  float y_prev = 0.0f;
+  const float alpha = 0.95f;
 
-  float filtered = pressure_mmHg;  // DC filter
-
-  unsigned long deflateStart = millis();
-
-  while (pressure_mmHg > 50.0 && sampleCount < MAX_SAMPLES) {
-    if (millis() - deflateStart > 35000) {
-      Serial.println("Timeout xả!");
-      break;
+  while (pressure_mmHg > 45.0f && sampleCount < MAX_SAMPLES) {
+    if (readPressure(pressure_kPa, pressure_mmHg, raw)) {
+      pressureArr[sampleCount] = pressure_mmHg;
+      float y = alpha * y_prev + pressure_mmHg - prev;
+      oscArr[sampleCount] = fabs(y);
+      oscSignedArr[sampleCount] = y;
+      timeArr[sampleCount] = millis();
+      y_prev = y;
+      prev = pressure_mmHg;
+      sampleCount++;
     }
-
-    if (!readPressure(pressure_kPa, pressure_mmHg, raw)) continue;
-
-    // ===== LOW PASS FILTER (DC) =====
-    filtered = 0.9 * filtered + 0.1 * pressure_mmHg;
-
-    // ===== DAO ĐỘNG (AC) =====
-    float osc = pressure_mmHg - filtered;
-
-    pressureArr[sampleCount] = pressure_mmHg;
-    oscArr[sampleCount] = abs(osc);
-    oscSignedArr[sampleCount] = osc;
-    timeArr[sampleCount] = millis();
-
-    sampleCount++;
-
-    delay(40); // ~25Hz sampling
+    delay(50);
   }
 
-  // ================== BUILD ENVELOPE AND DECIDE EARLY-ACCEPT ==================
-  if (sampleCount < 50) {
-    Serial.println("Không đủ dữ liệu!");
-    // still perform a quick rapid-deflate to safe state
-    Serial.printf("Xả nhanh phần còn lại (abort) tới %.1f mmHg ...\n", FINAL_DEFLATION_MMHG);
-    openValve(245);
-    while (pressure_mmHg > FINAL_DEFLATION_MMHG) {
-      readPressure(pressure_kPa, pressure_mmHg, raw);
-      delay(30);
-    }
-    stopAll();
-    return;
-  }
+  // process oscillometric envelope and compute SYS/DIA
+  processOscillometric();
 
-  // ===== BUILD A SMOOTHED ENVELOPE =====
-  const int envWin = 4; // window half-width for local max envelope
-  // ignore a few initial samples to avoid transient spikes right after deflation starts
-  const int IGNORE_FIRST = 3;
-  int procStart = min(IGNORE_FIRST, max(0, sampleCount - 1));
-
-  for (int i = 0; i < sampleCount; i++) {
-    float m = 0.0f;
-    int lo = max(0, i - envWin);
-    int hi = min(sampleCount - 1, i + envWin);
-    for (int j = lo; j <= hi; j++) {
-      if (oscArr[j] > m) m = oscArr[j];
-    }
-    env[i] = m;
-  }
-
-  // simple moving average to smooth envelope
-  const int smoothN = 5;
-  for (int i = 0; i < sampleCount; i++) {
-    float s = 0.0f;
-    int cnt = 0;
-    int lo = max(0, i - smoothN / 2);
-    int hi = min(sampleCount - 1, i + smoothN / 2);
-    for (int j = lo; j <= hi; j++) { s += env[j]; cnt++; }
-    envSm[i] = (cnt > 0) ? (s / cnt) : env[i];
-  }
-
-  // ===== FIND MAP FROM SMOOTHED ENVELOPE =====
-  float maxEnv = 0.0f;
-  int maxIndex = 0;
-  for (int i = procStart; i < sampleCount; i++) {
-    if (envSm[i] > maxEnv) { maxEnv = envSm[i]; maxIndex = i; }
-  }
-  float MAP = pressureArr[maxIndex];
-
-  // Always perform final rapid-deflation to ~5 mmHg before processing results
-  int postMapSamples = sampleCount - 1 - maxIndex; // kept for logging
-  Serial.printf("Xả nhanh phần còn lại (bắt buộc) tới %.1f mmHg ...\n", FINAL_DEFLATION_MMHG);
+  // rapid deflate to safe level
+  Serial.println("Xa nhanh");
   openValve(245);
   while (pressure_mmHg > FINAL_DEFLATION_MMHG) {
     readPressure(pressure_kPa, pressure_mmHg, raw);
-    delay(30);
+    delay(10);
   }
+
   stopAll();
+  Serial.println("Done");
+}
 
-  // ===== FIND SYS and DIA via height-based threshold band (midpoint crossing) =====
-  float SYS = 0.0f;
-  float DIA = 0.0f;
 
-  // determine target ratios: prefer runtime overrides if set sensibly
-  float sysTargetRatio = (SYS_RATIO > 0.1f && SYS_RATIO < 1.0f) ? SYS_RATIO : (SYS_MIN_RATIO + SYS_MAX_RATIO) / 2.0f;
-  float diaTargetRatio = (DIA_RATIO > 0.1f && DIA_RATIO < 1.0f) ? DIA_RATIO : (DIA_MIN_RATIO + DIA_MAX_RATIO) / 2.0f;
-  float sysTarget = sysTargetRatio * maxEnv;
-  float diaTarget = diaTargetRatio * maxEnv;
-
-  // Print debug targets (helps tuning)
-  Serial.printf("DEBUG: maxEnv=%.4f maxIndex=%d sysTarget=%.4f diaTarget=%.4f\n", maxEnv, maxIndex, sysTarget, diaTarget);
-
-  // find SYS: search backward from MAP to locate the crossing near MAP
-  int idx = -1;
-  for (int i = maxIndex - 1; i >= procStart; i--) {
-    if (envSm[i] < sysTarget) { idx = i; break; }
-  }
-  if (idx < 0) {
-    // fallback: find first >= sysTarget from start (old behavior)
-    for (int i = procStart; i <= maxIndex; i++) { if (envSm[i] >= sysTarget) { idx = i; break; } }
-    if (idx <= 0) {
-      SYS = pressureArr[0];
-    } else {
-      float y0 = (idx-1 >= 0) ? envSm[idx-1] : envSm[idx];
-      float y1 = envSm[idx];
-      float p0 = (idx-1 >= 0) ? pressureArr[idx-1] : pressureArr[idx];
-      float p1 = pressureArr[idx];
-      float t = (y1 - y0) != 0.0f ? (sysTarget - y0) / (y1 - y0) : 0.0f;
-      if (!isfinite(t)) t = 0.0f;
-      t = constrain(t, 0.0f, 1.0f);
-      SYS = p0 + t * (p1 - p0);
-    }
-  } else {
-    // crossing between idx and idx+1
-    int i0 = idx;
-    int i1 = min(sampleCount - 1, idx + 1);
-    float y0 = envSm[i0];
-    float y1 = envSm[i1];
-    float p0 = pressureArr[i0];
-    float p1 = pressureArr[i1];
-    float t = (y1 - y0) != 0.0f ? (sysTarget - y0) / (y1 - y0) : 0.0f;
-    if (!isfinite(t)) t = 0.0f;
-    t = constrain(t, 0.0f, 1.0f);
-    SYS = p0 + t * (p1 - p0);
+// Process oscillometric data (ported from max_agr.ino)
+void processOscillometric()
+{
+  if (sampleCount < 20) {
+    Serial.println("Khong du data");
+    return;
   }
 
-  // find DIA: search forward from MAP to find first crossing below diaTarget
-  idx = -1;
-  for (int i = maxIndex + 1; i < sampleCount; i++) {
-    if (envSm[i] < diaTarget) { idx = i; break; }
-  }
-  if (idx < 0) {
-    // fallback: last index at or after MAP
-    DIA = pressureArr[min(sampleCount - 1, maxIndex)];
-  } else {
-    int i1 = idx;
-    int i0 = max(procStart, idx - 1);
-    float y0 = envSm[i0];
-    float y1 = envSm[i1];
-    float p0 = pressureArr[i0];
-    float p1 = pressureArr[i1];
-    float t = (y1 - y0) != 0.0f ? (diaTarget - y0) / (y1 - y0) : 0.0f;
-    if (!isfinite(t)) t = 0.0f;
-    t = constrain(t, 0.0f, 1.0f);
-    DIA = p0 + t * (p1 - p0);
-  }
+  float ampBuf[MAX_SAMPLES];
+  float cuffBuf[MAX_SAMPLES];
+  int ampCount = 0;
 
-  // Fallback sanity clamps
-  if (!(SYS > 0 && SYS < 500)) SYS = 0.0f;
-  if (!(DIA > 0 && DIA < 500)) DIA = 0.0f;
-
-  // ===== BPM CALCULATION =====
-  // peakIdx is now a static global to avoid stack usage
-  int peakCount = 0;
-  // adaptive threshold: avoid tiny absolute thresholds on quiet traces
-  float peakThreshold = max(0.08f * maxEnv, 0.4f);
   for (int i = 1; i < sampleCount - 1; i++) {
-    if (oscSignedArr[i] > oscSignedArr[i-1] && oscSignedArr[i] >= oscSignedArr[i+1] && oscArr[i] > peakThreshold) {
-      peakIdx[peakCount++] = i;
-      if (peakCount >= MAX_SAMPLES) break;
-    }
-  }
-
-  float BPM = 0.0f;
-  if (peakCount >= 2) {
-    // build intervals (ms) and ignore unusually short intervals (<300ms)
-    int intervalsCnt = 0;
-    const unsigned long minIntervalMs = 300; // reject beats faster than 200 BPM
-    for (int k = 1; k < peakCount; k++) {
-      unsigned long t0 = timeArr[peakIdx[k-1]];
-      unsigned long t1 = timeArr[peakIdx[k]];
-      if (t1 > t0) {
-        unsigned long dt = t1 - t0;
-        if (dt >= minIntervalMs) {
-          intervalsArr[intervalsCnt++] = (float)dt;
+    if (oscArr[i] > oscArr[i-1] && oscArr[i] > oscArr[i+1]) {
+      // find preceding local minimum
+      for (int j = i - 1; j >= 1; j--) {
+        if (oscArr[j] < oscArr[j-1] && oscArr[j] < oscArr[j+1]) {
+          ampBuf[ampCount] = fabs(oscArr[i] - oscArr[j]);
+          cuffBuf[ampCount] = pressureArr[i];
+          ampCount++;
+          break;
         }
       }
     }
-    if (intervalsCnt > 0) {
-      // simple selection sort to find median
-      for (int a = 0; a < intervalsCnt - 1; a++) {
-        int mi = a;
-        for (int b = a + 1; b < intervalsCnt; b++) if (intervalsArr[b] < intervalsArr[mi]) mi = b;
-        if (mi != a) { float tmp = intervalsArr[a]; intervalsArr[a] = intervalsArr[mi]; intervalsArr[mi] = tmp; }
-      }
-      float medianMs;
-      if (intervalsCnt % 2 == 1) medianMs = intervalsArr[intervalsCnt/2];
-      else medianMs = 0.5f * (intervalsArr[intervalsCnt/2 - 1] + intervalsArr[intervalsCnt/2]);
-      float b = 60000.0f / medianMs;
-      if (isfinite(b) && b > 30.0f && b < 220.0f) BPM = (float)b;
+  }
+
+  if (ampCount < 5) {
+    Serial.println("Khong tim thay dao dong");
+    return;
+  }
+
+  Serial.println("\n===== ENVELOPE =====");
+  for (int i = 0; i < ampCount; i++) Serial.printf("%d %.1f %.4f\n", i, cuffBuf[i], ampBuf[i]);
+
+  float maxAmp = 0.0f;
+  int mapIndex = 0;
+  for (int i = 0; i < ampCount; i++) {
+    if (ampBuf[i] > maxAmp) { maxAmp = ampBuf[i]; mapIndex = i; }
+  }
+
+  float MAP = cuffBuf[mapIndex];
+
+  float SYS = 0.0f;
+  float bestErr = 9999.0f;
+  for (int i = 0; i < mapIndex; i++) {
+    float err = fabs(ampBuf[i] - 0.7f * maxAmp);
+    if (err < bestErr) { bestErr = err; SYS = cuffBuf[i]; }
+  }
+
+  // Fallback: if we didn't find a sensible SYS (e.g., SYS==0), pick a reasonable neighbor
+  if (!(SYS > 0.0f && SYS < 500.0f)) {
+    int fallbackIdx = max(0, mapIndex - 1);
+    if (fallbackIdx < ampCount) {
+      SYS = cuffBuf[fallbackIdx];
+      Serial.printf("Fallback SYS from idx %d -> %.1f\n", fallbackIdx, SYS);
     }
   }
 
-  // ================== IN KẾT QUẢ ==================
-  // If requested, dump samples CSV for offline analysis
-  if (dumpSamplesNextRun) {
-    Serial.println("index,pressure_mmHg,env,osc");
-    for (int i = 0; i < sampleCount; i++) {
-      Serial.printf("%d,%.2f,%.4f,%.4f\n", i, pressureArr[i], envSm[i], oscArr[i]);
-    }
-    dumpSamplesNextRun = false;
-    Serial.println("-- end dump --");
+  float DIA = 0.0f;
+  bestErr = 9999.0f;
+  for (int i = mapIndex + 1; i < ampCount; i++) {
+    float err = fabs(ampBuf[i] - 0.8f * maxAmp);
+    if (err < bestErr) { bestErr = err; DIA = cuffBuf[i]; }
   }
-  // final deflation was performed above
-  Serial.printf("NOTE: final deflation to %.1f mmHg was performed (postMapSamples=%d)\n", FINAL_DEFLATION_MMHG, postMapSamples);
-  Serial.printf("Using SYS band=%.2f-%.2f DIA band=%.2f-%.2f (targets: %.3f, %.3f)\n",
-                SYS_MIN_RATIO, SYS_MAX_RATIO, DIA_MIN_RATIO, DIA_MAX_RATIO, sysTargetRatio, diaTargetRatio);
-  Serial.printf("(maxEnv=%.4f maxIndex=%d)\n", maxEnv, maxIndex);
-  Serial.println("\n===== KẾT QUẢ =====");
+
+  // Fallback for DIA
+  if (!(DIA > 0.0f && DIA < 500.0f)) {
+    int fallbackIdx = min(ampCount - 1, mapIndex + 1);
+    if (fallbackIdx >= 0 && fallbackIdx < ampCount) {
+      DIA = cuffBuf[fallbackIdx];
+      Serial.printf("Fallback DIA from idx %d -> %.1f\n", fallbackIdx, DIA);
+    }
+  }
+
+  Serial.println("\n===== RESULT =====");
+  Serial.printf("ampCount=%d mapIndex=%d maxAmp=%.4f\n", ampCount, mapIndex, maxAmp);
+  Serial.printf("SYS = %.1f\n", SYS);
+  Serial.printf("DIA = %.1f\n", DIA);
+  Serial.printf("MAP = %.1f\n", MAP);
+
   // publish results for UI
   lastSYS = SYS;
   lastDIA = DIA;
-  Serial.printf("SYS: %.1f mmHg\n", lastSYS);
-  Serial.printf("DIA: %.1f mmHg\n", lastDIA);
-  Serial.printf("MAP: %.1f mmHg\n", MAP);
-  if (isfinite(BPM) && BPM > 0.0f) Serial.printf("BPM: %.1f\n", BPM);
-  else Serial.println("BPM: N/A");
-  Serial.println("====================\n");
 }

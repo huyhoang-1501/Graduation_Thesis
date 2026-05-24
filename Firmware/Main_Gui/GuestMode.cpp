@@ -44,6 +44,8 @@ static const lv_font_t *pick_font_small() {
 
 static void back_btn_event_cb(lv_event_t *e) {
   if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+  // clear transient measurement status before leaving the screen
+  if (label_state) lv_label_set_text(label_state, "");
   if (g_back_callback) g_back_callback();
 }
 
@@ -81,7 +83,8 @@ static void build_guest_screen() {
   lv_label_set_text(label_state, "");
   lv_obj_set_style_text_color(label_state, accentR, 0);
   lv_obj_set_style_text_font(label_state, pick_font_small(), 0);
-  lv_obj_align(label_state, LV_ALIGN_LEFT_MID, 0, 14);
+  // shift the status a bit to the left so it sits under the title nicely
+  lv_obj_align(label_state, LV_ALIGN_LEFT_MID, -10, 14);
 
   lv_obj_t *btn_back = lv_btn_create(header);
   lv_obj_set_size(btn_back, 92, 42);
@@ -257,6 +260,7 @@ void GuestMode_Show(GuestBackCallback backCallback) {
   g_start_ms = millis();
   if (guest_scr) {
     // Leave metric displays empty
+    if (label_state) lv_label_set_text(label_state, "");
     lv_label_set_text(label_spo2, "");
     lv_label_set_text(label_hr, "");
     lv_label_set_text(label_sys, "");
@@ -296,6 +300,8 @@ void GuestMode_Loop() {
       else snprintf(buf, sizeof(buf), "--");
       lv_label_set_text(label_dia, buf);
     }
+    // clear transient status text now that results are available
+    if (label_state) lv_label_set_text(label_state, "");
     // re-enable Start button
     lv_obj_clear_state(btn_start, LV_STATE_DISABLED);
     wasMeasuring = false;

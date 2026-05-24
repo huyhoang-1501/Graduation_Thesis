@@ -1015,6 +1015,7 @@ function initMiniChart() {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       scales: {
         x: { display: false },
         y: {
@@ -1184,12 +1185,43 @@ function adjustMapHeight() {
   }
 }
 
+// Adjust chart canvas heights to fill available vertical space similar to the map
+function adjustChartHeights() {
+  const canvases = document.querySelectorAll('.panel-body canvas');
+  canvases.forEach(canvas => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.top === 0 && rect.height === 0) return; // not in layout yet
+    // leave a 20px bottom gap
+    let avail = window.innerHeight - rect.top - 20;
+    // ensure reasonable bounds
+    if (avail < 260) avail = 260;
+    if (avail > 900) avail = 900;
+    // set style height so Chart.js (maintainAspectRatio:false) will fill
+    canvas.style.height = avail + 'px';
+
+    // if a Chart.js instance is attached to this canvas, trigger a resize
+    try {
+      const chart = Chart.getChart(canvas);
+      if (chart) chart.resize();
+    } catch (e) {
+      // ignore if Chart.js not yet initialized for this canvas
+    }
+  });
+}
+
 // Resize handler with small debounce
 window.addEventListener('resize', () => {
   if (window._mapResizeTimer) clearTimeout(window._mapResizeTimer);
   window._mapResizeTimer = setTimeout(() => {
     adjustMapHeight();
+    // also adjust charts when window resizes
+    try { adjustChartHeights(); } catch (e) { /* ignore */ }
   }, 120);
+});
+
+// Run chart height adjust on initial load and after overview init
+window.addEventListener('load', () => {
+  setTimeout(() => { try { adjustChartHeights(); } catch (e) { } }, 150);
 });
 
 function initOtherPages() {

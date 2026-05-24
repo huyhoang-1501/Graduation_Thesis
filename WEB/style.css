@@ -333,6 +333,16 @@ body {
 }
 .panel-body { padding:10px 12px; }
 
+/* Ensure chart canvases occupy full width of their panel and have a reasonable fixed height
+   so they don't leave large empty white areas on the right at wide desktop sizes. */
+.panel-body canvas {
+  display: block;
+  width: 100% !important;
+  height: auto; /* allow JS to control exact height for better fit */
+  min-height: 260px; /* fallback minimum */
+  max-height: 900px; /* prevent overly tall charts on huge screens */
+}
+
 /* HEADER TRONG CÁC PAGE */
 .page-header-row,
 .overview-header {
@@ -367,8 +377,9 @@ body {
   width: auto;             /* content-driven within min/max bounds */
   min-width: 160px;       /* compact base for small screens */
   max-width: 320px;       /* prevent growing too large on wide screens */
-  padding: 10px 12px;     /* touch-friendly padding */
+  padding: 8px 10px;      /* touch-friendly padding (slightly tighter) */
   min-height: 44px;       /* comfortable touch target */
+  height: 44px;           /* force consistent height across tabs */
   font-size: 15px;
   line-height: 1.2;
   border-radius: 8px;
@@ -390,20 +401,55 @@ body {
      DEVICE ID input appears visually equal to the patient selector. */
   display: inline-block;
   box-sizing: border-box;
-  min-width: 220px; /* same base as #his-patient-select */
-  max-width: 360px;
-  width: auto; /* allow content-driven width within min/max bounds */
-  padding: 6px 8px;
+  min-width: 140px; /* narrowed as requested */
+  max-width: 220px;
+  width: 140px; /* fixed narrow width to align visually with dropdown */
+  padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid #ccc;
   font-size: 14px;
   background: #fff;
   flex: 0 0 auto; /* don't force grow/shrink differently from the select */
+  height: 44px; /* match patient select height */
+  line-height: 1.2;
 }
 #ov-view-device-btn {
   flex: 0 0 auto;
   padding: 6px 10px;
   white-space: nowrap;
+}
+
+/* DESKTOP: keep patient select and DEVICE ID input on the same row for aesthetics */
+@media (min-width: 769px) {
+  .ov-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center; /* vertically center controls */
+    flex-wrap: nowrap;   /* prevent wrapping into multiple rows on desktop */
+  }
+
+  /* remove any bottom margin that might force the select to stack */
+  .ov-controls select,
+  #ov-device-id-input {
+    margin-bottom: 0 !important;
+  }
+
+  /* give the DEVICE ID input a slightly larger width on desktop for readability */
+  #ov-device-id-input {
+    width: 160px; /* narrowed per request */
+    min-width: 140px;
+    max-width: 220px;
+    flex: 0 0 160px; /* keep a fixed width so it doesn't force wrapping */
+  }
+
+  /* let the patient select shrink/grow to fill available space so controls stay on one line */
+  .ov-controls select {
+    flex: 1 1 200px; /* can shrink on smaller desktops */
+    min-width: 120px;
+    max-width: none;
+  }
+  /* ensure the view button keeps its size */
+  #ov-view-device-btn { flex: 0 0 auto; }
 }
 
 @media (max-width: 768px) {

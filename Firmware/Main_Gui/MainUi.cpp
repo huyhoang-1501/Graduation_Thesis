@@ -200,7 +200,7 @@ static void create_main_gui() {
 
   // Split the mode hint into two lines: Guest above, User below
   lv_obj_t *label_guest_hint = lv_label_create(text_cont);
-  lv_label_set_text(label_guest_hint, "Mode offline: Quick Measure");
+  lv_label_set_text(label_guest_hint, "Mode Offline: Quick Measure");
   // Use same (larger) font as Device ID and match color for consistency
   lv_obj_set_style_text_color(label_guest_hint, dark, 0);
   lv_obj_set_style_text_font(label_guest_hint, pick_font_16_or_14(), 0);
@@ -208,7 +208,7 @@ static void create_main_gui() {
   lv_obj_align_to(label_guest_hint, label_device_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 4);
 
   lv_obj_t *label_user_hint = lv_label_create(text_cont);
-  lv_label_set_text(label_user_hint, "Mode online: Sync Measure");
+  lv_label_set_text(label_user_hint, "Mode Online: Sync Measure");
   lv_label_set_long_mode(label_user_hint, LV_LABEL_LONG_WRAP);
   lv_obj_set_width(label_user_hint, 230);
   // Match Device ID size/color and move slightly up
