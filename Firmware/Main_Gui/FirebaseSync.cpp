@@ -79,8 +79,11 @@ static uint32_t g_wifi_next_retry_ms = 0;
 
 static const uint32_t WIFI_CONNECT_TIMEOUT_MS = 3000;
 static const uint32_t WIFI_RETRY_DELAY_MS = 2500;
-static const uint16_t HTTP_CONNECT_TIMEOUT_MS = 900;
-static const uint16_t HTTP_RW_TIMEOUT_MS = 1200;
+// Increased HTTP timeouts — networks can be slow right after WiFi connects
+static const uint16_t HTTP_CONNECT_TIMEOUT_MS = 5000;
+static const uint16_t HTTP_RW_TIMEOUT_MS = 5000;
+// Wait timeout used when validating a user id (allow WiFi to come up)
+static const uint32_t VALIDATE_WIFI_WAIT_MS = 5000;
 
 static bool wifi_connect_if_needed() {
   wl_status_t st = WiFi.status();
@@ -124,6 +127,8 @@ static bool wifi_connect_if_needed() {
 static void http_prepare(HTTPClient &http) {
   http.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
   http.setTimeout(HTTP_RW_TIMEOUT_MS);
+  Serial.print("[HTTP] timeouts (ms): connect="); Serial.print(HTTP_CONNECT_TIMEOUT_MS);
+  Serial.print(" rw="); Serial.println(HTTP_RW_TIMEOUT_MS);
 }
 
 // POST helper (used to append to history nodes)
@@ -371,12 +376,47 @@ bool FirebaseSync_ValidateUserId(const char *userId, char *errMsg, size_t errMsg
     return false;
   }
 
-  // Yêu cầu: đẩy trạng thái + pin lên Firebase trước.
+  // Yêu cầu: đẩy trạng thái + pin lên Firebase trước (queue)
   FirebaseSync_PushStatusAndBattery();
 
+  // Wait a short time for WiFi to connect (non-blocking connect may be in progress).
+  uint32_t start = millis();
+  bool connected = false;
+  while (millis() - start < VALIDATE_WIFI_WAIT_MS) {
+    if (wifi_connect_if_needed() && WiFi.status() == WL_CONNECTED) { connected = true; break; }
+    // give other tasks time to progress
+    vTaskDelay(pdMS_TO_TICKS(200));
+  }
+  if (!connected) {
+    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "Loi ket noi Firebase");
+    return false;
+  }
+
   // Check that the patient/user exists in Firebase under /patients/<userId>.
+  // First, try a fast path: check whether measurements/<id>/latest exists
+  const int maxTries = 3;
+  String measOut;
+  bool gotMeas = false;
+  for (int t = 0; t < maxTries; ++t) {
+    gotMeas = firebase_get(String("measurements/") + String(userId) + String("/latest"), measOut);
+    if (gotMeas) break;
+    vTaskDelay(pdMS_TO_TICKS(300));
+  }
+  // If measurement exists (non-null), accept the ID immediately (fast path)
+  if (gotMeas && measOut != "null" && measOut.length() > 0) {
+    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "OK");
+    return true;
+  }
+
+  // Otherwise fallback to checking patients/<userId>
   String out;
-  bool got = firebase_get(String("patients/") + String(userId), out);
+  bool got = false;
+  for (int t = 0; t < maxTries; ++t) {
+    got = firebase_get(String("patients/") + String(userId), out);
+    if (got) break;
+    // small delay before retry
+    vTaskDelay(pdMS_TO_TICKS(300));
+  }
   if (!got) {
     if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "Loi ket noi Firebase");
     return false;
