@@ -456,7 +456,8 @@ static void build_settings_screen() {
   lv_obj_set_style_text_font(lblp, pick_font_large(), 0);
   lv_obj_set_style_text_color(lblp, lv_color_black(), 0);
   // nudge the Phone label slightly higher
-  lv_obj_align(lblp, LV_ALIGN_TOP_LEFT, 8, 4);
+  // move only the Phone text up a bit without changing other elements
+  lv_obj_align(lblp, LV_ALIGN_TOP_LEFT, 8, -4);
 
   // place phone value to the right of the "Phone:" label on the same line
   settings_label_phone = lv_label_create(cont);
@@ -470,7 +471,7 @@ static void build_settings_screen() {
   // edit button stays to the right of the phone value and vertically centered
   lv_obj_t *ep = lv_btn_create(cont);
   // Make size match other Edit buttons and slightly reduced height
-  lv_obj_set_size(ep, 110, 35);
+  lv_obj_set_size(ep, 90, 35);
   // place phone Edit button at the right edge of the content area
   lv_obj_align(ep, LV_ALIGN_TOP_RIGHT, -8, -4);
   lv_obj_add_event_cb(ep, [](lv_event_t *ev){ if (lv_event_get_code(ev)==LV_EVENT_CLICKED) open_keypad_for_phone(); }, LV_EVENT_ALL, nullptr);
@@ -480,14 +481,14 @@ static void build_settings_screen() {
   lv_obj_set_style_text_color(ep_l, lv_color_black(), 0);
   lv_obj_center(ep_l);
   // four main metric rows: each shows "min - max" summary and Edit button to open metric screen
-  int row_y = 56; // raise metric rows closer to Phone row by 8px
+  int row_y = 54; // raise metric rows closer to Phone row by 8px
   auto make_metric_row = [&](const char *name, lv_obj_t **summary_lbl, lv_event_cb_t cb) {
     lv_obj_t *lbl = lv_label_create(cont);
     lv_label_set_text(lbl, name);
     lv_obj_set_style_text_font(lbl, pick_font_large(), 0);
     lv_obj_set_style_text_color(lbl, lv_color_black(), 0);
-    // vertical placement: find next Y by counting children? simple fixed offsets
-    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, 8, row_y);
+    // vertical placement: move only the left-side metric label slightly up
+    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, 8, row_y - 8);
 
     *summary_lbl = lv_label_create(cont);
     lv_label_set_text(*summary_lbl, "-- - --");
@@ -499,7 +500,7 @@ static void build_settings_screen() {
 
     lv_obj_t *btn = lv_btn_create(cont);
     // make Edit buttons match the Phone edit button size/style (slightly reduced height)
-    lv_obj_set_size(btn, 110, 35);
+    lv_obj_set_size(btn, 90, 35);
     // place the Edit button at the right edge of the container (consistent column)
     lv_obj_align(btn, LV_ALIGN_TOP_RIGHT, -8, row_y - 12);
     lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
@@ -559,7 +560,7 @@ static void build_metric_screen() {
 
     lv_obj_t *cont = lv_obj_create(scr);
     lv_obj_set_size(cont, lv_pct(100), 200);
-    lv_obj_align(cont, LV_ALIGN_TOP_MID, 0, 64);
+    lv_obj_align(cont, LV_ALIGN_TOP_MID, 0, 56);
     lv_obj_set_style_pad_all(cont, 8, 0);
     lv_obj_set_style_bg_color(cont, lv_color_white(), 0);
 
@@ -702,8 +703,10 @@ static void build_ud_screen() {
   lv_obj_set_style_pad_all(left_col, 0, 0);
   lv_obj_set_style_pad_row(left_col, 10, 0);
   lv_obj_clear_flag(left_col, LV_OBJ_FLAG_SCROLLABLE);
-  // remove any visible border for the left frame
+  // remove any visible border for the left frame and match GuestMode styling
   lv_obj_set_style_border_width(left_col, 0, 0);
+  lv_obj_set_style_border_color(left_col, lv_color_make(200, 235, 250), 0);
+  lv_obj_set_style_radius(left_col, 12, 0);
 
   lv_obj_t *right_col = lv_obj_create(metrics);
   lv_obj_set_grid_cell(right_col, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
@@ -711,8 +714,10 @@ static void build_ud_screen() {
   lv_obj_set_style_pad_all(right_col, 0, 0);
   lv_obj_set_style_pad_row(right_col, 10, 0);
   lv_obj_clear_flag(right_col, LV_OBJ_FLAG_SCROLLABLE);
-  // remove any visible border for the right frame
+  // remove any visible border for the right frame and match GuestMode styling
   lv_obj_set_style_border_width(right_col, 0, 0);
+  lv_obj_set_style_border_color(right_col, lv_color_make(200, 235, 250), 0);
+  lv_obj_set_style_radius(right_col, 12, 0);
 
   auto make_card = [&](lv_obj_t *parent, const char *title_text, const char *unit_text, lv_color_t title_color, lv_obj_t **value_out) {
     lv_obj_t *card_obj = lv_obj_create(parent);
@@ -730,7 +735,7 @@ static void build_ud_screen() {
     lv_obj_set_style_text_color(ttl, title_color, 0);
     // use larger title font like GuestMode
     lv_obj_set_style_text_font(ttl, pick_font_large(), 0);
-    // nudge title up slightly to match GuestMode look
+    // match GuestMode: move only the card title slightly (smaller negative offset)
     lv_obj_align(ttl, LV_ALIGN_TOP_LEFT, 0, -6);
 
     lv_obj_t *val = lv_label_create(card_obj);

@@ -89,7 +89,7 @@ static void build_guest_screen() {
 
   lv_obj_t *btn_back = lv_btn_create(header);
   // reduce button height to match shorter header
-  lv_obj_set_size(btn_back, 92, 36);
+  lv_obj_set_size(btn_back, 92, 42);
   lv_obj_align(btn_back, LV_ALIGN_RIGHT_MID, 10, 0);
   lv_obj_set_style_radius(btn_back, 14, 0);
   // change back button to a stronger light red and make its border red
