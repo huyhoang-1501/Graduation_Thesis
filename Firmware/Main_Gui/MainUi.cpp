@@ -15,8 +15,8 @@ static lv_obj_t *main_label_time = nullptr;
 static lv_obj_t *main_label_batt = nullptr;
 static lv_obj_t *label_device_id = nullptr;
 
-static const lv_font_t* pick_font_38_or_14() {
-#if defined(LV_FONT_MONTSERRAT_38) && (LV_FONT_MONTSERRAT_38 == 1)
+static const lv_font_t* pick_font_40_or_14() {
+#if defined(LV_FONT_MONTSERRAT_40) && (LV_FONT_MONTSERRAT_40 == 1)
   return &lv_font_montserrat_40;
 #else
   return &lv_font_montserrat_14;
@@ -177,32 +177,36 @@ static void create_main_gui() {
 
   lv_obj_t *img_monitor = lv_img_create(frame);
   lv_img_set_src(img_monitor, &monitoring_icon);
-  lv_obj_align(img_monitor, LV_ALIGN_RIGHT_MID, -5, 0);
+  /* move monitor icon slightly more to the right to give text more room */
+  lv_obj_align(img_monitor, LV_ALIGN_RIGHT_MID, 5, 0);
 
   lv_obj_t *text_cont = lv_obj_create(frame);
   lv_obj_set_size(text_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
   lv_obj_set_style_bg_opa(text_cont, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(text_cont, 0, 0);
-  lv_obj_align(text_cont, LV_ALIGN_LEFT_MID, -10, 0);
+  /* shift the whole text block more to the left to avoid wrapping */
+  lv_obj_align(text_cont, LV_ALIGN_LEFT_MID, -20, 0);
 
   lv_obj_t *label_health = lv_label_create(text_cont);
   lv_label_set_text(label_health, "Health");
   lv_obj_set_style_text_color(label_health, primary, 0);
-  lv_obj_set_style_text_font(label_health, pick_font_38_or_14(), 0);
-  lv_obj_align(label_health, LV_ALIGN_TOP_LEFT, 0, 2);
+  lv_obj_set_style_text_font(label_health, pick_font_40_or_14(), 0);
+  // Move heading slightly up
+  lv_obj_align(label_health, LV_ALIGN_TOP_LEFT, 0, -6);
 
   lv_obj_t *label_guardian = lv_label_create(text_cont);
   lv_label_set_text(label_guardian, "Guardian");
   lv_obj_set_style_text_color(label_guardian, primary, 0);
-  lv_obj_set_style_text_font(label_guardian, pick_font_38_or_14(), 0);
+  lv_obj_set_style_text_font(label_guardian, pick_font_40_or_14(), 0);
   lv_obj_align_to(label_guardian, label_health, LV_ALIGN_OUT_BOTTOM_LEFT, 0, -4);
 
   label_device_id = lv_label_create(text_cont);
   lv_label_set_text(label_device_id, "Device ID: --");
   lv_obj_set_style_text_color(label_device_id, dark, 0);
-  lv_obj_set_style_text_font(label_device_id, pick_font_16_or_14(), 0);
-  // nho nhat: đẩy lên cao chút
-  lv_obj_align_to(label_device_id, label_guardian, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 6);
+  lv_obj_set_style_text_font(label_device_id, pick_font_18_or_14(), 0);
+ 
+  // Move device id a bit closer (up) to guardian
+  lv_obj_align_to(label_device_id, label_guardian, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 2);
 
   // User ID label removed: do not display stored user information on main screen.
 
@@ -211,18 +215,18 @@ static void create_main_gui() {
   lv_label_set_text(label_guest_hint, "Mode Offline: Quick Measure");
   // Use same (larger) font as Device ID and match color for consistency
   lv_obj_set_style_text_color(label_guest_hint, dark, 0);
-  lv_obj_set_style_text_font(label_guest_hint, pick_font_16_or_14(), 0);
+  lv_obj_set_style_text_font(label_guest_hint, pick_font_18_or_14(), 0);
   // Move the hint slightly closer to Device ID (upwards)
-  lv_obj_align_to(label_guest_hint, label_device_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 4);
+  lv_obj_align_to(label_guest_hint, label_device_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 0);
 
   lv_obj_t *label_user_hint = lv_label_create(text_cont);
   lv_label_set_text(label_user_hint, "Mode Online: Sync Measure");
   lv_label_set_long_mode(label_user_hint, LV_LABEL_LONG_WRAP);
-  lv_obj_set_width(label_user_hint, 230);
+  lv_obj_set_width(label_user_hint, 280);
   // Match Device ID size/color and move slightly up
   lv_obj_set_style_text_color(label_user_hint, dark, 0);
-  lv_obj_set_style_text_font(label_user_hint, pick_font_16_or_14(), 0);
-  lv_obj_align_to(label_user_hint, label_guest_hint, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 4);
+  lv_obj_set_style_text_font(label_user_hint, pick_font_18_or_14(), 0);
+  lv_obj_align_to(label_user_hint, label_guest_hint, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 0);
 
   lv_obj_t *cont_btn = lv_obj_create(scr);
   lv_obj_set_size(cont_btn, lv_pct(100), 74);
