@@ -135,10 +135,11 @@ void keypad_init_screen(const lv_font_t *btn_font,
   lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 0, -6);
   lv_obj_set_style_radius(btn_back, 14, 0);
   lv_obj_set_style_bg_opa(btn_back, LV_OPA_COVER, 0);
-  lv_obj_set_style_bg_color(btn_back, lv_color_make(210, 245, 255), 0);
-  lv_obj_set_style_bg_color(btn_back, lv_color_make(190, 235, 255), LV_STATE_PRESSED);
+  // Style Back like dashboard/guestmode: light red background + red border
+  lv_obj_set_style_bg_color(btn_back, lv_color_make(255, 180, 180), 0);
+  lv_obj_set_style_bg_color(btn_back, lv_color_make(255, 150, 150), LV_STATE_PRESSED);
   lv_obj_set_style_border_width(btn_back, 2, 0);
-  lv_obj_set_style_border_color(btn_back, primary, 0);
+  lv_obj_set_style_border_color(btn_back, lv_color_make(200, 30, 30), 0);
   lv_obj_set_style_shadow_width(btn_back, 0, 0);
   lv_obj_add_event_cb(btn_back, back_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
@@ -147,14 +148,16 @@ void keypad_init_screen(const lv_font_t *btn_font,
   lv_obj_center(lb_back);
   lv_obj_set_style_text_color(lb_back, dark, 0);
   // Use the configured back font (pick_font_24_or_20 ensures 24 if available)
+  // Make Back label larger to match header buttons (Setting/Start/Mode)
   lv_obj_set_style_text_font(lb_back, g_back_font, 0);
 
   // Textarea hiển thị
   g_ta_number = lv_textarea_create(g_keypad_scr);
-  // Giảm nhẹ chiều cao ô nhập để nhường không gian cho keypad
-  lv_obj_set_size(g_ta_number, 460, 54);
-  // Position the textarea; increase Y to move it slightly down
-  lv_obj_align(g_ta_number, LV_ALIGN_TOP_MID, 0, 40);
+  // Chiều cao ô nhập hiển thị (giảm 1 chút theo yêu cầu)
+  lv_obj_set_size(g_ta_number, 460, 50);
+  // Di chuyển textarea: tăng giá trị Y để đẩy ô nhập xuống thấp hơn
+  // Giá trị hiện tại là 32; tăng lên 40 để dịch xuống một chút.
+  lv_obj_align(g_ta_number, LV_ALIGN_TOP_MID, 0, 42);
   lv_textarea_set_one_line(g_ta_number, true);
   lv_textarea_set_placeholder_text(g_ta_number, "Nhap ID...");
   lv_textarea_set_cursor_click_pos(g_ta_number, false);
@@ -170,8 +173,11 @@ void keypad_init_screen(const lv_font_t *btn_font,
   lv_obj_set_style_radius(g_ta_number, 14, 0);
   lv_obj_set_style_shadow_width(g_ta_number, 0, 0);
   lv_obj_set_style_pad_left(g_ta_number, 16, 0);
-  lv_obj_set_style_pad_top(g_ta_number, 14, 0);
-  if (g_btn_font) lv_obj_set_style_text_font(g_ta_number, g_btn_font, 0);
+  // Adjust vertical padding for visual centering (reduced to match new height)
+  lv_obj_set_style_pad_top(g_ta_number, 8, 0);
+  lv_obj_set_style_pad_bottom(g_ta_number, 8, 0);
+  // Use a slightly larger font for the textarea display (falls back to 20 if 24 not available)
+  lv_obj_set_style_text_font(g_ta_number, pick_font_24_or_20(), 0);
 
   // Grid keypad
   lv_obj_t *cont = lv_obj_create(g_keypad_scr);

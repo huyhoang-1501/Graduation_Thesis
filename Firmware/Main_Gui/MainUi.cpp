@@ -113,7 +113,8 @@ static lv_obj_t* create_status_bar(lv_obj_t *parent,
 
   lv_obj_set_style_bg_opa(hcmute_box, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(hcmute_box, 2, 0);
-  lv_obj_set_style_border_color(hcmute_box, lv_color_make(220, 40, 40), 0);
+  // change border to dark blue (navy-like)
+  lv_obj_set_style_border_color(hcmute_box, lv_color_make(0, 60, 140), 0);
   lv_obj_set_style_radius(hcmute_box, 10, 0);
   lv_obj_set_style_pad_left(hcmute_box, 10, 0);
   lv_obj_set_style_pad_right(hcmute_box, 10, 0);

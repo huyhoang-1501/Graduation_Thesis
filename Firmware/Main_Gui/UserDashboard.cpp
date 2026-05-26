@@ -162,6 +162,15 @@ static const lv_font_t *pick_font_large() {
 #endif
 }
 
+// Pick an extra-large font when available (falls back to pick_font_large)
+static const lv_font_t *pick_font_xlarge() {
+#if defined(LV_FONT_MONTSERRAT_28) && (LV_FONT_MONTSERRAT_28 == 1)
+  return &lv_font_montserrat_28;
+#else
+  return pick_font_large();
+#endif
+}
+
 static const lv_font_t *pick_font_mid() {
 #if defined(LV_FONT_MONTSERRAT_16) && (LV_FONT_MONTSERRAT_16 == 1)
   return &lv_font_montserrat_16;
@@ -176,6 +185,21 @@ static const lv_font_t *pick_font_small() {
 #else
   return &lv_font_montserrat_12;
 #endif
+}
+
+// Match the Dashboard Back button styling (light red background + red border)
+static void style_back_button_like_dashboard(lv_obj_t *btn, lv_obj_t *lbl) {
+  if (!btn) return;
+  lv_obj_set_style_radius(btn, 14, 0);
+  lv_obj_set_style_bg_color(btn, lv_color_make(255, 180, 180), 0);
+  lv_obj_set_style_bg_color(btn, lv_color_make(255, 150, 150), LV_STATE_PRESSED);
+  lv_obj_set_style_border_width(btn, 2, 0);
+  lv_obj_set_style_border_color(btn, lv_color_make(200, 30, 30), 0);
+  lv_obj_set_style_shadow_width(btn, 0, 0);
+  if (lbl) {
+    // keep text readable like on the dashboard button
+    lv_obj_set_style_text_color(lbl, lv_color_make(10, 60, 90), 0);
+  }
 }
 
 static void back_btn_event_cb(lv_event_t *e) {
@@ -383,19 +407,22 @@ static void open_keypad_for_phone() {
 static void build_settings_screen() {
   if (settings_scr) return;
   settings_scr = lv_obj_create(nullptr);
-  lv_obj_set_style_bg_color(settings_scr, lv_color_make(245, 252, 255), 0);
+  // use white background like the content cards below
+  lv_obj_set_style_bg_color(settings_scr, lv_color_white(), 0);
   lv_obj_set_style_pad_all(settings_scr, 12, 0);
   // prevent the settings screen from showing a scrollbar
   lv_obj_clear_flag(settings_scr, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_t *h = lv_obj_create(settings_scr);
   lv_obj_set_size(h, lv_pct(100), 56);
-  lv_obj_set_style_bg_opa(h, LV_OPA_TRANSP, 0);
+  // make header match card white background
+  lv_obj_set_style_bg_color(h, lv_color_white(), 0);
   lv_obj_clear_flag(h, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_t *t = lv_label_create(h);
   lv_label_set_text(t, "User Settings");
-  lv_obj_set_style_text_font(t, pick_font_mid(), 0);
-  lv_obj_align(t, LV_ALIGN_LEFT_MID, 0, -8);
+  lv_obj_set_style_text_font(t, pick_font_large(), 0);
+  lv_obj_set_style_text_color(t, lv_color_black(), 0);
+  lv_obj_align(t, LV_ALIGN_LEFT_MID, 0, 0);
 
   // back button
   lv_obj_t *bback = lv_btn_create(h);
@@ -403,7 +430,9 @@ static void build_settings_screen() {
   lv_obj_align(bback, LV_ALIGN_RIGHT_MID, 0, 0);
   lv_obj_t *bbt = lv_label_create(bback);
   lv_label_set_text(bbt, "Back");
-  lv_obj_set_style_text_font(bbt, pick_font_mid(), 0);
+  lv_obj_set_style_text_font(bbt, pick_font_large(), 0);
+  // style Back like the dashboard (light red background + red border)
+  style_back_button_like_dashboard(bback, bbt);
   lv_obj_center(bbt);
   lv_obj_add_event_cb(bback, [](lv_event_t *ev){ if (lv_event_get_code(ev)==LV_EVENT_CLICKED) { if (ud_scr) lv_scr_load(ud_scr); } }, LV_EVENT_ALL, nullptr);
 
@@ -416,51 +445,68 @@ static void build_settings_screen() {
   // disable scrolling/scrollbar on the content container
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
 
+  // Values (phone + ranges) are right-aligned in a column just left of the Edit buttons
+  // to prevent overlapping with the larger left-side labels.
+  const lv_coord_t kEditBtnW = 110;
+  const lv_coord_t kValueRightOffset = -(kEditBtnW + 16);
+
   // Phone row: label on left, value next to it, edit button aligned to top-right
   lv_obj_t *lblp = lv_label_create(cont);
   lv_label_set_text(lblp, "Phone:");
-  lv_obj_set_style_text_font(lblp, pick_font_small(), 0);
-  lv_obj_align(lblp, LV_ALIGN_TOP_LEFT, 8, 8);
+  lv_obj_set_style_text_font(lblp, pick_font_large(), 0);
+  lv_obj_set_style_text_color(lblp, lv_color_black(), 0);
+  // nudge the Phone label slightly higher
+  lv_obj_align(lblp, LV_ALIGN_TOP_LEFT, 8, 4);
 
   // place phone value to the right of the "Phone:" label on the same line
   settings_label_phone = lv_label_create(cont);
   lv_label_set_text(settings_label_phone, g_phone[0] ? g_phone : "(none)");
-  lv_obj_set_style_text_font(settings_label_phone, pick_font_small(), 0);
-  // Align the phone value to match the metric summary labels (centered position)
-  lv_obj_align(settings_label_phone, LV_ALIGN_TOP_LEFT, 120, 8);
+  lv_obj_set_style_text_font(settings_label_phone, pick_font_large(), 0);
+  lv_obj_set_style_text_color(settings_label_phone, lv_color_black(), 0);
+  lv_obj_set_style_text_align(settings_label_phone, LV_TEXT_ALIGN_RIGHT, 0);
+  // Right-align the phone value into the value column so it sits left of the Edit buttons
+  lv_obj_align(settings_label_phone, LV_ALIGN_TOP_RIGHT, kValueRightOffset, 0);
 
-  // edit button stays on the top-right of the container (same vertical alignment as the label)
+  // edit button stays to the right of the phone value and vertically centered
   lv_obj_t *ep = lv_btn_create(cont);
   // Make size match other Edit buttons and slightly reduced height
-  lv_obj_set_size(ep, 110, 32);
-  lv_obj_align(ep, LV_ALIGN_TOP_RIGHT, -8, 4);
+  lv_obj_set_size(ep, 110, 35);
+  // place phone Edit button at the right edge of the content area
+  lv_obj_align(ep, LV_ALIGN_TOP_RIGHT, -8, -4);
   lv_obj_add_event_cb(ep, [](lv_event_t *ev){ if (lv_event_get_code(ev)==LV_EVENT_CLICKED) open_keypad_for_phone(); }, LV_EVENT_ALL, nullptr);
   lv_obj_t *ep_l = lv_label_create(ep);
   lv_label_set_text(ep_l, "Edit");
-  lv_obj_set_style_text_font(ep_l, pick_font_mid(), 0);
+  lv_obj_set_style_text_font(ep_l, pick_font_large(), 0);
+  lv_obj_set_style_text_color(ep_l, lv_color_black(), 0);
   lv_obj_center(ep_l);
   // four main metric rows: each shows "min - max" summary and Edit button to open metric screen
+  int row_y = 56; // raise metric rows closer to Phone row by 8px
   auto make_metric_row = [&](const char *name, lv_obj_t **summary_lbl, lv_event_cb_t cb) {
     lv_obj_t *lbl = lv_label_create(cont);
     lv_label_set_text(lbl, name);
-    lv_obj_set_style_text_font(lbl, pick_font_small(), 0);
+    lv_obj_set_style_text_font(lbl, pick_font_large(), 0);
+    lv_obj_set_style_text_color(lbl, lv_color_black(), 0);
     // vertical placement: find next Y by counting children? simple fixed offsets
-    static int row_y = 48;
     lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, 8, row_y);
 
     *summary_lbl = lv_label_create(cont);
     lv_label_set_text(*summary_lbl, "-- - --");
-    lv_obj_set_style_text_font(*summary_lbl, pick_font_small(), 0);
-    lv_obj_align(*summary_lbl, LV_ALIGN_TOP_LEFT, 120, row_y);
+    lv_obj_set_style_text_font(*summary_lbl, pick_font_large(), 0);
+    lv_obj_set_style_text_color(*summary_lbl, lv_color_black(), 0);
+    lv_obj_set_style_text_align(*summary_lbl, LV_TEXT_ALIGN_RIGHT, 0);
+    // Right-align the summary into the value column so all values line up
+    lv_obj_align(*summary_lbl, LV_ALIGN_TOP_RIGHT, kValueRightOffset, row_y - 8);
 
     lv_obj_t *btn = lv_btn_create(cont);
     // make Edit buttons match the Phone edit button size/style (slightly reduced height)
-    lv_obj_set_size(btn, 110, 32);
-    lv_obj_align(btn, LV_ALIGN_TOP_RIGHT, -8, row_y);
+    lv_obj_set_size(btn, 110, 35);
+    // place the Edit button at the right edge of the container (consistent column)
+    lv_obj_align(btn, LV_ALIGN_TOP_RIGHT, -8, row_y - 12);
     lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
     lv_obj_t *lblb = lv_label_create(btn);
     lv_label_set_text(lblb, "Edit");
-    lv_obj_set_style_text_font(lblb, pick_font_mid(), 0);
+    lv_obj_set_style_text_font(lblb, pick_font_large(), 0);
+    lv_obj_set_style_text_color(lblb, lv_color_black(), 0);
     lv_obj_center(lblb);
 
     row_y += 48;
@@ -496,7 +542,8 @@ static void build_metric_screen() {
     lv_obj_clear_flag(h, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_t *t = lv_label_create(h);
     lv_label_set_text(t, title_text);
-    lv_obj_set_style_text_font(t, pick_font_mid(), 0);
+    lv_obj_set_style_text_font(t, pick_font_large(), 0);
+    lv_obj_set_style_text_color(t, lv_color_black(), 0);
     lv_obj_align(t, LV_ALIGN_LEFT_MID, 0, -8);
 
     lv_obj_t *bback = lv_btn_create(h);
@@ -504,6 +551,9 @@ static void build_metric_screen() {
     lv_obj_align(bback, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_t *bbt = lv_label_create(bback);
     lv_label_set_text(bbt, "Back");
+    lv_obj_set_style_text_font(bbt, pick_font_large(), 0);
+    // apply dashboard-like red Back style
+    style_back_button_like_dashboard(bback, bbt);
     lv_obj_center(bbt);
     lv_obj_add_event_cb(bback, [](lv_event_t *ev){ if (lv_event_get_code(ev)==LV_EVENT_CLICKED) { if (settings_scr) lv_scr_load(settings_scr); } }, LV_EVENT_ALL, nullptr);
 
@@ -516,11 +566,13 @@ static void build_metric_screen() {
     // Min row
     lv_obj_t *lbl_min = lv_label_create(cont);
     lv_label_set_text(lbl_min, "Min:");
-    lv_obj_set_style_text_font(lbl_min, pick_font_small(), 0);
+    lv_obj_set_style_text_font(lbl_min, pick_font_large(), 0);
+    lv_obj_set_style_text_color(lbl_min, lv_color_black(), 0);
     lv_obj_align(lbl_min, LV_ALIGN_TOP_LEFT, 8, 8);
 
     *lbl_min_out = lv_label_create(cont);
-    lv_obj_set_style_text_font(*lbl_min_out, pick_font_small(), 0);
+    lv_obj_set_style_text_font(*lbl_min_out, pick_font_large(), 0);
+    lv_obj_set_style_text_color(*lbl_min_out, lv_color_black(), 0);
     lv_obj_align(*lbl_min_out, LV_ALIGN_TOP_LEFT, 120, 8);
 
     lv_obj_t *btn_min = lv_btn_create(cont);
@@ -531,16 +583,22 @@ static void build_metric_screen() {
     dmin->target = min_tgt;
     dmin->placeholder = "Enter min value";
     lv_obj_add_event_cb(btn_min, metric_edit_event_cb, LV_EVENT_CLICKED, dmin);
-    lv_obj_t *lminb = lv_label_create(btn_min); lv_label_set_text(lminb, "Edit"); lv_obj_center(lminb);
+    lv_obj_t *lminb = lv_label_create(btn_min);
+    lv_label_set_text(lminb, "Edit");
+    lv_obj_set_style_text_font(lminb, pick_font_large(), 0);
+    lv_obj_set_style_text_color(lminb, lv_color_black(), 0);
+    lv_obj_center(lminb);
 
     // Max row
     lv_obj_t *lbl_max = lv_label_create(cont);
     lv_label_set_text(lbl_max, "Max:");
-    lv_obj_set_style_text_font(lbl_max, pick_font_small(), 0);
+    lv_obj_set_style_text_font(lbl_max, pick_font_large(), 0);
+    lv_obj_set_style_text_color(lbl_max, lv_color_black(), 0);
     lv_obj_align(lbl_max, LV_ALIGN_TOP_LEFT, 8, 56);
 
     *lbl_max_out = lv_label_create(cont);
-    lv_obj_set_style_text_font(*lbl_max_out, pick_font_small(), 0);
+    lv_obj_set_style_text_font(*lbl_max_out, pick_font_large(), 0);
+    lv_obj_set_style_text_color(*lbl_max_out, lv_color_black(), 0);
     lv_obj_align(*lbl_max_out, LV_ALIGN_TOP_LEFT, 120, 56);
 
     lv_obj_t *btn_max = lv_btn_create(cont);
@@ -550,7 +608,11 @@ static void build_metric_screen() {
     dmax->target = max_tgt;
     dmax->placeholder = "Enter max value";
     lv_obj_add_event_cb(btn_max, metric_edit_event_cb, LV_EVENT_CLICKED, dmax);
-    lv_obj_t *lmaxb = lv_label_create(btn_max); lv_label_set_text(lmaxb, "Edit"); lv_obj_center(lmaxb);
+    lv_obj_t *lmaxb = lv_label_create(btn_max);
+    lv_label_set_text(lmaxb, "Edit");
+    lv_obj_set_style_text_font(lmaxb, pick_font_large(), 0);
+    lv_obj_set_style_text_color(lmaxb, lv_color_black(), 0);
+    lv_obj_center(lmaxb);
 
     *out_scr = scr;
   };
@@ -597,23 +659,24 @@ static void build_ud_screen() {
   lv_obj_set_style_text_color(title, primary, 0);
   // use larger title font like GuestMode
   lv_obj_set_style_text_font(title, pick_font_large(), 0);
-  lv_obj_align(title, LV_ALIGN_LEFT_MID, -10 , -5);
+  lv_obj_align(title, LV_ALIGN_LEFT_MID, -10 , -10);
 
   lv_obj_t *btn_back = lv_btn_create(header);
   lv_obj_set_size(btn_back, 92, 42);
   lv_obj_align(btn_back, LV_ALIGN_RIGHT_MID, 10, 0);
   lv_obj_set_style_radius(btn_back, 14, 0);
-  lv_obj_set_style_bg_color(btn_back, lv_color_make(210, 245, 255), 0);
-  lv_obj_set_style_bg_color(btn_back, lv_color_make(190, 235, 255), LV_STATE_PRESSED);
+  // set background to a stronger light red and make the border red as well
+  lv_obj_set_style_bg_color(btn_back, lv_color_make(255, 180, 180), 0);
+  lv_obj_set_style_bg_color(btn_back, lv_color_make(255, 150, 150), LV_STATE_PRESSED);
   lv_obj_set_style_border_width(btn_back, 2, 0);
-  lv_obj_set_style_border_color(btn_back, primary, 0);
+  lv_obj_set_style_border_color(btn_back, lv_color_make(200, 30, 30), 0);
   lv_obj_set_style_shadow_width(btn_back, 0, 0);
   lv_obj_add_event_cb(btn_back, back_btn_event_cb, LV_EVENT_CLICKED, nullptr);
 
   lv_obj_t *btn_back_label = lv_label_create(btn_back);
   lv_label_set_text(btn_back_label, "Back");
   lv_obj_set_style_text_color(btn_back_label, dark, 0);
-  // make Back label size similar to GuestMode
+  // make Back label larger to match other header buttons
   lv_obj_set_style_text_font(btn_back_label, pick_font_large(), 0);
   lv_obj_center(btn_back_label);
 

@@ -66,7 +66,6 @@ static void build_guest_screen() {
   lv_color_t dark    = lv_color_make(10, 60, 90);
   lv_color_t accentR  = lv_color_make(220, 40, 40);
   lv_color_t card     = lv_color_white();
-
   lv_obj_t *header = lv_obj_create(guest_scr);
   lv_obj_set_size(header, lv_pct(100), 56);
   lv_obj_align(header, LV_ALIGN_TOP_MID, 0, 0);
@@ -74,11 +73,12 @@ static void build_guest_screen() {
   lv_obj_set_style_border_width(header, 0, 0);
   lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
 
+
   lv_obj_t *title = lv_label_create(header);
   lv_label_set_text(title, "Mode Offline");
   lv_obj_set_style_text_color(title, primary, 0);
   lv_obj_set_style_text_font(title, pick_font_large(), 0);
-  lv_obj_align(title, LV_ALIGN_LEFT_MID, -10, 0);
+  lv_obj_align(title, LV_ALIGN_LEFT_MID, -10, -10);
 
   label_state = lv_label_create(header);
   lv_label_set_text(label_state, "");
@@ -88,13 +88,15 @@ static void build_guest_screen() {
   lv_obj_align(label_state, LV_ALIGN_LEFT_MID, -10, 14);
 
   lv_obj_t *btn_back = lv_btn_create(header);
-  lv_obj_set_size(btn_back, 92, 42);
+  // reduce button height to match shorter header
+  lv_obj_set_size(btn_back, 92, 36);
   lv_obj_align(btn_back, LV_ALIGN_RIGHT_MID, 10, 0);
   lv_obj_set_style_radius(btn_back, 14, 0);
-  lv_obj_set_style_bg_color(btn_back, lv_color_make(210, 245, 255), 0);
-  lv_obj_set_style_bg_color(btn_back, lv_color_make(190, 235, 255), LV_STATE_PRESSED);
+  // change back button to a stronger light red and make its border red
+  lv_obj_set_style_bg_color(btn_back, lv_color_make(255, 180, 180), 0);
+  lv_obj_set_style_bg_color(btn_back, lv_color_make(255, 150, 150), LV_STATE_PRESSED);
   lv_obj_set_style_border_width(btn_back, 2, 0);
-  lv_obj_set_style_border_color(btn_back, primary, 0);
+  lv_obj_set_style_border_color(btn_back, lv_color_make(200, 30, 30), 0);
   lv_obj_set_style_shadow_width(btn_back, 0, 0);
   lv_obj_add_event_cb(btn_back, back_btn_event_cb, LV_EVENT_CLICKED, nullptr);
 
