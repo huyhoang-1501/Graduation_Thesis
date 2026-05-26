@@ -595,7 +595,8 @@ static void build_ud_screen() {
   lv_obj_t *title = lv_label_create(header);
   lv_label_set_text(title, "Mode Online");
   lv_obj_set_style_text_color(title, primary, 0);
-  lv_obj_set_style_text_font(title, pick_font_mid(), 0);
+  // use larger title font like GuestMode
+  lv_obj_set_style_text_font(title, pick_font_large(), 0);
   lv_obj_align(title, LV_ALIGN_LEFT_MID, -10 , -5);
 
   lv_obj_t *btn_back = lv_btn_create(header);
@@ -612,13 +613,15 @@ static void build_ud_screen() {
   lv_obj_t *btn_back_label = lv_label_create(btn_back);
   lv_label_set_text(btn_back_label, "Back");
   lv_obj_set_style_text_color(btn_back_label, dark, 0);
-  lv_obj_set_style_text_font(btn_back_label, pick_font_mid(), 0);
+  // make Back label size similar to GuestMode
+  lv_obj_set_style_text_font(btn_back_label, pick_font_large(), 0);
   lv_obj_center(btn_back_label);
 
   // Metrics area (two stacked cards per column like GuestMode)
   lv_obj_t *metrics = lv_obj_create(ud_scr);
   lv_obj_set_size(metrics, lv_pct(100), 176);
-  lv_obj_align(metrics, LV_ALIGN_TOP_MID, 0, 64);
+  // move metrics slightly up to match GuestMode
+  lv_obj_align(metrics, LV_ALIGN_TOP_MID, 0, 58);
   lv_obj_set_style_bg_opa(metrics, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(metrics, 0, 0);
   lv_obj_set_style_pad_all(metrics, 0, 0);
@@ -662,20 +665,24 @@ static void build_ud_screen() {
     lv_obj_t *ttl = lv_label_create(card_obj);
     lv_label_set_text(ttl, title_text);
     lv_obj_set_style_text_color(ttl, title_color, 0);
-    lv_obj_set_style_text_font(ttl, pick_font_mid(), 0);
-    lv_obj_align(ttl, LV_ALIGN_TOP_LEFT, 0, 0);
+    // use larger title font like GuestMode
+    lv_obj_set_style_text_font(ttl, pick_font_large(), 0);
+    // nudge title up slightly to match GuestMode look
+    lv_obj_align(ttl, LV_ALIGN_TOP_LEFT, 0, -6);
 
     lv_obj_t *val = lv_label_create(card_obj);
     lv_label_set_text(val, "--");
     lv_obj_set_style_text_color(val, lv_color_make(15, 75, 110), 0);
     lv_obj_set_style_text_font(val, pick_font_large(), 0);
-    lv_obj_align(val, LV_ALIGN_LEFT_MID, 0, 4);
+    // slight vertical tweak for value label
+    lv_obj_align(val, LV_ALIGN_LEFT_MID, 0, 3);
 
     lv_obj_t *unit = lv_label_create(card_obj);
     lv_label_set_text(unit, unit_text);
     lv_obj_set_style_text_color(unit, lv_color_make(90, 120, 140), 0);
-    lv_obj_set_style_text_font(unit, pick_font_small(), 0);
-    lv_obj_align(unit, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+    // use mid font for unit similar to GuestMode
+    lv_obj_set_style_text_font(unit, pick_font_mid(), 0);
+    lv_obj_align(unit, LV_ALIGN_BOTTOM_LEFT, 0, 6);
 
     if (value_out) *value_out = val;
   };
@@ -694,31 +701,28 @@ static void build_ud_screen() {
   if (label_sys)  lv_label_set_text(label_sys, "");
   if (label_dia)  lv_label_set_text(label_dia, "");
 
-  // Move Start button into header (to the left of Back)
-  if (!ud_btn_start) {
-    ud_btn_start = lv_btn_create(header);
-    lv_obj_set_size(ud_btn_start, 92, 42);
-    // place to the left of Back
-    lv_obj_align(ud_btn_start, LV_ALIGN_RIGHT_MID, -90, 0);
-    lv_obj_set_style_radius(ud_btn_start, 14, 0);
-    lv_obj_set_style_bg_color(ud_btn_start, lv_color_make(200, 255, 220), 0);
-    lv_obj_set_style_bg_color(ud_btn_start, lv_color_make(150, 230, 180), LV_STATE_PRESSED);
-    // add a darker green border to match GuestMode Start button
-    lv_obj_set_style_border_width(ud_btn_start, 2, 0);
-    lv_obj_set_style_border_color(ud_btn_start, lv_color_make(0, 120, 60), 0);
-    lv_obj_set_style_shadow_width(ud_btn_start, 0, 0);
-    lv_obj_t *lbl = lv_label_create(ud_btn_start);
-    lv_label_set_text(lbl, "Start");
-    lv_obj_set_style_text_color(lbl, lv_color_make(0, 40, 20), 0);
-    lv_obj_set_style_text_font(lbl, pick_font_mid(), 0);
-    lv_obj_center(lbl);
-    // Attach event: trigger non-blocking BP measure and disable button while running
-    lv_obj_add_event_cb(ud_btn_start, [](lv_event_t *e){
-      if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-      lv_obj_add_state(ud_btn_start, LV_STATE_DISABLED);
-      // start background BP task
-      startMeasureBloodPressureAsync();
-    }, LV_EVENT_CLICKED, nullptr);
+  // Create Setting button in header (moved to where Start used to be)
+  {
+    lv_obj_t *btn_setting_hdr = lv_btn_create(header);
+    // make Setting button a bit wider
+    lv_obj_set_size(btn_setting_hdr, 110, 42);
+    // place to the left of Back (adjust offset for wider button)
+    lv_obj_align(btn_setting_hdr, LV_ALIGN_RIGHT_MID, -90, 0);
+    lv_obj_set_style_radius(btn_setting_hdr, 14, 0);
+    lv_obj_set_style_bg_color(btn_setting_hdr, lv_color_make(240, 240, 240), 0);
+    lv_obj_set_style_bg_color(btn_setting_hdr, lv_color_make(220, 220, 220), LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(btn_setting_hdr, 2, 0);
+    lv_obj_set_style_border_color(btn_setting_hdr, lv_color_make(200,200,200), 0);
+    lv_obj_set_style_shadow_width(btn_setting_hdr, 0, 0);
+    lv_obj_add_event_cb(btn_setting_hdr, [](lv_event_t *e){ if (lv_event_get_code(e)==LV_EVENT_CLICKED) {
+      build_settings_screen();
+      if (settings_scr) lv_scr_load(settings_scr);
+    } }, LV_EVENT_ALL, nullptr);
+    lv_obj_t *hdr_lbl = lv_label_create(btn_setting_hdr);
+    lv_label_set_text(hdr_lbl, "Setting");
+    lv_obj_set_style_text_font(hdr_lbl, pick_font_large(), 0);
+    lv_obj_set_style_text_color(hdr_lbl, lv_color_make(0,0,0), 0);
+    lv_obj_center(hdr_lbl);
   }
 
   // Footer with Start button (same visual as GuestMode Start)
@@ -731,25 +735,55 @@ static void build_ud_screen() {
   lv_obj_set_style_border_color(footer, lv_color_make(0,0,0), 0);
   lv_obj_clear_flag(footer, LV_OBJ_FLAG_SCROLLABLE);
 
-  // Create Setting button in footer (takes the previous Start location)
-  {
-    lv_obj_t *btn_menu = lv_btn_create(footer);
-    lv_obj_set_size(btn_menu, 110, 42);
-    lv_obj_align(btn_menu, LV_ALIGN_RIGHT_MID, 10, 0);
-    lv_obj_set_style_radius(btn_menu, 12, 0);
-    lv_obj_set_style_bg_color(btn_menu, lv_color_make(240, 240, 240), 0);
-    // make the Setting button border a darker shade of its background (not purple)
-    lv_obj_set_style_border_width(btn_menu, 2, 0);
-    lv_obj_set_style_border_color(btn_menu, lv_color_make(200,200,200), 0);
-    lv_obj_add_event_cb(btn_menu, [](lv_event_t *e){ if (lv_event_get_code(e)==LV_EVENT_CLICKED) {
-      build_settings_screen();
-      if (settings_scr) lv_scr_load(settings_scr);
-    } }, LV_EVENT_ALL, nullptr);
-    lv_obj_t *menu_lbl = lv_label_create(btn_menu);
-    lv_label_set_text(menu_lbl, "Setting");
-    lv_obj_set_style_text_font(menu_lbl, pick_font_mid(), 0);
-    lv_obj_set_style_text_color(menu_lbl, lv_color_make(0, 0, 0), 0);
-    lv_obj_center(menu_lbl);
+  // Create Mode and Start buttons in footer area (Start moved to footer like GuestMode)
+  // Mode button: to the left of Start
+  if (!ud_btn_start) {
+    // Mode button (created as child of ud_scr so it sits above footer)
+    lv_obj_t *btn_mode = lv_btn_create(ud_scr);
+    lv_obj_set_size(btn_mode, 92, 42);
+    // place to the left of Start (approx one button width + spacing)
+    lv_obj_align(btn_mode, LV_ALIGN_BOTTOM_RIGHT, -108, -6);
+    lv_obj_set_style_radius(btn_mode, 14, 0);
+    lv_obj_set_style_bg_color(btn_mode, lv_color_make(220, 240, 255), 0);
+    lv_obj_set_style_bg_color(btn_mode, lv_color_make(190, 215, 255), LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(btn_mode, 2, 0);
+    lv_obj_set_style_border_color(btn_mode, lv_color_make(60, 110, 180), 0);
+    lv_obj_set_style_shadow_width(btn_mode, 0, 0);
+    lv_obj_t *mbl = lv_label_create(btn_mode);
+    lv_label_set_text(mbl, "Mode");
+    lv_obj_set_style_text_color(mbl, lv_color_make(0, 40, 80), 0);
+    // use larger font like GuestMode
+    lv_obj_set_style_text_font(mbl, pick_font_large(), 0);
+    lv_obj_center(mbl);
+
+    // Create Start button and position it at the bottom-right corner
+    lv_obj_t *btn_start = lv_btn_create(ud_scr);
+    lv_obj_set_size(btn_start, 92, 42);
+    // place in the bottom-right corner with a small inset
+    lv_obj_align(btn_start, LV_ALIGN_BOTTOM_RIGHT, -8, -6);
+    lv_obj_set_style_radius(btn_start, 14, 0);
+    lv_obj_set_style_bg_color(btn_start, lv_color_make(200, 255, 220), 0);
+    lv_obj_set_style_bg_color(btn_start, lv_color_make(150, 230, 180), LV_STATE_PRESSED);
+    // add a darker green border to make the Start button stand out
+    lv_obj_set_style_border_width(btn_start, 2, 0);
+    lv_obj_set_style_border_color(btn_start, lv_color_make(0, 120, 60), 0);
+    lv_obj_set_style_shadow_width(btn_start, 0, 0);
+    // Decorative Start button: attach event handler to trigger BP measurement
+    lv_obj_add_event_cb(btn_start, [](lv_event_t *e){
+      if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+      // disable the button to prevent re-entry (use global ud_btn_start)
+      if (ud_btn_start) lv_obj_add_state(ud_btn_start, LV_STATE_DISABLED);
+      // trigger non-blocking background measurement
+      startMeasureBloodPressureAsync();
+    }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *lb = lv_label_create(btn_start);
+    lv_label_set_text(lb, "Start");
+    lv_obj_set_style_text_color(lb, lv_color_make(0, 40, 20), 0);
+    lv_obj_set_style_text_font(lb, pick_font_large(), 0);
+    lv_obj_center(lb);
+
+    // update global ud_btn_start to point to the footer Start button
+    ud_btn_start = btn_start;
   }
 
 }
