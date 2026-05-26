@@ -23,6 +23,14 @@ static const lv_font_t* pick_font_38_or_14() {
 #endif
 }
 
+
+static const lv_font_t* pick_font_28_or_14() {
+#if defined(LV_FONT_MONTSERRAT_28) && (LV_FONT_MONTSERRAT_28 == 1)
+  return &lv_font_montserrat_28;
+#else
+  return &lv_font_montserrat_14;
+#endif
+}
 static const lv_font_t* pick_font_20_or_14() {
 #if defined(LV_FONT_MONTSERRAT_20) && (LV_FONT_MONTSERRAT_20 == 1)
   return &lv_font_montserrat_20;
@@ -249,7 +257,7 @@ static void create_main_gui() {
   lv_label_set_text(lg, "Mode Offline");
   lv_obj_center(lg);
   lv_obj_set_style_text_color(lg, dark, 0);
-  lv_obj_set_style_text_font(lg, pick_font_20_or_14(), 0);
+  lv_obj_set_style_text_font(lg, pick_font_28_or_14(), 0);
 
   lv_obj_t *btn_user = lv_btn_create(cont_btn);
   lv_obj_set_grid_cell(btn_user, LV_GRID_ALIGN_STRETCH, 1, 1,
@@ -267,7 +275,7 @@ static void create_main_gui() {
   lv_label_set_text(lu, "Mode Online");
   lv_obj_center(lu);
   lv_obj_set_style_text_color(lu, lv_color_white(), 0);
-  lv_obj_set_style_text_font(lu, pick_font_20_or_14(), 0);
+  lv_obj_set_style_text_font(lu, pick_font_28_or_14(), 0);
   
   MainUi_UpdateStatus("--:--  --/--/----", "--%");
   refresh_device_id_label();
