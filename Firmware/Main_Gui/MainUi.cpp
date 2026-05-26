@@ -123,18 +123,18 @@ static lv_obj_t* create_status_bar(lv_obj_t *parent,
   lv_obj_t *label_hcmute = lv_label_create(hcmute_box);
   lv_label_set_text(label_hcmute, "HCM-UTE");
   lv_obj_set_style_text_color(label_hcmute, primary, 0);
-  lv_obj_set_style_text_font(label_hcmute, pick_font_18_or_14(), 0);
+  lv_obj_set_style_text_font(label_hcmute, pick_font_20_or_14(), 0);
   lv_obj_center(label_hcmute);
 
   lv_obj_t *batt = lv_label_create(status);
   lv_label_set_text(batt, "--%");
   lv_obj_set_style_text_color(batt, dark, 0);
-  lv_obj_set_style_text_font(batt, pick_font_16_or_14(), 0);
-  lv_obj_align(batt, LV_ALIGN_RIGHT_MID, 0, 0);
+  lv_obj_set_style_text_font(batt, pick_font_18_or_14(), 0);
+  lv_obj_align(batt, LV_ALIGN_RIGHT_MID, 5, 0);
 
   lv_obj_t *img_wifi = lv_img_create(status);
   lv_img_set_src(img_wifi, &wifi_icon);
-  lv_obj_align_to(img_wifi, batt, LV_ALIGN_OUT_LEFT_MID, -20, 0);
+  lv_obj_align_to(img_wifi, batt, LV_ALIGN_OUT_LEFT_MID, -15, 0);
   lv_obj_set_style_img_recolor(img_wifi, lv_color_make(0, 0, 0), LV_PART_MAIN);
   lv_obj_set_style_img_recolor_opa(img_wifi, 255, LV_PART_MAIN);
   lv_obj_set_style_opa(img_wifi, 255, LV_PART_MAIN);
@@ -142,8 +142,8 @@ static lv_obj_t* create_status_bar(lv_obj_t *parent,
   lv_obj_t *time_lbl = lv_label_create(status);
   lv_label_set_text(time_lbl, "--:--  --/--/----");
   lv_obj_set_style_text_color(time_lbl, dark, 0);
-  lv_obj_set_style_text_font(time_lbl, pick_font_16_or_14(), 0);
-  lv_obj_align(time_lbl, LV_ALIGN_RIGHT_MID, -70, 0);
+  lv_obj_set_style_text_font(time_lbl, pick_font_18_or_14(), 0);
+  lv_obj_align(time_lbl, LV_ALIGN_RIGHT_MID, -65, 0);
 
   if (out_time) *out_time = time_lbl;
   if (out_batt) *out_batt = batt;

@@ -2,6 +2,13 @@
 
 #include <string.h>
 #include <stdio.h>
+static const lv_font_t* pick_font_24_or_20() {
+#if defined(LV_FONT_MONTSERRAT_24) && (LV_FONT_MONTSERRAT_24 == 1)
+  return &lv_font_montserrat_24;
+#else
+  return &lv_font_montserrat_20;
+#endif
+}
 
 static lv_obj_t *g_keypad_scr = NULL;
 static lv_obj_t *g_ta_number  = NULL;
@@ -104,6 +111,12 @@ void keypad_init_screen(const lv_font_t *btn_font,
   g_next_cb   = next_cb;
   g_confirm_label = confirm_label ? confirm_label : "Save";
 
+  // If caller didn't provide fonts, pick slightly larger defaults so keypad
+  // labels and textarea appear bigger for easier tapping/readability.
+  // These montserrat sizes are used elsewhere in the project.
+  if (!g_btn_font)  g_btn_font  = &lv_font_montserrat_20;
+  if (!g_back_font) g_back_font = pick_font_24_or_20();
+
   lv_color_t bg      = lv_color_make(245, 252, 255);
   lv_color_t primary = lv_color_make(0, 140, 200);
   lv_color_t dark    = lv_color_make(10, 60, 90);
@@ -132,13 +145,15 @@ void keypad_init_screen(const lv_font_t *btn_font,
   lv_label_set_text(lb_back, "Back");
   lv_obj_center(lb_back);
   lv_obj_set_style_text_color(lb_back, dark, 0);
-  if (g_back_font) lv_obj_set_style_text_font(lb_back, g_back_font, 0);
+  // Use the configured back font (pick_font_24_or_20 ensures 24 if available)
+  lv_obj_set_style_text_font(lb_back, g_back_font, 0);
 
   // Textarea hiển thị
   g_ta_number = lv_textarea_create(g_keypad_scr);
   // Giảm nhẹ chiều cao ô nhập để nhường không gian cho keypad
-  lv_obj_set_size(g_ta_number, 460, 66);
-  lv_obj_align(g_ta_number, LV_ALIGN_TOP_MID, 0, 42);
+  lv_obj_set_size(g_ta_number, 460, 54);
+  // Position the textarea; increase Y to move it slightly down
+  lv_obj_align(g_ta_number, LV_ALIGN_TOP_MID, 0, 40);
   lv_textarea_set_one_line(g_ta_number, true);
   lv_textarea_set_placeholder_text(g_ta_number, "Nhap ID...");
   lv_textarea_set_cursor_click_pos(g_ta_number, false);
@@ -161,13 +176,14 @@ void keypad_init_screen(const lv_font_t *btn_font,
   lv_obj_t *cont = lv_obj_create(g_keypad_scr);
   // Tăng chiều cao vùng keypad để nút 0-9/CLR to hơn, dễ bấm hơn
   // Slightly increase keypad area height so numeric/CLR buttons appear larger
-  lv_obj_set_size(cont, 460, 215);
-  lv_obj_align(cont, LV_ALIGN_BOTTOM_MID, 0, 10);
+  lv_obj_set_size(cont, 460, 210);
+  lv_obj_align(cont, LV_ALIGN_BOTTOM_MID, 0, 8);
   lv_obj_set_style_bg_opa(cont, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(cont, 0, 0);
   lv_obj_set_style_pad_all(cont, 0, 0);
-  lv_obj_set_style_pad_row(cont, 6, 0);
-  lv_obj_set_style_pad_column(cont, 6, 0);
+  // Reduce padding between keypad cells so buttons are a bit closer together
+  lv_obj_set_style_pad_row(cont, 3, 0);
+  lv_obj_set_style_pad_column(cont, 3, 0);
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
 
   static lv_coord_t col[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
