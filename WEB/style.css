@@ -478,7 +478,10 @@ body {
   }
 }
 
-/* HISTORY + ALERTS FILTERS */
+/* ALERTS LIST */
+/* Alerts styles removed (alerts page has been deleted) */
+
+/* ===== HISTORY (desktop defaults) ===== */
 .history-filters {
   display:flex;
   flex-wrap:wrap;
@@ -503,15 +506,10 @@ body {
   display:flex;
   gap:8px;
 }
-
-/* Make filter groups distribute space evenly so the three "Tất cả" boxes match width.
-   Use a sensible base width so groups are equal on desktop but still shrink on small screens. */
 .history-filters .filter-group {
   flex: 1 1 220px; /* grow/shrink with a preferred base width */
   min-width: 140px; /* prevent becoming too small on narrow viewports */
 }
-
-/* Ensure inputs/selects expand to fill their group's width */
 .history-filters .filter-group input,
 .history-filters .filter-group select {
   width: 100%;
@@ -536,9 +534,6 @@ body {
 .table-history thead {
   background:#f3f4f6;
 }
-
-/* ALERTS LIST */
-/* Alerts styles removed (alerts page has been deleted) */
 
 /* PATIENTS LIST */
 .patients-list {
@@ -829,8 +824,7 @@ body {
   .history-filters { flex-direction: column; align-items: flex-start; }
   .filter-actions { width: 100%; display: flex; gap: 8px; }
 
-  /* Hide Export CSV on mobile to simplify the UI */
-  #his-export-btn { display: none; }
+  /* Hide Export CSV on mobile to simplify the UI (moved to unified mobile block below) */
 
   .sidebar-user { max-width: none; word-break: normal; white-space: normal; }
   /* mobile: make sidebar header bigger like UTE sample */
@@ -1011,7 +1005,7 @@ body {
   .history-filters {
     flex-direction: column;
     align-items: flex-start;
-    gap: px; /* consistent mobile gap so controls sit closer */
+    gap: 8px; /* consistent mobile gap so controls sit closer */
   }
 
   .history-filters .filter-group {
@@ -1114,6 +1108,23 @@ body {
     background: #fff !important;
     margin-bottom: 10px !important;
   }
+
+  /* Mobile-friendly adjustments specifically for history controls */
+  /* Keep Export hidden on mobile; make the filter button and selects responsive. */
+  #his-export-btn { display: none !important; }
+  #his-patient-select {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 360px !important;
+    box-sizing: border-box !important;
+  }
+  .history-filters { gap: 8px !important; }
+  .history-filters .filter-group { width: 100% !important; max-width: 360px !important; }
+  /* Ensure the filter action buttons (Lọc) compress and span full width on mobile */
+  .filter-actions { width: 100% !important; display: flex !important; gap: 8px !important; }
+  .filter-actions .btn-primary,
+  .filter-actions .btn-secondary,
+  #his-apply-btn { flex: 1 1 0 !important; width: 100% !important; min-height: 44px !important; }
 }
 
 /* (merged into unified block above) */

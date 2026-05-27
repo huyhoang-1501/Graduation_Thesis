@@ -4,7 +4,7 @@ MAX30105 particleSensor;
 
 #define MAX301_I2C_ADDR 0x57 // 7-bit I2C address for MAX30102/05
 
-#define BUFFER_SIZE 64
+#define BUFFER_SIZE 100
 
 uint32_t irBuffer[BUFFER_SIZE];
 uint32_t redBuffer[BUFFER_SIZE];
@@ -56,14 +56,17 @@ const uint8_t  MAX_RETRIES       = 5;
 const float TARGET_PRESSURE_MMHG = 180.0f;           // desired inflation pressure
 const float MIN_PROCEED_PRESSURE_MMHG = 160.0f;     // if target not reached, allow proceed if >= this
 const unsigned long PUMP_TIMEOUT_MS = 30000UL;     // timeout for pump inflation (ms)
-// Final deflation target (was 5 mmHg) - can be adjusted (e.g., 10 mmHg for faster runs)
-const float FINAL_DEFLATION_MMHG = 10.0f;
+// Final deflation target (was 5 mmHg) - set to 5 mmHg to match original .ino behavior
+const float FINAL_DEFLATION_MMHG = 5.0f;
 
-#define MAX_SAMPLES 180
+#define MAX_SAMPLES 300
 
-float pressureArr[MAX_SAMPLES];
-float oscArr[MAX_SAMPLES];
-float oscSignedArr[MAX_SAMPLES];
+// Store scaled integer arrays to save DRAM on devices without PSRAM
+// pressureArr: store mmHg * 10 (0.1 mmHg resolution) in int16_t
+// oscArr / oscSignedArr: store values * 1000 in int16_t
+int16_t pressureArr[MAX_SAMPLES];
+int16_t oscArr[MAX_SAMPLES];
+int16_t oscSignedArr[MAX_SAMPLES];
 unsigned long timeArr[MAX_SAMPLES];
 int sampleCount = 0;
 
@@ -150,14 +153,13 @@ void hrspo2bp_loop() {
     cmd.trim();
     cmd.toLowerCase();
     if (cmd == "start") {
-      // trigger AGR12 blood pressure measurement on demand
-      if (!bpInProgress) {
-        bpInProgress = true;
-        measureBloodPressure();
-        bpInProgress = false;
-      } else {
-        Serial.println("BP measurement already in progress...");
-      }
+        // trigger AGR12 blood pressure measurement on demand (run async to avoid blocking)
+        if (!isBPMeasuring()) {
+          startMeasureBloodPressureAsync();
+          Serial.println("BP measurement started (async)...");
+        } else {
+          Serial.println("BP measurement already in progress...");
+        }
     }
     else if (cmd == "stop") {
       // stop pumps/valve (if BP in progress)
@@ -454,8 +456,8 @@ static void bp_task_entry(void *pvParameters) {
 
 void startMeasureBloodPressureAsync() {
   if (bpTaskHandle != NULL) return; // already running
-  // create task with moderate stack size and low priority
-  xTaskCreate(bp_task_entry, "BPTask", 4096, NULL, 1, &bpTaskHandle);
+  // create task with larger stack size and low priority to avoid stack overflow
+  xTaskCreate(bp_task_entry, "BPTask", 8192, NULL, 1, &bpTaskHandle);
 }
 
 bool isBPMeasuring() {
@@ -533,10 +535,11 @@ void measureBloodPressure() {
 
   while (pressure_mmHg > 45.0f && sampleCount < MAX_SAMPLES) {
     if (readPressure(pressure_kPa, pressure_mmHg, raw)) {
-      pressureArr[sampleCount] = pressure_mmHg;
+      // store scaled integer representations to save RAM
+      pressureArr[sampleCount] = (int16_t)constrain((int)roundf(pressure_mmHg * 10.0f), -32768, 32767);
       float y = alpha * y_prev + pressure_mmHg - prev;
-      oscArr[sampleCount] = fabs(y);
-      oscSignedArr[sampleCount] = y;
+      oscArr[sampleCount] = (int16_t)constrain((int)roundf(fabsf(y) * 1000.0f), 0, 32767);
+      oscSignedArr[sampleCount] = (int16_t)constrain((int)roundf(y * 1000.0f), -32768, 32767);
       timeArr[sampleCount] = millis();
       y_prev = y;
       prev = pressure_mmHg;
@@ -569,17 +572,19 @@ void processOscillometric()
     return;
   }
 
-  float ampBuf[MAX_SAMPLES];
-  float cuffBuf[MAX_SAMPLES];
+  static float ampBuf[MAX_SAMPLES];
+  static float cuffBuf[MAX_SAMPLES];
   int ampCount = 0;
 
   for (int i = 1; i < sampleCount - 1; i++) {
+    // oscArr currently stored as scaled int (value*1000)
     if (oscArr[i] > oscArr[i-1] && oscArr[i] > oscArr[i+1]) {
       // find preceding local minimum
       for (int j = i - 1; j >= 1; j--) {
         if (oscArr[j] < oscArr[j-1] && oscArr[j] < oscArr[j+1]) {
-          ampBuf[ampCount] = fabs(oscArr[i] - oscArr[j]);
-          cuffBuf[ampCount] = pressureArr[i];
+          // convert back to float with proper scaling
+          ampBuf[ampCount] = fabsf((float)(oscArr[i] - oscArr[j]) / 1000.0f);
+          cuffBuf[ampCount] = (float)pressureArr[i] / 10.0f; // convert back to mmHg
           ampCount++;
           break;
         }

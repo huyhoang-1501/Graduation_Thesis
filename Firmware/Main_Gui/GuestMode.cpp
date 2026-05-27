@@ -17,6 +17,13 @@ static lv_obj_t *label_dia  = nullptr;
 static GuestBackCallback g_back_callback = nullptr;
 static bool g_active = false;
 static uint32_t g_start_ms = 0;
+// Mode: default runs continuous HR/SpO2. BP mode enables Start button to trigger BP measurement.
+enum GuestModeType { MODE_HR_SPO2 = 0, MODE_BP = 1 };
+static GuestModeType g_mode = MODE_HR_SPO2;
+// When a BP result is available we display it for this many milliseconds before auto-returning
+static const uint32_t k_bp_result_display_ms = 15000;
+static uint32_t g_bp_result_ms = 0;
+static bool g_bp_result_displaying = false;
 
 static const lv_font_t *pick_font_large() {
 #if defined(LV_FONT_MONTSERRAT_24) && (LV_FONT_MONTSERRAT_24 == 1)
@@ -51,6 +58,7 @@ static void back_btn_event_cb(lv_event_t *e) {
 
 static lv_obj_t *btn_start = nullptr;
 static lv_obj_t *btn_mode = nullptr;
+static lv_obj_t *btn_back = nullptr; // persisted so other code can enable/disable during BP measurement
 
 // Start button is decorative in Mode Offline; no event handler is attached.
 
@@ -87,7 +95,9 @@ static void build_guest_screen() {
   // shift the status a bit to the left so it sits under the title nicely
   lv_obj_align(label_state, LV_ALIGN_LEFT_MID, -10, 14);
 
-  lv_obj_t *btn_back = lv_btn_create(header);
+  if (!btn_back) {
+    btn_back = lv_btn_create(header);
+  }
   // reduce button height to match shorter header
   lv_obj_set_size(btn_back, 92, 42);
   lv_obj_align(btn_back, LV_ALIGN_RIGHT_MID, 10, 0);
@@ -218,6 +228,19 @@ static void build_guest_screen() {
       lv_obj_set_style_text_color(mbl, lv_color_make(0, 40, 80), 0);
       lv_obj_set_style_text_font(mbl, pick_font_large(), 0);
       lv_obj_center(mbl);
+      // Mode button switches into BP mode; enable Start only in BP mode.
+      lv_obj_add_event_cb(btn_mode, [](lv_event_t *e){
+        if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+        // enter BP mode and enable Start
+        g_mode = MODE_BP;
+        g_bp_result_displaying = false;
+        // clear any previous transient state
+        if (label_state) lv_label_set_text(label_state, "Nhan Start de do huyet ap...");
+        // clear previous SYS/DIA so user knows results will be new
+        if (label_sys) lv_label_set_text(label_sys, "--");
+        if (label_dia) lv_label_set_text(label_dia, "--");
+        if (btn_start) lv_obj_clear_state(btn_start, LV_STATE_DISABLED);
+      }, LV_EVENT_CLICKED, nullptr);
     }
     // Create as child of the main screen so it sits above the footer and aligns to the screen corner
     btn_start = lv_btn_create(guest_scr);
@@ -234,17 +257,23 @@ static void build_guest_screen() {
     // Decorative Start button: attach event handler to trigger BP measurement
     lv_obj_add_event_cb(btn_start, [](lv_event_t *e){
       if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-      // disable the button to prevent re-entry
-      lv_obj_add_state(btn_start, LV_STATE_DISABLED);
-      if (label_state) lv_label_set_text(label_state, "Dang do huyet ap...");
-      // trigger non-blocking background measurement
-      startMeasureBloodPressureAsync();
+        // disable the button to prevent re-entry
+        lv_obj_add_state(btn_start, LV_STATE_DISABLED);
+        // disable Back while measurement is in progress
+        if (btn_back) lv_obj_add_state(btn_back, LV_STATE_DISABLED);
+        // disable Mode while measurement is in progress
+        if (btn_mode) lv_obj_add_state(btn_mode, LV_STATE_DISABLED);
+        if (label_state) lv_label_set_text(label_state, "Dang do huyet ap...");
+        // trigger non-blocking background measurement
+        startMeasureBloodPressureAsync();
     }, LV_EVENT_CLICKED, nullptr);
     lv_obj_t *lb = lv_label_create(btn_start);
     lv_label_set_text(lb, "Start");
     lv_obj_set_style_text_color(lb, lv_color_make(0, 40, 20), 0);
     lv_obj_set_style_text_font(lb, pick_font_large(), 0);
     lv_obj_center(lb);
+    // Start is disabled by default (only active when user switches to BP mode)
+    lv_obj_add_state(btn_start, LV_STATE_DISABLED);
   }
 }
 
@@ -290,6 +319,12 @@ void GuestMode_Show(GuestBackCallback backCallback) {
     lv_label_set_text(label_sys, "");
     lv_label_set_text(label_dia, "");
     lv_scr_load(guest_scr);
+    // initialize to Mode 1 (HR/SPO2) and ensure Start is disabled by default
+    g_mode = MODE_HR_SPO2;
+    g_bp_result_displaying = false;
+    if (btn_start) lv_obj_add_state(btn_start, LV_STATE_DISABLED);
+    // ensure Mode button is enabled on show
+    if (btn_mode) lv_obj_clear_state(btn_mode, LV_STATE_DISABLED);
     // Measurement modules removed; UI will use simulated/demo values from refresh_values()
   }
 }
@@ -324,11 +359,25 @@ void GuestMode_Loop() {
       else snprintf(buf, sizeof(buf), "--");
       lv_label_set_text(label_dia, buf);
     }
-    // clear transient status text now that results are available
-    if (label_state) lv_label_set_text(label_state, "");
-    // re-enable Start button
-    lv_obj_clear_state(btn_start, LV_STATE_DISABLED);
+    // mark time when result became available; we'll display it for a while then auto-return to HR/SPO2 mode
+    g_bp_result_ms = millis();
+    g_bp_result_displaying = true;
     wasMeasuring = false;
+    // measurement finished -> allow Back button to be pressed now that result is shown
+    if (btn_back) lv_obj_clear_state(btn_back, LV_STATE_DISABLED);
+    // measurement finished -> allow Mode button again
+    if (btn_mode) lv_obj_clear_state(btn_mode, LV_STATE_DISABLED);
+  }
+  // If a BP result is being displayed, check whether the display interval elapsed
+  if (g_bp_result_displaying) {
+    if ((millis() - g_bp_result_ms) >= k_bp_result_display_ms) {
+      // clear transient state text and return to HR/SPO2 mode
+      if (label_state) lv_label_set_text(label_state, "");
+      g_bp_result_displaying = false;
+      g_mode = MODE_HR_SPO2;
+      // ensure Start is disabled again (only active in BP mode)
+      if (btn_start) lv_obj_add_state(btn_start, LV_STATE_DISABLED);
+    }
   }
   // no persistent status text
   refresh_values();

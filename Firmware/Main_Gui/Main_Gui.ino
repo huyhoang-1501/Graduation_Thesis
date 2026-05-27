@@ -185,10 +185,9 @@ static bool local_validate_user_id(const char *userId, char *errMsg, size_t errM
 // ===== RTC sync policy =====
 // Chỉ bật true 1 lần khi muốn ép set RTC theo thời gian compile,
 // sau đó để lại false để tránh bị reset giờ mỗi lần nạp code.
-static const bool RTC_FORCE_SET_ON_BOOT = false;
+static const bool RTC_FORCE_SET_ON_BOOT = true;
 
-// Nếu toolchain của bạn compile theo UTC và muốn cộng múi giờ VN (+7h),
-// đặt thành 7 * 3600. Mặc định 0 (dùng giờ local của máy build).
+
 static const int32_t RTC_TIMEZONE_OFFSET_SEC = 0;
 
 static DateTime get_build_time_with_tz() {
