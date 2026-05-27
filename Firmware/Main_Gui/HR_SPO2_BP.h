@@ -25,6 +25,14 @@ void startMeasureBloodPressureAsync();
 // Query whether a background BP measurement is in progress
 bool isBPMeasuring();
 
+// Track origin of the last BP measurement so UI and upload logic can
+// distinguish measurements initiated from different modes.
+enum BPOrigin { BP_ORIGIN_NONE = 0, BP_ORIGIN_USER = 1, BP_ORIGIN_GUEST = 2 };
+extern volatile int lastBPOrigin;
+
+// Start an async BP measurement and mark the origin (User / Guest)
+void startMeasureBloodPressureAsyncForOrigin(int origin);
+
 // Expose BP read helper if other modules want to call it
 bool readPressure(float &pressure_kPa, float &pressure_mmHg, int16_t &raw);
 

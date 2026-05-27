@@ -1,5 +1,4 @@
 #include "UserDashboard.h"
-
 #include <Arduino.h>
 #include <cstdio>
 #include <ctype.h>
@@ -16,6 +15,7 @@ static lv_obj_t *label_hr   = nullptr;
 static lv_obj_t *label_sys  = nullptr;
 static lv_obj_t *label_dia  = nullptr;
 static lv_obj_t *label_phone = nullptr;
+static lv_obj_t *label_state = nullptr;
 // settings UI labels for thresholds
 static lv_obj_t *settings_scr = nullptr;
 static lv_obj_t *settings_label_phone = nullptr;
@@ -40,6 +40,8 @@ static lv_obj_t *hr_scr = nullptr;
 static lv_obj_t *sys_scr = nullptr;
 static lv_obj_t *dia_scr = nullptr;
 static lv_obj_t *ud_btn_start = nullptr;
+static lv_obj_t *ud_btn_mode = nullptr;
+static lv_obj_t *ud_btn_back = nullptr;
 
 // forward declare metric screen builder
 static void build_metric_screen();
@@ -77,6 +79,13 @@ static void metric_edit_event_cb(lv_event_t *ev) {
 static UserDashboardBackCallback g_back_callback = nullptr;
 static bool g_active = false;
 static uint32_t g_start_ms = 0;
+// Mode: default runs continuous HR/SpO2. BP mode enables Start button to trigger BP measurement.
+enum UserDashboardMode { UDMODE_HR_SPO2 = 0, UDMODE_BP = 1 };
+static UserDashboardMode g_ud_mode = UDMODE_HR_SPO2;
+// When a BP result is available we display it for this many milliseconds before auto-returning
+static const uint32_t k_ud_bp_result_display_ms = 15000;
+static uint32_t g_ud_bp_result_ms = 0;
+static bool g_ud_bp_result_displaying = false;
 static lv_obj_t *g_prev_scr = nullptr;
 // saved original previous screen for multi-step keypad flows
 static lv_obj_t *g_saved_prev_scr = nullptr;
@@ -660,7 +669,14 @@ static void build_ud_screen() {
   lv_obj_set_style_text_color(title, primary, 0);
   // use larger title font like GuestMode
   lv_obj_set_style_text_font(title, pick_font_large(), 0);
-  lv_obj_align(title, LV_ALIGN_LEFT_MID, -10 , -10);
+  lv_obj_align(title, LV_ALIGN_LEFT_MID, -15, -10);
+
+  // transient status label (e.g. "Nhan nut Start de do huyet ap...", "Dang do huyet ap...")
+  label_state = lv_label_create(header);
+  lv_label_set_text(label_state, "");
+  lv_obj_set_style_text_color(label_state, lv_color_make(220, 40, 40), 0);
+  lv_obj_set_style_text_font(label_state, pick_font_small(), 0);
+  lv_obj_align(label_state, LV_ALIGN_LEFT_MID, -15, 14);
 
   lv_obj_t *btn_back = lv_btn_create(header);
   lv_obj_set_size(btn_back, 92, 42);
@@ -680,6 +696,8 @@ static void build_ud_screen() {
   // make Back label larger to match other header buttons
   lv_obj_set_style_text_font(btn_back_label, pick_font_large(), 0);
   lv_obj_center(btn_back_label);
+  // keep a reference to this back button so we can disable it during BP measurement
+  ud_btn_back = btn_back;
 
   // Metrics area (two stacked cards per column like GuestMode)
   lv_obj_t *metrics = lv_obj_create(ud_scr);
@@ -823,6 +841,19 @@ static void build_ud_screen() {
     // use larger font like GuestMode
     lv_obj_set_style_text_font(mbl, pick_font_large(), 0);
     lv_obj_center(mbl);
+    // keep a reference to the Mode button so we can disable it during BP measurement
+    ud_btn_mode = btn_mode;
+    // Mode button switches into BP mode; enable Start only in BP mode.
+    lv_obj_add_event_cb(btn_mode, [](lv_event_t *e){
+      if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+      // enter BP mode and enable Start
+      g_ud_mode = UDMODE_BP;
+      if (label_state) lv_label_set_text(label_state, "Nhan nut Start de do huyet ap...");
+      // clear previous SYS/DIA so user knows results will be new
+      if (label_sys) lv_label_set_text(label_sys, "--");
+      if (label_dia) lv_label_set_text(label_dia, "--");
+      if (ud_btn_start) lv_obj_clear_state(ud_btn_start, LV_STATE_DISABLED);
+    }, LV_EVENT_CLICKED, nullptr);
 
     // Create Start button and position it at the bottom-right corner
     lv_obj_t *btn_start = lv_btn_create(ud_scr);
@@ -839,10 +870,15 @@ static void build_ud_screen() {
     // Decorative Start button: attach event handler to trigger BP measurement
     lv_obj_add_event_cb(btn_start, [](lv_event_t *e){
       if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+      // show measuring status
+      if (label_state) lv_label_set_text(label_state, "Dang do huyet ap...");
       // disable the button to prevent re-entry (use global ud_btn_start)
       if (ud_btn_start) lv_obj_add_state(ud_btn_start, LV_STATE_DISABLED);
-      // trigger non-blocking background measurement
-      startMeasureBloodPressureAsync();
+      // disable Back and Mode while measurement is in progress
+      if (ud_btn_back) lv_obj_add_state(ud_btn_back, LV_STATE_DISABLED);
+      if (ud_btn_mode) lv_obj_add_state(ud_btn_mode, LV_STATE_DISABLED);
+      // trigger non-blocking background measurement (mark origin=USER)
+      startMeasureBloodPressureAsyncForOrigin(BP_ORIGIN_USER);
     }, LV_EVENT_CLICKED, nullptr);
     lv_obj_t *lb = lv_label_create(btn_start);
     lv_label_set_text(lb, "Start");
@@ -852,6 +888,8 @@ static void build_ud_screen() {
 
     // update global ud_btn_start to point to the footer Start button
     ud_btn_start = btn_start;
+    // Start is disabled by default (only active when user switches to BP mode)
+    lv_obj_add_state(ud_btn_start, LV_STATE_DISABLED);
   }
 
 }
@@ -873,12 +911,12 @@ static void refresh_values() {
   }
   // SYS/DIA
   if (label_sys) {
-    if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
+    if (lastBPOrigin == BP_ORIGIN_USER && isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
     else snprintf(buf, sizeof(buf), "--");
     lv_label_set_text(label_sys, buf);
   }
   if (label_dia) {
-    if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
+    if (lastBPOrigin == BP_ORIGIN_USER && isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
     else snprintf(buf, sizeof(buf), "--");
     lv_label_set_text(label_dia, buf);
   }
@@ -896,6 +934,15 @@ void UserDashboard_Show(UserDashboardBackCallback backCallback) {
     if (label_sys)  lv_label_set_text(label_sys, "");
     if (label_dia)  lv_label_set_text(label_dia, "");
     lv_scr_load(ud_scr);
+    // initialize to HR/SPO2 mode and ensure Start is disabled by default
+    g_ud_mode = UDMODE_HR_SPO2;
+    if (ud_btn_start) lv_obj_add_state(ud_btn_start, LV_STATE_DISABLED);
+    // ensure Mode button is enabled on show
+    if (ud_btn_mode) lv_obj_clear_state(ud_btn_mode, LV_STATE_DISABLED);
+    // ensure Back is enabled
+    if (ud_btn_back) lv_obj_clear_state(ud_btn_back, LV_STATE_DISABLED);
+    // clear transient status
+    if (label_state) lv_label_set_text(label_state, "");
   }
 }
 
@@ -920,10 +967,39 @@ void UserDashboard_Loop() {
       else snprintf(buf, sizeof(buf), "--");
       lv_label_set_text(label_dia, buf);
     }
-    if (ud_btn_start) lv_obj_clear_state(ud_btn_start, LV_STATE_DISABLED);
+    // just finished - set result display timer and re-enable Back/Mode
+    if (label_sys) {
+      char buf[32];
+      if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
+      else snprintf(buf, sizeof(buf), "--");
+      lv_label_set_text(label_sys, buf);
+    }
+    if (label_dia) {
+      char buf[32];
+      if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
+      else snprintf(buf, sizeof(buf), "--");
+      lv_label_set_text(label_dia, buf);
+    }
+    // mark time when result became available; we'll display it for a while then auto-return to HR/SPO2 mode
+    g_ud_bp_result_ms = millis();
+    g_ud_bp_result_displaying = true;
     wasMeasuring = false;
+    // measurement finished -> allow Back and Mode buttons now that result is shown
+    if (ud_btn_back) lv_obj_clear_state(ud_btn_back, LV_STATE_DISABLED);
+    if (ud_btn_mode) lv_obj_clear_state(ud_btn_mode, LV_STATE_DISABLED);
   }
 
+  // If a BP result is being displayed, check whether the display interval elapsed
+  if (g_ud_bp_result_displaying) {
+    if ((millis() - g_ud_bp_result_ms) >= k_ud_bp_result_display_ms) {
+      // clear transient state text and return to HR/SPO2 mode
+      if (label_state) lv_label_set_text(label_state, "");
+      g_ud_bp_result_displaying = false;
+      g_ud_mode = UDMODE_HR_SPO2;
+      // ensure Start is disabled again (only active in BP mode)
+      if (ud_btn_start) lv_obj_add_state(ud_btn_start, LV_STATE_DISABLED);
+    }
+  }
   refresh_values();
 }
 

@@ -264,8 +264,8 @@ static void build_guest_screen() {
         // disable Mode while measurement is in progress
         if (btn_mode) lv_obj_add_state(btn_mode, LV_STATE_DISABLED);
         if (label_state) lv_label_set_text(label_state, "Dang do huyet ap...");
-        // trigger non-blocking background measurement
-        startMeasureBloodPressureAsync();
+        // trigger non-blocking background measurement (mark origin=GUEST)
+        startMeasureBloodPressureAsyncForOrigin(BP_ORIGIN_GUEST);
     }, LV_EVENT_CLICKED, nullptr);
     lv_obj_t *lb = lv_label_create(btn_start);
     lv_label_set_text(lb, "Start");
@@ -295,12 +295,12 @@ static void refresh_values() {
   }
   // SYS/DIA are updated by BP run; keep current values
   if (label_sys) {
-    if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
+    if (lastBPOrigin == BP_ORIGIN_GUEST && isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
     else snprintf(buf, sizeof(buf), "--");
     lv_label_set_text(label_sys, buf);
   }
   if (label_dia) {
-    if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
+    if (lastBPOrigin == BP_ORIGIN_GUEST && isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
     else snprintf(buf, sizeof(buf), "--");
     lv_label_set_text(label_dia, buf);
   }

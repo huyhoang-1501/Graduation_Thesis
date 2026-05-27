@@ -19,6 +19,12 @@ int8_t validHeartRate;
 float lastSYS = 0.0f;
 float lastDIA = 0.0f;
 
+// last measurement origin (BP_ORIGIN_*)
+volatile int lastBPOrigin = BP_ORIGIN_NONE;
+
+// origin marker for the BP run about to be started
+static volatile int bpOriginBeforeStart = BP_ORIGIN_NONE;
+
 // ========== SMOOTHING & LED CONTROL FOR MAX301 ==========
 const float HR_EMA_ALPHA = 0.28f;    // lower = smoother, higher = more responsive
 const float SPO2_EMA_ALPHA = 0.45f;  // increased to make SpO2 respond faster
@@ -460,6 +466,11 @@ void startMeasureBloodPressureAsync() {
   xTaskCreate(bp_task_entry, "BPTask", 8192, NULL, 1, &bpTaskHandle);
 }
 
+void startMeasureBloodPressureAsyncForOrigin(int origin) {
+  bpOriginBeforeStart = origin;
+  startMeasureBloodPressureAsync();
+}
+
 bool isBPMeasuring() {
   return bpTaskHandle != NULL;
 }
@@ -649,4 +660,7 @@ void processOscillometric()
   // publish results for UI
   lastSYS = SYS;
   lastDIA = DIA;
+  // mark who started this measurement
+  lastBPOrigin = bpOriginBeforeStart;
+  bpOriginBeforeStart = BP_ORIGIN_NONE;
 }

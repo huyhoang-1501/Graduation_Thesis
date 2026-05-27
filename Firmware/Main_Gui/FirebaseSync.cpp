@@ -47,8 +47,11 @@ static void firebase_task(void *arg) {
     // This allows near-realtime pushes when sensor values update.
     int curHr = (heartRate >= 30 && heartRate <= 220) ? (int)heartRate : -1;
     int curSpo2 = (spo2 >= 50 && spo2 <= 100) ? (int)spo2 : -1;
-    int curSys = (lastSYS > 0.0f) ? (int)roundf(lastSYS) : -1;
-    int curDia = (lastDIA > 0.0f) ? (int)roundf(lastDIA) : -1;
+    // Only consider BP values for upload when the last measurement was initiated
+    // from the User dashboard (online mode). Measurements initiated from Guest
+    // mode should not be uploaded.
+    int curSys = (lastBPOrigin == BP_ORIGIN_USER && lastSYS > 0.0f) ? (int)roundf(lastSYS) : -1;
+    int curDia = (lastBPOrigin == BP_ORIGIN_USER && lastDIA > 0.0f) ? (int)roundf(lastDIA) : -1;
 
     if (curHr != g_last_sent_hr || curSpo2 != g_last_sent_spo2 || curSys != g_last_sent_sys || curDia != g_last_sent_dia) {
       // update snapshot
@@ -327,8 +330,8 @@ static void firebase_push_impl() {
     // Only include fields that look valid (non-zero or in-range)
     String mHr = (heartRate >= 30 && heartRate <= 220) ? String(heartRate) : String("null");
     String mSpo2 = (spo2 >= 50 && spo2 <= 100) ? String(spo2) : String("null");
-    String mSys = (lastSYS > 0.0f) ? String((int)roundf(lastSYS)) : String("null");
-    String mDia = (lastDIA > 0.0f) ? String((int)roundf(lastDIA)) : String("null");
+    String mSys = (lastBPOrigin == BP_ORIGIN_USER && lastSYS > 0.0f) ? String((int)roundf(lastSYS)) : String("null");
+    String mDia = (lastBPOrigin == BP_ORIGIN_USER && lastDIA > 0.0f) ? String((int)roundf(lastDIA)) : String("null");
 
     String meas = String("{") +
       "\"hr\":" + mHr + "," +
