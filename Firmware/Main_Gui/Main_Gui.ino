@@ -185,7 +185,7 @@ static bool local_validate_user_id(const char *userId, char *errMsg, size_t errM
 // ===== RTC sync policy =====
 // Chỉ bật true 1 lần khi muốn ép set RTC theo thời gian compile,
 // sau đó để lại false để tránh bị reset giờ mỗi lần nạp code.
-static const bool RTC_FORCE_SET_ON_BOOT = true;
+static const bool RTC_FORCE_SET_ON_BOOT = false;
 
 
 static const int32_t RTC_TIMEZONE_OFFSET_SEC = 0;
