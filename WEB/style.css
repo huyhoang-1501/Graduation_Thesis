@@ -1128,3 +1128,15 @@ body {
 }
 
 /* (merged into unified block above) */
+
+/* MOBILE: Ensure overview patient select and DEVICE ID input match settings select width on phones */
+@media (max-width: 480px) {
+  /* Use same compact width as the settings patient select for better consistency on small screens */
+  .ov-controls select,
+  #ov-device-id-input {
+    min-width: 160px;
+    max-width: 320px;
+    width: 160px;
+    box-sizing: border-box;
+  }
+}
