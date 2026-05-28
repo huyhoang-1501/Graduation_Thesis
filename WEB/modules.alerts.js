@@ -103,19 +103,19 @@ document.getElementById("alerts-list")?.addEventListener("click", e => {
   }
 
   if (action === "view-history") {
-    // Chuyển sang tab Lịch sử, tạm thời chỉ đổi tab
+    // History tab removed — instead navigate user to Overview where recent data is shown
     const sideItems = document.querySelectorAll(".sidebar-item");
     sideItems.forEach(b => {
-      if (b.dataset.page === "history") b.classList.add("active");
-      else b.classList.remove("active");
+      if (b.dataset.page === "overview") b.classList.add("active");
+      else b.classList.remove('active');
     });
 
     const pages = document.querySelectorAll(".page");
     pages.forEach(p => p.classList.remove("active"));
-    const pageHistory = document.getElementById("page-history");
-    if (pageHistory) pageHistory.classList.add("active");
+    const pageOverview = document.getElementById("page-overview");
+    if (pageOverview) pageOverview.classList.add("active");
 
     const tabTitle = document.getElementById("main-tab-title");
-    if (tabTitle) tabTitle.textContent = "LỊCH SỬ";
+    if (tabTitle) tabTitle.textContent = "TỔNG QUAN";
   }
 });

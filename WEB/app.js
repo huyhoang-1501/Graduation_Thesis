@@ -665,7 +665,6 @@ function initSidebarNavigation() {
 
   const titleMap = {
     overview: "TỔNG QUAN",
-    history: "LỊCH SỬ",
     alerts: "CẢNH BÁO",
     location: "VỊ TRÍ CỦA THIẾT BỊ",
     patients: "THIẾT BỊ / BỆNH NHÂN",
@@ -1225,21 +1224,5 @@ window.addEventListener('load', () => {
 });
 
 function initOtherPages() {
-  renderMockHistory();
-}
-
-function renderMockHistory() {
-  const tbody = document.getElementById("history-table-body");
-  if (tbody) tbody.innerHTML = "";
-
-  // Clear the chart canvas if present. Do not draw any mock chart.
-  const chartEl = document.getElementById("historyChart");
-  if (chartEl && chartEl.getContext) {
-    try {
-      const ctx = chartEl.getContext('2d');
-      ctx.clearRect(0, 0, chartEl.width || chartEl.offsetWidth, chartEl.height || chartEl.offsetHeight);
-    } catch (e) {
-      // ignore
-    }
-  }
+  // Other pages initialization left empty — History tab removed
 }

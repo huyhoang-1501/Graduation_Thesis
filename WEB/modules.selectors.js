@@ -1,12 +1,11 @@
 // ========== PATIENT SELECTORS (Overview / History / Alerts) ==========
 function initPatientSelectors() {
   const ovSel  = document.getElementById("ov-patient-select");
-  const hisSel = document.getElementById("his-patient-select");
   const alSel  = document.getElementById("al-patient-select");
   const setSel = document.getElementById("set-patient-select");
 
   function syncAllPatientSelectors(selectedPid, sourceSel) {
-    [ovSel, hisSel, alSel, setSel].forEach(other => {
+    [ovSel, alSel, setSel].forEach(other => {
       if (other && other !== sourceSel) other.value = selectedPid;
     });
   }
@@ -34,10 +33,8 @@ function initPatientSelectors() {
         const p = patientsCache[pid] || {};
         const displayName = p.name || pid;
         const ovName = document.getElementById("ov-patient-name");
-        const hisName = document.getElementById("his-patient-name");
         const alName = document.getElementById("al-patient-name");
         if (ovName) ovName.textContent = displayName;
-        if (hisName) hisName.textContent = displayName;
         if (alName) alName.textContent = displayName;
 
         if (window.loadThresholdsForCurrentPatient) {
@@ -57,18 +54,16 @@ function initPatientSelectors() {
   }
 
   attachHandler(ovSel, { requireDeviceId: true });
-  attachHandler(hisSel);
   attachHandler(alSel);
   attachHandler(setSel, { keepCurrentPage: true });
 }
 
 function refreshPatientDropdowns(patientsData) {
   const ovSel  = document.getElementById("ov-patient-select");
-  const hisSel = document.getElementById("his-patient-select");
   const alSel  = document.getElementById("al-patient-select");
   const setSel = document.getElementById("set-patient-select");
 
-  const sels = [ovSel, hisSel, alSel, setSel];
+  const sels = [ovSel, alSel, setSel];
   if (!sels.some(Boolean)) return;
 
   sels.forEach(sel => {

@@ -238,10 +238,9 @@ function showOverviewForPatient(patientId) {
   currentPatientId = patientId;
 
   const ovSel = document.getElementById("ov-patient-select");
-  const hisSel = document.getElementById("his-patient-select");
   const alSel = document.getElementById("al-patient-select");
   const setSel = document.getElementById("set-patient-select");
-  [ovSel, hisSel, alSel, setSel].forEach(sel => {
+  [ovSel, alSel, setSel].forEach(sel => {
     if (sel) sel.value = patientId;
   });
 
@@ -335,10 +334,8 @@ function showOverviewForPatient(patientId) {
     const p = snap.val();
     if (!p) return;
     const nameSpan = document.getElementById("ov-patient-name");
-    const hisNameSpan = document.getElementById("his-patient-name");
     const alNameSpan  = document.getElementById("al-patient-name");
     if (nameSpan)    nameSpan.textContent    = p.name || patientId;
-    if (hisNameSpan) hisNameSpan.textContent = p.name || patientId;
     if (alNameSpan)  alNameSpan.textContent  = p.name || patientId;
   });
 

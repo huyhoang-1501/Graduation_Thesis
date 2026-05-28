@@ -186,9 +186,6 @@
           <button class="sidebar-item active" data-page="overview">
             <i class="fas fa-chart-line"></i> Tổng quan
           </button>
-          <button class="sidebar-item" data-page="history">
-            <i class="fas fa-history"></i> Lịch sử
-          </button>
           <button class="sidebar-item" data-page="location">
             <i class="fas fa-map-marker-alt"></i> Vị trí của thiết bị
           </button>
@@ -287,70 +284,7 @@
           </div>
         </section>
 
-        <!-- ========== HISTORY ========== -->
-        <section id="page-history" class="page">
-          <div class="page-header-row">
-            <select id="his-patient-select">
-              <option value="" selected disabled>Chọn bệnh nhân...</option>
-            </select>
-          </div>
-
-          <div class="history-filters">
-            <div class="filter-group">
-              <label>Ngày / Khoảng thời gian</label>
-              <input type="date" id="his-date-from">
-              <span>đến</span>
-              <input type="date" id="his-date-to">
-            </div>
-
-            <div class="filter-group">
-              <label>Loại dữ liệu</label>
-              <select id="his-type">
-                <option value="hr">Heart Rate</option>
-                <option value="bp">Blood Pressure</option>
-                <option value="spo2">SpO₂</option>
-              </select>
-            </div>
-
-            <div class="filter-actions">
-              <button class="btn-primary" id="his-apply-btn">
-                <i class="fas fa-filter"></i> Lọc
-              </button>
-              <button class="btn-secondary" id="his-export-btn">
-                <i class="fas fa-file-export"></i> Export CSV
-              </button>
-            </div>
-          </div>
-
-          <div class="history-layout">
-            <div class="panel panel-full">
-              <div class="panel-header">Biểu đồ dữ liệu</div>
-              <div class="panel-body">
-                <canvas id="historyChart"></canvas>
-              </div>
-            </div>
-
-            <div class="panel panel-full">
-              <div class="panel-header">Bảng dữ liệu</div>
-              <div class="panel-body">
-                <table class="table-history">
-                  <thead>
-                    <tr>
-                      <th>Time</th>
-                      <th>HR</th>
-                      <th>BP Sys</th>
-                      <th>BP Dia</th>
-                      <th>SpO₂</th>
-                    </tr>
-                  </thead>
-                  <tbody id="history-table-body">
-                    <!-- JS render mock -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </section>
+        <!-- HISTORY tab removed -->
 
         <!-- ========== LOCATION (MAP) ========== -->
         <section id="page-location" class="page">

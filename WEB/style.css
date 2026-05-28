@@ -369,7 +369,6 @@ body {
    We aim for a compact, touch-friendly control that won't be forced full-width. */
 #set-patient-select,
 #ov-patient-select,
-#his-patient-select,
 .overview-header select,
 .page-header-row select {
   display: inline-block;
@@ -481,59 +480,7 @@ body {
 /* ALERTS LIST */
 /* Alerts styles removed (alerts page has been deleted) */
 
-/* ===== HISTORY (desktop defaults) ===== */
-.history-filters {
-  display:flex;
-  flex-wrap:wrap;
-  gap:12px;
-  margin-bottom:10px;
-  align-items:flex-end;
-}
-.filter-group {
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-  font-size:12px;
-}
-.filter-group input,
-.filter-group select {
-  padding:6px 8px;
-  border-radius:4px;
-  border:1px solid #ccc;
-  font-size:13px;
-}
-.filter-actions {
-  display:flex;
-  gap:8px;
-}
-.history-filters .filter-group {
-  flex: 1 1 220px; /* grow/shrink with a preferred base width */
-  min-width: 140px; /* prevent becoming too small on narrow viewports */
-}
-.history-filters .filter-group input,
-.history-filters .filter-group select {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* HISTORY TABLE */
-.history-layout .panel-full {
-  margin-top:8px;
-}
-.table-history {
-  width:100%;
-  border-collapse:collapse;
-  font-size:13px;
-}
-.table-history th,
-.table-history td {
-  border:1px solid #e5e7eb;
-  padding:6px 8px;
-  text-align:center;
-}
-.table-history thead {
-  background:#f3f4f6;
-}
+/* HISTORY styles removed (desktop) */
 
 /* PATIENTS LIST */
 .patients-list {
@@ -821,7 +768,7 @@ body {
     min-width: 0;
   }
 
-  .history-filters { flex-direction: column; align-items: flex-start; }
+  /* History filters removed */
   .filter-actions { width: 100%; display: flex; gap: 8px; }
 
   /* Hide Export CSV on mobile to simplify the UI (moved to unified mobile block below) */
@@ -945,100 +892,7 @@ body {
   */
   /* Give more vertical breathing room on mobile */
   .patients-form { gap: 12px; }
-  /* Reduce vertical spacing between filter groups on mobile so controls sit closer together */
-  /* Use a single, consistent gap so controls aren't too far apart. */
-  .history-filters { gap:8px; margin-bottom:8px; }
-
-  /* Make date-range sub-controls tighter and align the "đến" label to the left, matching the
-     visual style of the 'Ngày / Khoảng thời gian' label on mobile. This keeps sizes compact
-     and consistent with the screenshots the user provided. */
-  .history-filters .filter-group {
-    gap: 6px; /* reduced vertical space inside group for tighter stacking */
-    margin-bottom: 6px;
-  }
-
-  /* Make the inline "đến" text match label size and weight and align left with the label */
-  .history-filters .filter-group span {
-    font-size: 13px;
-    font-weight: normal;
-    color: #374151; /* neutral dark gray consistent with labels */
-    align-self: flex-start; /* align to left edge like the label */
-    width: 100%;
-    text-align: left;
-    margin: 0; /* remove extra default spacing */
-    line-height: 1.2;
-  }
-
-  /* Alerts filters removed - keep only history filters on mobile */
-
-  /* Make History/Alerts/Overview patient selects match the Settings tab patient select on mobile
-     - Use the same inline-block sizing and touch-friendly padding as the Settings select so all
-       four selects look identical on small viewports. Remove conflicting full-width overrides. */
-  #set-patient-select,
-  #ov-patient-select,
-  #his-patient-select {
-    display: inline-block;
-    box-sizing: border-box;
-    width: auto;
-    max-width: 320px;
-    min-width: 160px;
-    padding: 10px 12px !important;
-    min-height: 44px !important;
-    font-size: 15px !important;
-    line-height: 1.2 !important;
-    border-radius: 8px !important;
-    border: 2px solid #e6e9ef !important;
-    background: #fff !important;
-  }
-  /* keep other filter inputs/selects compact and touch-friendly */
-  .history-filters .filter-group input,
-  .history-filters .filter-group select {
-    min-height: 36px !important;
-    padding: 6px 8px !important;
-    font-size: 13px !important;
-    line-height: 1.2;
-  }
-
-  /* Arrange History/Alerts filter groups to match mobile screenshots:
-     - Stack groups vertically but keep their controls compact (not full-width).
-     - Provide consistent vertical spacing and keep selects/inputs a comfortable max-width. */
-  .history-filters {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px; /* consistent mobile gap so controls sit closer */
-  }
-
-  .history-filters .filter-group {
-    width: 100%;
-    max-width: 360px; /* group won't stretch forever on wide phones */
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-
-  /* Date inputs in History should span the group's width (full within the group's max-width)
-     so they look like the pill-style date controls in your screenshot. Other selects remain compact. */
-  .history-filters .filter-group input[type="date"] {
-    display: block;
-    width: 100%;
-    max-width: 360px;
-    box-sizing: border-box;
-    padding: 10px 12px !important;
-    min-height: 36px !important;
-    border-radius: 8px !important;
-    border: 2px solid #e6e9ef !important;
-    background: #fff !important;
-    font-size: 14px !important;
-  }
-
-  .history-filters .filter-group input:not([type="date"]),
-  .history-filters .filter-group select {
-    display: inline-block;
-    width: auto;
-    max-width: 320px;
-    box-sizing: border-box;
-  }
+  /* History styles removed */
 
   /* Ensure header containers are positioned so notification card can sit at top-right
      aligned with the patient/device controls on mobile. This keeps the notify box
@@ -1090,41 +944,7 @@ body {
     margin-bottom: 10px;
   }
 
-  /* Ensure History + Alerts patient selects use the same compact/touch-friendly sizing
-     (some filter-group rules may force width:100%; this override restores the compact look). */
-  #his-patient-select,
-  .page#page-history .page-header-row select {
-    display: inline-block !important;
-    box-sizing: border-box !important;
-    width: auto !important;
-    max-width: 320px !important;
-    min-width: 160px !important;
-    padding: 10px 12px !important;
-    min-height: 44px !important;
-    font-size: 15px !important;
-    line-height: 1.2 !important;
-    border-radius: 8px !important;
-    border: 2px solid #e6e9ef !important;
-    background: #fff !important;
-    margin-bottom: 10px !important;
-  }
-
-  /* Mobile-friendly adjustments specifically for history controls */
-  /* Keep Export hidden on mobile; make the filter button and selects responsive. */
-  #his-export-btn { display: none !important; }
-  #his-patient-select {
-    min-width: 0 !important;
-    width: 100% !important;
-    max-width: 360px !important;
-    box-sizing: border-box !important;
-  }
-  .history-filters { gap: 8px !important; }
-  .history-filters .filter-group { width: 100% !important; max-width: 360px !important; }
-  /* Ensure the filter action buttons (Lọc) compress and span full width on mobile */
-  .filter-actions { width: 100% !important; display: flex !important; gap: 8px !important; }
-  .filter-actions .btn-primary,
-  .filter-actions .btn-secondary,
-  #his-apply-btn { flex: 1 1 0 !important; width: 100% !important; min-height: 44px !important; }
+  /* History selectors removed */
 }
 
 /* (merged into unified block above) */

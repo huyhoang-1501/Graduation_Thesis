@@ -24,7 +24,6 @@ function initSettingsModule() {
     const selectedPid = currentPatientId
       || setSel?.value
       || document.getElementById("ov-patient-select")?.value
-      || document.getElementById("his-patient-select")?.value
       || document.getElementById("al-patient-select")?.value
       || "";
 
