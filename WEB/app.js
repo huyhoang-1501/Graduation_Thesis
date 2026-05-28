@@ -665,6 +665,7 @@ function initSidebarNavigation() {
 
   const titleMap = {
     overview: "TỔNG QUAN",
+    history: "LỊCH SỬ",
     alerts: "CẢNH BÁO",
     location: "VỊ TRÍ CỦA THIẾT BỊ",
     patients: "THIẾT BỊ / BỆNH NHÂN",
@@ -1224,5 +1225,12 @@ window.addEventListener('load', () => {
 });
 
 function initOtherPages() {
-  // Other pages initialization left empty — History tab removed
+  // Initialize optional pages/modules
+  try {
+    if (window.initHistoryModule) {
+      window.initHistoryModule();
+    }
+  } catch (e) {
+    console.warn('initHistoryModule failed', e);
+  }
 }

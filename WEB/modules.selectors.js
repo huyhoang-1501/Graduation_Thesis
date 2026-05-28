@@ -1,11 +1,12 @@
 // ========== PATIENT SELECTORS (Overview / History / Alerts) ==========
 function initPatientSelectors() {
   const ovSel  = document.getElementById("ov-patient-select");
+  const hiSel  = document.getElementById("hi-patient-select");
   const alSel  = document.getElementById("al-patient-select");
   const setSel = document.getElementById("set-patient-select");
 
   function syncAllPatientSelectors(selectedPid, sourceSel) {
-    [ovSel, alSel, setSel].forEach(other => {
+    [ovSel, hiSel, alSel, setSel].forEach(other => {
       if (other && other !== sourceSel) other.value = selectedPid;
     });
   }
@@ -54,16 +55,19 @@ function initPatientSelectors() {
   }
 
   attachHandler(ovSel, { requireDeviceId: true });
+  // History stays on the same page (doesn't auto-jump to Overview)
+  attachHandler(hiSel, { keepCurrentPage: true });
   attachHandler(alSel);
   attachHandler(setSel, { keepCurrentPage: true });
 }
 
 function refreshPatientDropdowns(patientsData) {
   const ovSel  = document.getElementById("ov-patient-select");
+  const hiSel  = document.getElementById("hi-patient-select");
   const alSel  = document.getElementById("al-patient-select");
   const setSel = document.getElementById("set-patient-select");
 
-  const sels = [ovSel, alSel, setSel];
+  const sels = [ovSel, hiSel, alSel, setSel];
   if (!sels.some(Boolean)) return;
 
   sels.forEach(sel => {

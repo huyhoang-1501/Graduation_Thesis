@@ -283,7 +283,33 @@ body {
   font-size:13px; text-transform:uppercase;
   color:#6b7280; margin-bottom:6px;
 }
-.stat-title i { margin-right:4px; }
+.stat-title i {
+  margin-right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 10px;
+  background: rgba(100, 116, 139, 0.10);
+  color: #64748b;
+}
+
+/* Overview: colorful icons like History tab */
+.stat-card.stat-hr .stat-title i {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.stat-card.stat-spo2 .stat-title i {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.stat-card.stat-bp .stat-title i {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+}
 .stat-value {
   font-size:34px; font-weight:700; color:#111827; line-height:1;
 }
@@ -480,7 +506,195 @@ body {
 /* ALERTS LIST */
 /* Alerts styles removed (alerts page has been deleted) */
 
-/* HISTORY styles removed (desktop) */
+/* ========== HISTORY ========== */
+.history-panel .panel-body {
+  padding: 14px 12px;
+}
+
+.history-filters {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+  flex: 1 1 260px;
+}
+
+.filter-group label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.filter-group input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid #e6e9ef;
+  background: #fff;
+  font-size: 14px;
+  min-height: 44px;
+}
+
+.filter-group input:focus {
+  outline: none;
+  border-color: #00548a;
+  box-shadow: 0 0 0 3px rgba(0, 84, 138, 0.12);
+}
+
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.filter-actions .btn-primary,
+.filter-actions .btn-secondary {
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-height: 44px;
+  font-weight: 700;
+}
+
+.filter-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.history-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-summary-top {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 12px;
+}
+
+.history-kpi {
+  background: linear-gradient(180deg, rgba(0,84,138,0.06), rgba(0,84,138,0.02));
+  border: 1px solid #e6eef8;
+  border-radius: 12px;
+  padding: 12px 12px;
+}
+
+.history-kpi .kpi-label {
+  font-size: 12px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  margin-bottom: 6px;
+}
+
+.history-kpi .kpi-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.history-kpi .kpi-value-small {
+  font-size: 13px;
+  font-weight: 700;
+  color: #00548a;
+  line-height: 1.2;
+}
+
+.history-summary-table-wrap {
+  width: 100%;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.history-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  min-width: 640px;
+}
+
+.history-summary-table th,
+.history-summary-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #eef2f7;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* Keep metric name column readable */
+.history-summary-table th:first-child,
+.history-summary-table td:first-child {
+  text-align: left;
+}
+
+.history-summary-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  z-index: 1;
+  color: #334155;
+  font-weight: 800;
+}
+
+.history-summary-table tbody tr:nth-child(even) {
+  background: #fbfdff;
+}
+
+.history-table-wrap {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+  background: #fff;
+}
+
+.history-table th,
+.history-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #eef2f7;
+  font-size: 13px;
+  text-align: center;
+}
+
+.history-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f1f5f9;
+  z-index: 1;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.history-table tbody tr:nth-child(even) {
+  background: #fbfdff;
+}
+
+.history-table td.num {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-empty {
+  color: #6b7280;
+  font-size: 13px;
+  text-align: center;
+  padding: 14px 10px;
+}
 
 /* PATIENTS LIST */
 .patients-list {
@@ -768,7 +982,7 @@ body {
     min-width: 0;
   }
 
-  /* History filters removed */
+  /* History: make filter buttons share one row */
   .filter-actions { width: 100%; display: flex; gap: 8px; }
 
   /* Hide Export CSV on mobile to simplify the UI (moved to unified mobile block below) */
@@ -893,6 +1107,10 @@ body {
   /* Give more vertical breathing room on mobile */
   .patients-form { gap: 12px; }
   /* History styles removed */
+  /* History: stack KPI blocks on mobile */
+  .history-summary-top {
+    grid-template-columns: 1fr;
+  }
 
   /* Ensure header containers are positioned so notification card can sit at top-right
      aligned with the patient/device controls on mobile. This keeps the notify box

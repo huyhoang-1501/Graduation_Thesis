@@ -186,6 +186,9 @@
           <button class="sidebar-item active" data-page="overview">
             <i class="fas fa-chart-line"></i> Tổng quan
           </button>
+          <button class="sidebar-item" data-page="history">
+            <i class="fas fa-clock"></i> Lịch sử
+          </button>
           <button class="sidebar-item" data-page="location">
             <i class="fas fa-map-marker-alt"></i> Vị trí của thiết bị
           </button>
@@ -222,21 +225,21 @@
           <div class="overview-container">
             <!-- Row 1: cards -->
             <div class="overview-row">
-              <div class="stat-card">
+              <div class="stat-card stat-hr">
                 <div class="stat-title">
                   <i class="fas fa-heartbeat"></i> Nhịp tim
                 </div>
                 <div class="stat-value" id="ov-hr-value">-- bpm</div>
               </div>
 
-              <div class="stat-card">
+              <div class="stat-card stat-spo2">
                 <div class="stat-title">
                   <i class="fas fa-lungs"></i> SpO₂
                 </div>
                 <div class="stat-value" id="ov-spo2-value">-- %</div>
               </div>
 
-              <div class="stat-card">
+              <div class="stat-card stat-bp">
                 <div class="stat-title">
                   <i class="fas fa-tint"></i> Huyết áp
                 </div>
@@ -284,7 +287,64 @@
           </div>
         </section>
 
-        <!-- HISTORY tab removed -->
+        <!-- ========== HISTORY ========== -->
+        <section id="page-history" class="page">
+          <div class="page-header-row">
+            <select id="hi-patient-select">
+              <option value="" selected disabled>Chọn bệnh nhân...</option>
+            </select>
+          </div>
+
+          <div class="panel history-panel">
+            <div class="panel-header">Chọn khoảng thời gian</div>
+            <div class="panel-body">
+              <div class="history-filters">
+                <div class="filter-group">
+                  <label for="hi-start">Từ</label>
+                  <input type="datetime-local" id="hi-start" placeholder="mm/dd/yyyy --:--" />
+                </div>
+                <div class="filter-group">
+                  <label for="hi-end">Đến</label>
+                  <input type="datetime-local" id="hi-end" placeholder="mm/dd/yyyy --:--" />
+                </div>
+
+                <div class="filter-actions">
+                  <button class="btn-primary" id="hi-load-btn">
+                    <i class="fas fa-download"></i> Tải
+                  </button>
+                  <button class="btn-secondary" id="hi-export-btn" disabled>
+                    <i class="fas fa-file-csv"></i> Xuất CSV
+                  </button>
+                </div>
+              </div>
+              <small id="hi-status" class="phone-status-text"></small>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:12px;">
+            <div class="panel-header">Bảng thống kê chi tiết</div>
+            <div class="panel-body">
+              <div class="history-table-wrap">
+                <table class="history-table">
+                  <thead>
+                    <tr>
+                      <th><i class="fas fa-clock" style="color:#64748b; margin-right:6px;"></i>Thời gian</th>
+                      <th><i class="fas fa-heartbeat" style="color:#ef4444; margin-right:6px;"></i>HR (bpm)</th>
+                      <th><i class="fas fa-lungs" style="color:#3b82f6; margin-right:6px;"></i>SpO₂ (%)</th>
+                      <th><i class="fas fa-arrow-up" style="color:#f59e0b; margin-right:6px;"></i>Systolic (mmHg)</th>
+                      <th><i class="fas fa-arrow-down" style="color:#10b981; margin-right:6px;"></i>Diastolic (mmHg)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="hi-table-body">
+                    <tr>
+                      <td colspan="5" class="history-empty">Chưa có dữ liệu để hiển thị.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <!-- ========== LOCATION (MAP) ========== -->
         <section id="page-location" class="page">
@@ -457,6 +517,7 @@
   <script src="modules.selectors.js"></script>
   <script src="modules.patients.js"></script>
   <script src="modules.settings.js"></script>
+  <script src="modules.history.js"></script>
   <script src="app.js"></script>
 
   <!-- Service worker registration for PWA -->

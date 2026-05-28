@@ -1,6 +1,6 @@
 // bump this value when releasing changes so clients update their service worker
 // Updated to force clients to refresh cached assets after deploy
-const CACHE_NAME = 'health-monitor-v3';
+const CACHE_NAME = 'health-monitor-v4';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -8,6 +8,7 @@ const ASSETS_TO_CACHE = [
   '/app.js',
   '/modules.state.js',
   '/modules.selectors.js',
+  '/modules.history.js',
   '/modules.alerts.js',
   '/modules.patients.js',
   '/modules.settings.js',
