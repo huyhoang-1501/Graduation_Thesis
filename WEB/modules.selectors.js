@@ -72,17 +72,21 @@ function refreshPatientDropdowns(patientsData) {
 
   sels.forEach(sel => {
     if (!sel) return;
-    // If there's only one (or zero) patient in the list, avoid auto-selecting
-    // it on page load/refresh. This prevents the browser restoring a previous
-    // selection and makes the dashboard start with no patient chosen.
+    // Do not auto-select the first patient on page load/reload.
+    // Browsers may otherwise pick the first *enabled* option when the first
+    // option (placeholder) is disabled.
+    // Only keep a selection when the user explicitly selected a patient
+    // (tracked in currentPatientId) and that patient still exists.
     const totalPatients = Object.keys(patientsData).length;
-    const current = (totalPatients <= 1) ? '' : sel.value; // cố gắng giữ lựa chọn hiện tại
+    const desired = (currentPatientId && patientsData[currentPatientId]) ? currentPatientId : '';
     sel.innerHTML = "";
 
     const placeholder = document.createElement("option");
     placeholder.value = "";
     placeholder.textContent = "Chọn bệnh nhân...";
     placeholder.disabled = true;
+    // default selection is the placeholder unless 'desired' is a valid patientId
+    placeholder.selected = !desired;
     sel.appendChild(placeholder);
 
     Object.keys(patientsData).forEach(pid => {
@@ -90,26 +94,21 @@ function refreshPatientDropdowns(patientsData) {
       const opt = document.createElement("option");
       opt.value = pid;
       opt.textContent = p.name || pid;
-      if (pid === current) opt.selected = true;
+      if (pid === desired) opt.selected = true;
       sel.appendChild(opt);
     });
 
-    // Nếu current rỗng hoặc không còn tồn tại thì để placeholder được chọn
-    if (!sel.value) {
-      placeholder.selected = true;
-    }
-
-    // Force placeholder selection on page load when there is only one (or
-    // zero) patient. Some browsers restore form state on reload which can
-    // re-select the option — override that by explicitly setting selectedIndex
-    // to 0 and clearing the value.
-    if (totalPatients <= 1) {
-      try {
+    // Explicitly force the final value to prevent form-state restore and
+    // prevent auto-selecting the first enabled patient.
+    try {
+      if (!desired || !patientsData[desired]) {
         sel.selectedIndex = 0;
         sel.value = '';
-      } catch (e) {
-        // ignore
+      } else {
+        sel.value = desired;
       }
+    } catch (e) {
+      // ignore
     }
   });
 }
