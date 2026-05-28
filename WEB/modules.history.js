@@ -217,7 +217,7 @@
 
   function exportCsv(patientId, rows) {
     if (!rows || !rows.length) {
-      alert("Chưa có dữ liệu để xuất CSV. Hãy bấm Tải trước.");
+      alert("Chưa có dữ liệu để xuất CSV. Hãy bấm Lọc trước.");
       return;
     }
 
@@ -272,7 +272,7 @@
     }
 
     if (statusEl) {
-      statusEl.textContent = "Đang tải dữ liệu...";
+      statusEl.textContent = "Đang lọc dữ liệu...";
       statusEl.style.color = "#6b7280";
     }
 
@@ -289,7 +289,7 @@
       renderDetailTable(tbodyEl, filtered);
 
       if (statusEl) {
-        statusEl.textContent = `Đã tải ${filtered.length} bản ghi.`;
+        statusEl.textContent = `Đã lọc ${filtered.length} bản ghi.`;
         statusEl.style.color = filtered.length ? "#16a34a" : "#6b7280";
       }
 
@@ -333,7 +333,7 @@
       window._historyLastRows = [];
       window._historyLastPatientId = sel.value;
       if (statusEl) {
-        statusEl.textContent = "Chọn thời gian rồi bấm Tải.";
+        statusEl.textContent = "Chọn thời gian rồi bấm Lọc.";
         statusEl.style.color = "#6b7280";
       }
     });
@@ -360,7 +360,7 @@
     });
 
     if (statusEl) {
-      statusEl.textContent = "Chọn bệnh nhân và khoảng thời gian, sau đó bấm Tải.";
+      statusEl.textContent = "Chọn bệnh nhân và khoảng thời gian, sau đó bấm Lọc.";
       statusEl.style.color = "#6b7280";
     }
   }

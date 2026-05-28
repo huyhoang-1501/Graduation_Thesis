@@ -768,9 +768,75 @@ let miniChart;
 let leafletMap;
 let leafletMarker;
 
+function initOverviewEqualCardHeights() {
+  // Keep "Thông báo" card height equal to "Trạng thái thiết bị" on mobile.
+  // We do this via JS because pure CSS can't reliably match heights when cards stack.
+  if (window._ovEqualHeightInit) return;
+  window._ovEqualHeightInit = true;
+
+  const deviceCard = document.querySelector("#page-overview .device-card");
+  const notifyCard = document.getElementById("ov-notify-card");
+  if (!deviceCard || !notifyCard) return;
+
+  const mq = window.matchMedia("(max-width: 768px)");
+
+  let rafId = 0;
+  function apply() {
+    rafId = 0;
+
+    // Clear on desktop
+    if (!mq.matches) {
+      deviceCard.style.height = "";
+      notifyCard.style.height = "";
+      return;
+    }
+
+    // Measure natural heights first
+    deviceCard.style.height = "";
+    notifyCard.style.height = "";
+
+    const devH = deviceCard.getBoundingClientRect().height;
+    const notH = notifyCard.getBoundingClientRect().height;
+    const h = Math.max(devH || 0, notH || 0);
+
+    if (h > 0) {
+      const px = Math.round(h) + "px";
+      deviceCard.style.height = px;
+      notifyCard.style.height = px;
+    }
+  }
+
+  function schedule() {
+    if (rafId) return;
+    rafId = requestAnimationFrame(apply);
+  }
+
+  // Initial
+  schedule();
+
+  // Update on viewport changes
+  window.addEventListener("resize", schedule, { passive: true });
+  if (mq.addEventListener) mq.addEventListener("change", schedule);
+  else if (mq.addListener) mq.addListener(schedule);
+
+  // Update when content changes (device last seen/battery, notify text/count)
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => schedule());
+    ro.observe(deviceCard);
+    ro.observe(notifyCard);
+  }
+
+  if (window.MutationObserver) {
+    const mo = new MutationObserver(() => schedule());
+    mo.observe(deviceCard, { subtree: true, childList: true, characterData: true });
+    mo.observe(notifyCard, { subtree: true, childList: true, characterData: true });
+  }
+}
+
 function initOverview() {
   initMiniChart();
   initMap();
+  initOverviewEqualCardHeights();
 }
 
 function initDeviceBindingModule() {

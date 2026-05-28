@@ -326,6 +326,11 @@ body {
   align-items: flex-start;  /* align contents to the left */
   text-align: left;
 }
+.notify-small .stat-title i {
+  /* Make the bell match the mobile accent color */
+  color: #ffb020;
+  background: rgba(255, 176, 32, 0.16);
+}
 .notify-small .stat-value { font-size:24px; }
 .stat-sub {
   font-size:12px; color:#6b7280; margin-top:4px;
