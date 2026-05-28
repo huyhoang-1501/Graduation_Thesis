@@ -990,6 +990,11 @@ body {
   /* History: make filter buttons share one row */
   .filter-actions { width: 100%; display: flex; gap: 8px; }
 
+    /* History (mobile): hide CSV export button, keep only the Filter button.
+      Make Filter button full-width to match buttons in "Thiết bị / Bệnh nhân" tab. */
+    #hi-export-btn { display: none !important; }
+    #hi-load-btn { width: 100%; }
+
   /* Hide Export CSV on mobile to simplify the UI (moved to unified mobile block below) */
 
   .sidebar-user { max-width: none; word-break: normal; white-space: normal; }
