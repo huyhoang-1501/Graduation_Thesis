@@ -33,6 +33,14 @@ static int g_last_sent_spo2 = -1;
 static int g_last_sent_sys = -1;
 static int g_last_sent_dia = -1;
 
+// History append throttling (avoid creating too many rows)
+static uint32_t g_last_history_push_ms = 0;
+static const uint32_t HISTORY_PUSH_INTERVAL_MS = 15000; // 15s per sample max
+static int g_last_hist_hr = -9999;
+static int g_last_hist_spo2 = -9999;
+static int g_last_hist_sys = -9999;
+static int g_last_hist_dia = -9999;
+
 static void firebase_push_impl();
 
 static bool wifi_connect_if_needed();
@@ -354,14 +362,50 @@ static void firebase_push_impl() {
     String measPayload = String("{\"hr\":") + mHr + ",\"bpSys\":" + mSys + ",\"bpDia\":" + mDia + ",\"spo2\":" + mSpo2 + ",\"timestamp\":{\".sv\":\"timestamp\"}}";
 
     // Write latest measurement to a small /measurements/<userId>/latest node
-    // (cheap for listeners that only need newest value) and append to
-    // /measurements/<userId>/history (optional). This reduces payload size and
-    // makes web listeners (limitToLast(1) or 'latest') faster.
+    // (cheap for listeners that only need newest value). Also append samples to
+    // /measurements/<userId>/history so the web History tab can filter/export by time.
     bool mokLatest = firebase_patch(String("measurements/") + userId + String("/latest"), measPayload);
     if (!mokLatest) {
       Serial.print("[Firebase] measurement latest push fail for "); Serial.println(userId);
     }
-    // History appends removed to reduce write volume; only update /measurements/<userId>/latest
+
+    // Append to history (periodic sampling).
+    // Policy A: save a row every HISTORY_PUSH_INTERVAL_MS (even if values do not change)
+    // so the web History tab can draw a proper timeline. Still allow an immediate one-off
+    // append when a new BP result appears (even if inside the interval).
+    const bool hasMetric = (mHr != "null") || (mSpo2 != "null") || (mSys != "null") || (mDia != "null");
+    const uint32_t nowMs = millis();
+    const bool intervalOk = (g_last_history_push_ms == 0) || (nowMs - g_last_history_push_ms >= HISTORY_PUSH_INTERVAL_MS);
+
+    // Convert to ints for dedup comparisons (use sentinel when null)
+    int iHr = (mHr == "null") ? -1 : (int)roundf(heartRate);
+    int iSpo2 = (mSpo2 == "null") ? -1 : (int)roundf(spo2);
+    int iSys = (mSys == "null") ? -1 : (int)roundf(lastSYS);
+    int iDia = (mDia == "null") ? -1 : (int)roundf(lastDIA);
+    const bool bpChanged = (iSys != g_last_hist_sys) || (iDia != g_last_hist_dia);
+    const bool forceImmediateBpAppend = (!intervalOk) && (mSys != "null" || mDia != "null") && bpChanged;
+
+    if (hasMetric && (intervalOk || forceImmediateBpAppend)) {
+      // Include deviceId to help debugging / future multi-device support
+      String histPayload = String("{\"deviceId\":\"") + deviceId + String("\",") +
+                           String("\"hr\":") + mHr + String(",") +
+                           String("\"bpSys\":") + mSys + String(",") +
+                           String("\"bpDia\":") + mDia + String(",") +
+                           String("\"spo2\":") + mSpo2 + String(",") +
+                           String("\"timestamp\":{\".sv\":\"timestamp\"}") +
+                           String("}");
+
+      bool mokHist = firebase_post(String("measurements/") + userId + String("/history"), histPayload);
+      if (mokHist) {
+        g_last_history_push_ms = nowMs;
+        g_last_hist_hr = iHr;
+        g_last_hist_spo2 = iSpo2;
+        g_last_hist_sys = iSys;
+        g_last_hist_dia = iDia;
+      } else {
+        Serial.print("[Firebase] measurement history append fail for "); Serial.println(userId);
+      }
+    }
   }
 }
 
@@ -427,7 +471,7 @@ bool FirebaseSync_ValidateUserId(const char *userId, char *errMsg, size_t errMsg
 
   // firebase returns null when key not found
   if (out == "null" || out.length() == 0) {
-    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "User ID chua duoc dang ky tren web");
+    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "ID chua duoc dang ky tren web/app");
     return false;
   }
 

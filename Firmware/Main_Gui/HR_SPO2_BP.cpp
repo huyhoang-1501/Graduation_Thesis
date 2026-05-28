@@ -448,6 +448,7 @@ void Max30102_hr_spo2()
 // ===== Background BP task support (non-blocking wrapper) =====
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "FirebaseSync.h"
 
 static TaskHandle_t bpTaskHandle = NULL;
 
@@ -455,6 +456,10 @@ static void bp_task_entry(void *pvParameters) {
   (void)pvParameters;
   // call the blocking measurement
   measureBloodPressure();
+
+  // After finishing a BP run, queue a sync immediately so /latest and /history
+  // get a fresh timestamped record as soon as results are available.
+  FirebaseSync_PushMeasurementNow();
   // mark task as finished
   bpTaskHandle = NULL;
   vTaskDelete(NULL);

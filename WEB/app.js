@@ -348,7 +348,7 @@ function showDeviceById(deviceId) {
     // Detach any previous fine-grained listeners
     if (window._currentDeviceRefs && Array.isArray(window._currentDeviceRefs)) {
       window._currentDeviceRefs.forEach(it => {
-        try { it.ref.off('value', it.handler); } catch (e) { /* ignore */ }
+        try { it.ref.off(it.event || 'value', it.handler); } catch (e) { /* ignore */ }
       });
     }
     window._currentDeviceRefs = [];
@@ -408,7 +408,7 @@ function showDeviceById(deviceId) {
       const r = db.ref(base + '/' + field);
       const handler = snap => cb(snap.val());
       r.on('value', handler);
-      window._currentDeviceRefs.push({ ref: r, handler });
+      window._currentDeviceRefs.push({ ref: r, handler, event: 'value' });
     };
 
     addFieldListener('batteryPercent', v => {
@@ -454,89 +454,47 @@ function showDeviceById(deviceId) {
     const attachMeasWhenReady = () => {
       const pid = window._devicePatientId || '';
       if (!pid) return;
+
+      // Ensure chart is reset to the patient context for this device
+      try { window.resetOverviewMiniChart(pid); } catch (e) { /* ignore */ }
+
+      const applyMeas = (rec) => {
+        const r = (rec && typeof rec === 'object') ? rec : {};
+        if (r.hr != null) {
+          const hrEl = document.getElementById('ov-hr-value');
+          if (hrEl) hrEl.textContent = r.hr + ' bpm';
+        }
+        if (r.spo2 != null) {
+          const spoEl = document.getElementById('ov-spo2-value');
+          if (spoEl) spoEl.textContent = r.spo2 + ' %';
+        }
+        if (r.bpSys != null && r.bpDia != null) {
+          const bpEl = document.getElementById('ov-bp-value');
+          if (bpEl) bpEl.textContent = r.bpSys + ' / ' + r.bpDia + ' mmHg';
+        }
+        try { window.pushOverviewMiniChartSample(r, pid); } catch (e) { /* ignore */ }
+      };
+
       try {
         // Support both structures:
-        // - legacy: measurements/<pid> contains pushed child entries (limitToLast(1))
-        // - current firmware: measurements/<pid>/latest is updated by device
-        // Listen to both so UI works with either format.
-        const measRef = db.ref('measurements/' + pid).limitToLast(1);
-        const measHandler = snap => {
+        // - legacy push: measurements/<pid>/<pushId>
+        // - current firmware: measurements/<pid>/latest
+        const legacyRef = db.ref('measurements/' + pid).limitToLast(1);
+        const legacyHandler = snap => {
           const m = snap.val();
-          // when using limitToLast(1) child_added returns the new child; if we get object, derive values
           const record = (typeof m === 'object' && m !== null) ? (Object.values(m)[0] || Object.values(m)) : m;
-          const rec = record || {};
-          if (rec.hr != null) {
-            const hrEl = document.getElementById('ov-hr-value');
-            if (hrEl) hrEl.textContent = rec.hr + ' bpm';
-          }
-          if (rec.spo2 != null) {
-            const spoEl = document.getElementById('ov-spo2-value');
-            if (spoEl) spoEl.textContent = rec.spo2 + ' %';
-          }
-          if (rec.bpSys != null && rec.bpDia != null) {
-            const bpEl = document.getElementById('ov-bp-value');
-            if (bpEl) bpEl.textContent = rec.bpSys + ' / ' + rec.bpDia + ' mmHg';
-          }
-          // Optionally update chart
-          if (miniChart && rec.hr != null) {
-            try {
-              const MAX_POINTS = 60;
-              miniChart.data.labels.push('');
-              // keep datasets aligned; push null when value missing
-              miniChart.data.datasets[0].data.push(rec.hr != null ? rec.hr : null);
-              miniChart.data.datasets[1].data.push(rec.spo2 != null ? rec.spo2 : null);
-              miniChart.data.datasets[2].data.push(rec.bpSys != null ? rec.bpSys : null);
-              miniChart.data.datasets[3].data.push(rec.bpDia != null ? rec.bpDia : null);
-              if (miniChart.data.labels.length > MAX_POINTS) {
-                miniChart.data.labels.shift();
-                miniChart.data.datasets.forEach(ds => ds.data.shift());
-              }
-              miniChart.update();
-            } catch (e) { /* ignore chart errors */ }
-          }
+          applyMeas(record);
         };
-        measRef.on('child_added', measHandler);
-        window._currentDeviceRefs.push({ ref: measRef, handler: measHandler });
+        legacyRef.on('child_added', legacyHandler);
+        window._currentDeviceRefs.push({ ref: legacyRef, handler: legacyHandler, event: 'child_added' });
 
-        // Also listen to the single '/latest' node that the firmware writes to.
-        try {
-          const latestRef = db.ref('measurements/' + pid + '/latest');
-          const latestHandler = snap => {
-            const rec = snap.val() || {};
-            if (rec.hr != null) {
-              const hrEl = document.getElementById('ov-hr-value');
-              if (hrEl) hrEl.textContent = rec.hr + ' bpm';
-            }
-            if (rec.spo2 != null) {
-              const spoEl = document.getElementById('ov-spo2-value');
-              if (spoEl) spoEl.textContent = rec.spo2 + ' %';
-            }
-            if (rec.bpSys != null && rec.bpDia != null) {
-              const bpEl = document.getElementById('ov-bp-value');
-              if (bpEl) bpEl.textContent = rec.bpSys + ' / ' + rec.bpDia + ' mmHg';
-            }
-            if (miniChart && rec.hr != null) {
-              try {
-                const MAX_POINTS = 60;
-                miniChart.data.labels.push('');
-                miniChart.data.datasets[0].data.push(rec.hr != null ? rec.hr : null);
-                miniChart.data.datasets[1].data.push(rec.spo2 != null ? rec.spo2 : null);
-                miniChart.data.datasets[2].data.push(rec.bpSys != null ? rec.bpSys : null);
-                miniChart.data.datasets[3].data.push(rec.bpDia != null ? rec.bpDia : null);
-                if (miniChart.data.labels.length > MAX_POINTS) {
-                  miniChart.data.labels.shift();
-                  miniChart.data.datasets.forEach(ds => ds.data.shift());
-                }
-                miniChart.update();
-              } catch (e) { /* ignore chart errors */ }
-            }
-          };
-          latestRef.on('value', latestHandler);
-          window._currentDeviceRefs.push({ ref: latestRef, handler: latestHandler });
-        } catch (e) {
-          console.warn('failed to attach latest listener', e);
-        }
-      } catch (e) { console.warn('attachMeasWhenReady failed', e); }
+        const latestRef = db.ref('measurements/' + pid + '/latest');
+        const latestHandler = snap => { applyMeas(snap.val() || {}); };
+        latestRef.on('value', latestHandler);
+        window._currentDeviceRefs.push({ ref: latestRef, handler: latestHandler, event: 'value' });
+      } catch (e) {
+        console.warn('attachMeasWhenReady failed', e);
+      }
     };
 
     // Try attaching measurement listener after small delays until patientId available
@@ -767,6 +725,74 @@ function initSidebarNavigation() {
 let miniChart;
 let leafletMap;
 let leafletMarker;
+
+// Expose chart helpers so other modules (e.g., modules.patients.js) can update
+// the Overview mini chart even though `miniChart` is declared with `let` here.
+window._miniChart = null;
+window._overviewChartPatientId = '';
+window._overviewChartLastKey = '';
+
+function resetOverviewMiniChart(patientId = '') {
+  const chart = window._miniChart;
+  if (patientId) window._overviewChartPatientId = String(patientId);
+  window._overviewChartLastKey = '';
+  if (!chart) return;
+  try {
+    chart.data.labels = [];
+    chart.data.datasets?.forEach(ds => { ds.data = []; });
+    chart.update();
+  } catch (e) {
+    // ignore
+  }
+}
+
+function pushOverviewMiniChartSample(rec, patientId = '') {
+  const chart = window._miniChart;
+  if (!chart || !rec || typeof rec !== 'object') return;
+
+  const pid = String(patientId || window._overviewChartPatientId || '');
+  // If switching patient context, reset chart automatically
+  if (pid && pid !== String(window._overviewChartPatientId || '')) {
+    resetOverviewMiniChart(pid);
+  }
+
+  const hr = Number.isFinite(Number(rec.hr)) ? Number(rec.hr) : null;
+  const spo2 = Number.isFinite(Number(rec.spo2)) ? Number(rec.spo2) : null;
+  const bpSys = Number.isFinite(Number(rec.bpSys)) ? Number(rec.bpSys) : null;
+  const bpDia = Number.isFinite(Number(rec.bpDia)) ? Number(rec.bpDia) : null;
+
+  // Only plot if there is at least one numeric metric
+  const hasAny = (hr !== null) || (spo2 !== null) || (bpSys !== null) || (bpDia !== null);
+  if (!hasAny) return;
+
+  const ts = (rec.timestamp != null) ? Number(rec.timestamp) : NaN;
+  const tsKey = Number.isFinite(ts) && ts > 0 ? String(ts) : '';
+  const key = pid + ':' + tsKey + ':' + [hr, spo2, bpSys, bpDia].join(',');
+  if (key && key === window._overviewChartLastKey) return;
+  window._overviewChartLastKey = key;
+
+  try {
+    const MAX_POINTS = 60;
+    chart.data.labels.push('');
+    // Keep datasets aligned; push null when value missing
+    if (chart.data.datasets[0]) chart.data.datasets[0].data.push(hr);
+    if (chart.data.datasets[1]) chart.data.datasets[1].data.push(spo2);
+    if (chart.data.datasets[2]) chart.data.datasets[2].data.push(bpSys);
+    if (chart.data.datasets[3]) chart.data.datasets[3].data.push(bpDia);
+
+    if (chart.data.labels.length > MAX_POINTS) {
+      chart.data.labels.shift();
+      chart.data.datasets.forEach(ds => ds.data.shift());
+    }
+    chart.update();
+  } catch (e) {
+    // ignore chart errors
+  }
+}
+
+// make helpers available for other scripts
+window.resetOverviewMiniChart = resetOverviewMiniChart;
+window.pushOverviewMiniChartSample = pushOverviewMiniChartSample;
 
 function initOverviewEqualCardHeights() {
   // Keep "Thông báo" card height equal to "Trạng thái thiết bị" on mobile.
@@ -1112,6 +1138,9 @@ function initMiniChart() {
       }
     }
   });
+
+  // Expose the instance so other scripts can update it
+  window._miniChart = miniChart;
 }
 
 function initMap() {

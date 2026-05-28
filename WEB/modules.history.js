@@ -4,6 +4,9 @@
 (function () {
   "use strict";
 
+  // Chart.js instance for History tab
+  let historyChart = null;
+
   function pad2(n) {
     return String(n).padStart(2, "0");
   }
@@ -116,6 +119,223 @@
     const s = v === null || v === undefined ? "" : String(v);
     if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
     return s;
+  }
+
+  function formatShort(ts) {
+    const n = Number(ts);
+    if (!Number.isFinite(n) || n <= 0) return "--";
+    try {
+      // Compact label for the x-axis
+      return new Date(n).toLocaleString(undefined, {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    } catch {
+      return "--";
+    }
+  }
+
+  function downsampleSortedRows(sortedAsc, maxPoints) {
+    if (!Array.isArray(sortedAsc)) return [];
+    if (!maxPoints || sortedAsc.length <= maxPoints) return sortedAsc;
+    const stride = Math.ceil(sortedAsc.length / maxPoints);
+    const out = [];
+    for (let i = 0; i < sortedAsc.length; i += stride) out.push(sortedAsc[i]);
+    // Ensure last point is included (helps chart end at the expected time)
+    const last = sortedAsc[sortedAsc.length - 1];
+    if (out.length && out[out.length - 1] !== last) out.push(last);
+    return out;
+  }
+
+  function clearHistoryChart(statusEl) {
+    if (historyChart) {
+      historyChart.data.labels = [];
+      historyChart.data.datasets.forEach((ds) => (ds.data = []));
+      try {
+        historyChart.update();
+      } catch {
+        // ignore
+      }
+    }
+    if (statusEl) {
+      statusEl.textContent = "Chưa có dữ liệu. Chọn khoảng thời gian rồi bấm Lọc.";
+      statusEl.style.color = "#6b7280";
+    }
+  }
+
+  function ensureHistoryChart(canvasEl) {
+    if (!canvasEl) return null;
+    if (historyChart) return historyChart;
+    if (typeof Chart === "undefined") {
+      console.warn("Chart.js not found; history chart disabled");
+      return null;
+    }
+
+    const ctx = canvasEl.getContext("2d");
+    if (!ctx) return null;
+
+    historyChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "Nhịp Tim (bpm)",
+            data: [],
+            borderColor: "#ef4444",
+            backgroundColor: "rgba(239,68,68,0.12)",
+            fill: false,
+            tension: 0.25,
+            pointRadius: 2,
+            yAxisID: "y"
+          },
+          {
+            label: "SpO₂ (%)",
+            data: [],
+            borderColor: "#3b82f6",
+            backgroundColor: "rgba(59,130,246,0.10)",
+            fill: false,
+            tension: 0.25,
+            pointRadius: 2,
+            yAxisID: "ySpo2"
+          },
+          {
+            label: "BP Sys (mmHg)",
+            data: [],
+            borderColor: "#f59e0b",
+            backgroundColor: "rgba(245,158,11,0.10)",
+            fill: false,
+            tension: 0.15,
+            pointRadius: 2,
+            yAxisID: "yBp"
+          },
+          {
+            label: "BP Dia (mmHg)",
+            data: [],
+            borderColor: "#10b981",
+            backgroundColor: "rgba(16,185,129,0.10)",
+            fill: false,
+            tension: 0.15,
+            pointRadius: 2,
+            yAxisID: "yBp"
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { position: "top" },
+          tooltip: {
+            callbacks: {
+              title: (items) => {
+                const i = items && items[0];
+                const label = i ? i.label : "";
+                return label || "";
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            display: true,
+            ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+            grid: { color: "rgba(148,163,184,0.25)" }
+          },
+          y: {
+            type: "linear",
+            display: true,
+            position: "left",
+            title: { display: true, text: "HR" }
+          },
+          ySpo2: {
+            type: "linear",
+            display: true,
+            position: "right",
+            suggestedMin: 70,
+            suggestedMax: 100,
+            title: { display: true, text: "SpO₂" },
+            grid: { drawOnChartArea: false }
+          },
+          yBp: {
+            type: "linear",
+            display: true,
+            position: "right",
+            offset: true,
+            suggestedMin: 40,
+            suggestedMax: 200,
+            title: { display: true, text: "BP" },
+            grid: { drawOnChartArea: false }
+          }
+        }
+      }
+    });
+
+    return historyChart;
+  }
+
+  function renderHistoryChart(canvasEl, statusEl, rows, startTs, endTs) {
+    if (!canvasEl) return;
+
+    const chart = ensureHistoryChart(canvasEl);
+    if (!chart) return;
+
+    if (!rows || !rows.length) {
+      clearHistoryChart(statusEl);
+      return;
+    }
+
+    const sortedAsc = [...rows].sort((a, b) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0));
+    const MAX_POINTS = 600;
+    const sampled = downsampleSortedRows(sortedAsc, MAX_POINTS);
+
+    const labels = sampled.map((r) => formatShort(r.timestamp));
+    const hr = sampled.map((r) => (r.hr === null ? null : r.hr));
+    const spo2 = sampled.map((r) => (r.spo2 === null ? null : r.spo2));
+    const sys = sampled.map((r) => (r.bpSys === null ? null : r.bpSys));
+    const dia = sampled.map((r) => (r.bpDia === null ? null : r.bpDia));
+
+    chart.data.labels = labels;
+    if (chart.data.datasets[0]) chart.data.datasets[0].data = hr;
+    if (chart.data.datasets[1]) chart.data.datasets[1].data = spo2;
+    if (chart.data.datasets[2]) chart.data.datasets[2].data = sys;
+    if (chart.data.datasets[3]) chart.data.datasets[3].data = dia;
+
+    // Auto-hide datasets that are completely empty in the selected range.
+    // Important: do NOT force-show datasets (so legend toggles remain respected).
+    chart.data.datasets.forEach((ds) => {
+      const hasAny = Array.isArray(ds.data) && ds.data.some((v) => Number.isFinite(v));
+      if (!hasAny) ds.hidden = true;
+    });
+
+    try {
+      chart.update();
+      // Some layouts need a delayed resize when switching tabs
+      setTimeout(() => {
+        try {
+          chart.resize();
+        } catch {
+          // ignore
+        }
+      }, 80);
+    } catch (e) {
+      console.warn("historyChart update failed", e);
+    }
+
+    if (statusEl) {
+      const rangeText =
+        (startTs ? formatLocal(startTs) : "--") +
+        " → " +
+        (endTs ? formatLocal(endTs) : "--");
+      const pointText = sampled.length !== sortedAsc.length
+        ? `${sampled.length}/${sortedAsc.length} điểm (đã lấy mẫu)`
+        : `${sampled.length} điểm`;
+      statusEl.textContent = `Biểu đồ: ${pointText}. Khoảng thời gian: ${rangeText}.`;
+      statusEl.style.color = "#6b7280";
+    }
   }
 
   async function loadHistoryRows(patientId) {
@@ -256,7 +476,7 @@
     setTimeout(() => URL.revokeObjectURL(url), 3000);
   }
 
-  async function doLoad({ patientId, startTs, endTs, statusEl, tbodyEl, exportBtn }) {
+  async function doLoad({ patientId, startTs, endTs, statusEl, tbodyEl, exportBtn, chartCanvas, chartStatusEl }) {
     if (!patientId) {
       alert("Vui lòng chọn bệnh nhân.");
       return;
@@ -287,6 +507,7 @@
       window._historyLastPatientId = patientId;
 
       renderDetailTable(tbodyEl, filtered);
+      renderHistoryChart(chartCanvas, chartStatusEl, filtered, startTs, endTs);
 
       if (statusEl) {
         statusEl.textContent = `Đã lọc ${filtered.length} bản ghi.`;
@@ -303,6 +524,7 @@
       if (tbodyEl) {
         tbodyEl.innerHTML = `<tr><td colspan="5" class="history-empty">Lỗi tải dữ liệu.</td></tr>`;
       }
+      clearHistoryChart(chartStatusEl);
     }
   }
 
@@ -314,6 +536,8 @@
     const exportBtn = document.getElementById("hi-export-btn");
     const statusEl = document.getElementById("hi-status");
     const tbodyEl = document.getElementById("hi-table-body");
+    const chartCanvas = document.getElementById("historyChart");
+    const chartStatusEl = document.getElementById("hi-chart-status");
 
     if (!sel || !startEl || !endEl || !loadBtn || !exportBtn || !tbodyEl) return;
 
@@ -332,6 +556,7 @@
       exportBtn.disabled = true;
       window._historyLastRows = [];
       window._historyLastPatientId = sel.value;
+      clearHistoryChart(chartStatusEl);
       if (statusEl) {
         statusEl.textContent = "Chọn thời gian rồi bấm Lọc.";
         statusEl.style.color = "#6b7280";
@@ -349,7 +574,9 @@
         endTs,
         statusEl,
         tbodyEl,
-        exportBtn
+        exportBtn,
+        chartCanvas,
+        chartStatusEl
       });
     });
 
@@ -363,6 +590,9 @@
       statusEl.textContent = "Chọn bệnh nhân và khoảng thời gian, sau đó bấm Lọc.";
       statusEl.style.color = "#6b7280";
     }
+
+    // Provide an initial hint for the chart area
+    clearHistoryChart(chartStatusEl);
   }
 
   // Expose to app.js

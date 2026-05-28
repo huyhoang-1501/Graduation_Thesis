@@ -235,6 +235,11 @@ function showOverviewForPatient(patientId) {
     return;
   }
 
+  // Reset Overview mini chart for this patient context (so lines don't mix between patients)
+  try {
+    if (window.resetOverviewMiniChart) window.resetOverviewMiniChart(patientId);
+  } catch (e) { /* ignore */ }
+
   currentPatientId = patientId;
 
   const ovSel = document.getElementById("ov-patient-select");
@@ -363,6 +368,11 @@ function showOverviewForPatient(patientId) {
     if (rec && rec.location && rec.location.lat != null && rec.location.lng != null) {
       updateMapLocation(rec.location.lat, rec.location.lng);
     }
+
+    // Update the mini chart in Overview
+    try {
+      if (window.pushOverviewMiniChartSample) window.pushOverviewMiniChartSample(rec, patientId);
+    } catch (e) { /* ignore */ }
   };
 
   // 2a) One-time read: support both legacy (object) and /latest structure

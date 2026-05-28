@@ -45,7 +45,7 @@ static void ensure_status_label() {
   lv_obj_align(g_status_label, LV_ALIGN_TOP_RIGHT, -4, 6);
   lv_obj_set_style_text_align(g_status_label, LV_TEXT_ALIGN_RIGHT, 0);
   lv_obj_set_style_text_color(g_status_label, lv_color_make(80, 120, 140), 0);
-  lv_label_set_text(g_status_label, "Nhap User ID 5 so da tao tren web/app");
+  lv_label_set_text(g_status_label, "Nhap ID 5 so da tao tren web/app");
 }
 
 void UserMode_SetStatus(const char *text, bool is_error) {
@@ -123,7 +123,7 @@ void UserMode_Init(const lv_font_t *btn_font,
     g_inited = true;
   }
 
-  keypad_set_placeholder_text("Nhap User ID 5 so da dang ky...");
+  keypad_set_placeholder_text("Nhap ID 5 so da dang ky...");
   ensure_status_label();
 }
 
