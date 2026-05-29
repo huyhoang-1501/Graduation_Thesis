@@ -1,0 +1,10 @@
+Keep this file and signing.keystore in a safe place. You'll need these files if you want to upload future versions of your PWA to the Google Play Store.
+
+Key store file: signing.keystore
+Key store password: iRX_2WMJDqek
+Key alias: my-key-alias
+Key password: iRX_2WMJDqek
+Signer's full name: HealthGuardian Admin
+Signer's organization: Health Guardian Portal
+Signer's organizational unit: Engineering
+Signer's country code: US
