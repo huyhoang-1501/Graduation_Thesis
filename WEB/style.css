@@ -415,7 +415,11 @@ body {
   /* Make the small notification card more compact */
   .notify-small {
     padding: 6px 8px 6px 6px; /* was 10px 12px 10px 8px */
-    flex: 0 0 120px; /* slightly narrower */
+    /* Do not force a fixed flex-basis on mobile (when stacked vertically this
+       would become a forced height). Let it size naturally or be controlled
+       by JS which can set an explicit height to match the device card. */
+    flex: 0 0 auto;
+    align-self: stretch;
     justify-content: flex-start;
   }
 
@@ -1030,11 +1034,10 @@ body {
 
   /* Mobile: compact/small notification card (kept small and tidy) */
   .notify-small {
-    /* IMPORTANT: on mobile `.overview-row` switches to `flex-direction: column`.
-       If we keep `flex: 0 0 140px`, that 140px becomes a FIXED HEIGHT, which
-       makes the notify card taller/shorter than the device card and also
-       prevents JS from equalizing heights. Keep sizing content-driven. */
+    /* Avoid forcing a fixed flex-basis (which becomes a fixed height when
+       flex-direction is column). Allow natural sizing or JS-driven heights. */
     flex: 0 0 auto;
+    align-self: stretch;
     width: auto;
     display: flex;
     flex-direction: column; /* stacked: count above, label below */
@@ -1227,15 +1230,21 @@ body {
   }
 
   /* Place the small notification card at the top-right of the header and vertically
-     center it relative to the header's content (so it lines up with ov-controls). */
+     center it relative to the header's content (so it lines up with ov-controls).
+     NOTE: for height-matching we prefer the notify card to remain in the flow
+     so JS/CSS can size it relative to the device card. On mobile we keep it
+     visually aligned but do not use absolute positioning which removes it
+     from the flow and prevents natural height matching. */
   .overview-header .notify-small,
   .page-header-row .notify-small {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
+    /* avoid absolute positioning on mobile to allow height sync with device card */
+    position: static;
+    right: auto;
+    top: auto;
+    transform: none;
     z-index: 5;
     margin: 0; /* remove any extra margin that could push it down */
+    align-self: flex-end; /* keep it visually to the right when header is flex/flow */
   }
 
   /* Alerts: stack small selects vertically and keep them compact like the screenshot */
