@@ -498,8 +498,14 @@
       const a = document.createElement("a");
       const url = URL.createObjectURL(blob);
 
-      const safeName = String(displayName || patientId || "patient").replace(/[^a-zA-Z0-9_-]+/g, "_");
-      const filename = `history_${safeName}.csv`;
+      // Normalize name to ASCII (remove diacritics) then sanitize to filename-safe chars.
+      // Example: "Nguyễn Văn Á" -> "Nguyen_Van_A"
+      const rawName = String(displayName || patientId || "patient");
+      const normalized = rawName.normalize && rawName.normalize('NFD')
+        ? rawName.normalize('NFD').replace(/\p{Diacritic}/gu, '')
+        : rawName.replace(/[\u0300-\u036f]/g, '');
+      const safeName = String(normalized).replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+      const filename = `history_${safeName || 'patient'}.csv`;
 
       a.href = url;
       a.download = filename;
