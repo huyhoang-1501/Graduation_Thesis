@@ -730,7 +730,37 @@ body {
 /* History chart */
 #historyChart {
   width: 100%;
+  /* fixed visual height to match the Overview chart and prevent stretching when scrolling */
   height: 360px; /* fallback height; JS may override via adjustChartHeights */
+  max-height: 360px;
+  min-height: 260px;
+}
+
+/* Ensure the canvas inside the history chart uses the container's height so Chart.js doesn't recompute a taller size
+   when the page is scrolled or layout changes. This prevents the 'giãn' effect. */
+#historyChart canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+/* Make overview charts use the same visual height for visual consistency */
+.overview-container .panel-body canvas,
+.overview-container #overviewChart,
+.overview-container canvas[data-chart] {
+  height: 360px !important;
+  max-height: 360px;
+}
+
+/* Mobile: slightly smaller fixed height so charts fit well on phones */
+@media (max-width: 768px) {
+  #historyChart,
+  .overview-container .panel-body canvas,
+  .overview-container #overviewChart,
+  .overview-container canvas[data-chart] {
+    height: 320px !important;
+    max-height: 320px;
+  }
 }
 
 .history-chart-note {
@@ -874,6 +904,10 @@ body {
     flex-direction: column;
     justify-content: center;
   }
+
+  /* Force compact, matching paddings so both cards measure similarly on mobile */
+  .overview-row .device-card { padding: 8px 10px; }
+  .overview-row .notify-small { padding: 8px 10px; min-height: 0; }
 }
 .settings-grid label {
   font-size:12px;

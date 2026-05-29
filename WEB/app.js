@@ -1296,15 +1296,22 @@ function adjustChartHeights() {
     if (avail > 900) avail = 900;
     // set style height so Chart.js (maintainAspectRatio:false) will fill
     // For historyChart we prefer responsive compact heights so it looks like the miniChart on phones
+    // For the history chart we prefer CSS to control the visual height so it
+    // remains consistent with the Overview chart and doesn't get 'stretched'
+    // when scrolling. Only set inline heights for other canvases.
     if (canvas.id === 'historyChart') {
-      // Use fixed compact heights by viewport width to ensure consistent mobile appearance
-      if (window.innerWidth <= 480) {
-        canvas.style.height = '160px';
-      } else if (window.innerWidth <= 768) {
-        canvas.style.height = '200px';
-      } else {
-        canvas.style.height = '220px';
+      // Respect stylesheet rules. If a developer explicitly sets
+      // data-force-adjust on the canvas, allow JS to override; otherwise do nothing.
+      if (canvas.dataset && canvas.dataset.forceAdjust === 'true') {
+        if (window.innerWidth <= 480) {
+          canvas.style.height = '160px';
+        } else if (window.innerWidth <= 768) {
+          canvas.style.height = '200px';
+        } else {
+          canvas.style.height = '220px';
+        }
       }
+      // else: leave CSS-controlled height alone
     } else {
       canvas.style.height = avail + 'px';
     }

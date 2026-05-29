@@ -247,7 +247,11 @@
             type: "linear",
             display: true,
             position: "left",
-            beginAtZero: false
+            beginAtZero: false,
+            // Keep HR axis scaling visually consistent with the Overview mini chart
+            // so users see comparable ranges/scale between tabs.
+            suggestedMin: 40,
+            suggestedMax: 220
           },
           ySpo2: {
             type: "linear",
@@ -570,6 +574,8 @@
     const statusEl = document.getElementById("hi-status");
     const tbodyEl = document.getElementById("hi-table-body");
     const chartCanvas = document.getElementById("historyChart");
+    // Ensure any previous inline height set by older JS runs is cleared so CSS rules apply
+    if (chartCanvas && chartCanvas.style) chartCanvas.style.height = "";
     const chartStatusEl = document.getElementById("hi-chart-status");
 
     if (!sel || !startEl || !endEl || !loadBtn || !exportBtn || !tbodyEl) return;
