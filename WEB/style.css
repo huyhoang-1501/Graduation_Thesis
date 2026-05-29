@@ -1030,7 +1030,11 @@ body {
 
   /* Mobile: compact/small notification card (kept small and tidy) */
   .notify-small {
-    flex: 0 0 140px; /* fixed compact width */
+    /* IMPORTANT: on mobile `.overview-row` switches to `flex-direction: column`.
+       If we keep `flex: 0 0 140px`, that 140px becomes a FIXED HEIGHT, which
+       makes the notify card taller/shorter than the device card and also
+       prevents JS from equalizing heights. Keep sizing content-driven. */
+    flex: 0 0 auto;
     width: auto;
     display: flex;
     flex-direction: column; /* stacked: count above, label below */

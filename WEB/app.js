@@ -814,21 +814,22 @@ function initOverviewEqualCardHeights() {
     if (!mq.matches) {
       deviceCard.style.height = "";
       notifyCard.style.height = "";
+      notifyCard.style.overflow = "";
       return;
     }
 
-    // Measure natural heights first
+    // IMPORTANT: Take device card's NATURAL height as the source of truth.
+    // We only constrain the notify card to match it, so notify can never
+    // force the device card to grow taller.
     deviceCard.style.height = "";
     notifyCard.style.height = "";
 
     const devH = deviceCard.getBoundingClientRect().height;
-    const notH = notifyCard.getBoundingClientRect().height;
-    const h = Math.max(devH || 0, notH || 0);
-
-    if (h > 0) {
-      const px = Math.round(h) + "px";
-      deviceCard.style.height = px;
+    if (devH > 0) {
+      const px = Math.round(devH) + "px";
       notifyCard.style.height = px;
+      // Avoid notify content pushing layout when constrained
+      notifyCard.style.overflow = "hidden";
     }
   }
 
@@ -956,11 +957,12 @@ function initDeviceBindingModule() {
         // Ensure there's a settings entry for this patientId. We keep settings keyed by patientId
         // (safer than using patient name as key because names may not be unique or key-safe).
         try {
-          await db.ref('settings/' + patientId).set({
+          // Store settings under the patient node so deletion cascades naturally.
+          await db.ref('patients/' + patientId + '/settings').set({
             patientId,
             name: oldPatient?.name || ("Bệnh nhân " + patientId.slice(-4)),
             thresholds: oldPatient?.thresholds || {},
-            phone: oldPatient?.phone || ''
+            alertphone: oldPatient?.phone || ''
           });
         } catch (err) {
           console.warn('Không lưu được settings mặc định cho bệnh nhân:', err);

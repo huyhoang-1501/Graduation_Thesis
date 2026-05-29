@@ -39,7 +39,7 @@ function initSettingsModule() {
       return;
     }
 
-    db.ref("settings/" + pid + "/thresholds")
+    db.ref("patients/" + pid + "/settings/thresholds")
       .once("value")
       .then(snap => {
         const th = snap.val() || {};
@@ -65,7 +65,7 @@ function initSettingsModule() {
   thSaveBtn?.addEventListener("click", () => {
     const pid = getSelectedPatientId();
     if (!pid) {
-      alert("Chưa chọn bệnh nhân. Hãy chọn ở dropdown trong tab Cài đặt.");
+      alert("Chưa chọn bệnh nhân.");
       return;
     }
 
@@ -80,7 +80,7 @@ function initSettingsModule() {
       spo2Max:  thSpo2Max.value ? Number(thSpo2Max.value) : null
     };
 
-    db.ref("settings/" + pid + "/thresholds")
+    db.ref("patients/" + pid + "/settings/thresholds")
       .set(th)
       .then(() => {
         thStatus.textContent = "Đã lưu ngưỡng cho bệnh nhân " + pid;
@@ -96,7 +96,7 @@ function initSettingsModule() {
       alert("Chưa chọn bệnh nhân.");
       return;
     }
-    db.ref("settings/" + pid + "/thresholds")
+    db.ref("patients/" + pid + "/settings/thresholds")
       .remove()
       .then(() => {
         thHrMin.value = "";
@@ -124,7 +124,7 @@ function initSettingsModule() {
       return;
     }
 
-    db.ref("settings/" + pid + "/alertphone")
+    db.ref("patients/" + pid + "/settings/alertphone")
       .once("value")
       .then(snap => {
         const phone = snap.val() || "";
@@ -140,7 +140,7 @@ function initSettingsModule() {
   phoneSaveBtn?.addEventListener("click", () => {
     const pid = getSelectedPatientId();
     if (!pid) {
-      alert("Chưa chọn bệnh nhân. Hãy chọn ở dropdown trong tab Cài đặt.");
+      alert("Chưa chọn bệnh nhân.");
       return;
     }
     const phone = phoneInput.value.trim();
@@ -150,7 +150,7 @@ function initSettingsModule() {
       return;
     }
 
-    db.ref("settings/" + pid + "/alertphone")
+    db.ref("patients/" + pid + "/settings/alertphone")
       .set(phone)
       .then(() => {
         phoneStatus.textContent = "Đã lưu số điện thoại cho bệnh nhân " + pid;
@@ -167,7 +167,7 @@ function initSettingsModule() {
       return;
     }
 
-    db.ref("settings/" + pid + "/alertphone")
+    db.ref("patients/" + pid + "/settings/alertphone")
       .remove()
       .then(() => {
         phoneInput.value = "";

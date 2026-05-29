@@ -107,11 +107,13 @@ function initPatientsModule() {
       .then(async () => {
         // create/update settings node for this patientId
         try {
-          await db.ref('settings/' + patientId).set({
+          // Store settings nested under the patient so that deleting the patient
+          // removes its settings automatically.
+          await db.ref('patients/' + patientId + '/settings').set({
             patientId,
             name,
             thresholds: {},
-            phone: ''
+            alertphone: ''
           });
         } catch (err) {
           console.warn('Không lưu được settings mặc định cho bệnh nhân:', err);
@@ -136,10 +138,20 @@ function initPatientsModule() {
     const pid = btn.dataset.pid;
     const action = btn.dataset.action;
 
-    if (action === "delete") {
+      if (action === "delete") {
       if (!confirm("Xóa bệnh nhân này?")) return;
-      db.ref("patients/" + pid).remove();
-      // tùy bạn có muốn xóa measurements/alerts/settings của pid này không
+      // Remove the patient node. Settings are now stored under
+      // /patients/<pid>/settings so they will be removed together.
+      // Also remove legacy top-level nodes to keep DB clean.
+      db.ref("patients/" + pid).remove()
+        .then(() => Promise.all([
+          // legacy top-level settings (if any) cleanup
+          db.ref('settings/' + pid).remove().catch(() => {}),
+          // measurements and alerts cleanup (optional but useful)
+          db.ref('measurements/' + pid).remove().catch(() => {}),
+          db.ref('alerts/' + pid).remove().catch(() => {})
+        ]))
+        .catch(err => console.error('Xóa bệnh nhân lỗi', err));
     }
 
     if (action === "view") {
