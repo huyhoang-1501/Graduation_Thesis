@@ -830,6 +830,18 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* MOBILE: ensure device status and notification cards use flex layout so JS can
+   measure and set explicit heights. We avoid fixed min-height so the JS matcher
+   decides the final pixel height at runtime. */
+@media (max-width: 768px) {
+  .overview-row .device-card,
+  .overview-row .notify-small {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+}
 .settings-grid label {
   font-size:12px;
   display:block;
