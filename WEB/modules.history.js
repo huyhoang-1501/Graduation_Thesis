@@ -207,8 +207,9 @@
             borderColor: "#f59e0b",
             backgroundColor: "rgba(245,158,11,0.10)",
             fill: false,
-            tension: 0.15,
-            pointRadius: 2,
+                tension: 0,
+                pointRadius: 3,
+                spanGaps: false,
             yAxisID: "yBp"
           },
           {
@@ -216,9 +217,10 @@
             data: [],
             borderColor: "#10b981",
             backgroundColor: "rgba(16,185,129,0.10)",
-            fill: false,
-            tension: 0.15,
-            pointRadius: 2,
+                fill: false,
+                tension: 0,
+                pointRadius: 3,
+                spanGaps: false,
             yAxisID: "yBp"
           }
         ]
@@ -297,6 +299,22 @@
     const spo2 = sampled.map((r) => (r.spo2 === null ? null : r.spo2));
     const sys = sampled.map((r) => (r.bpSys === null ? null : r.bpSys));
     const dia = sampled.map((r) => (r.bpDia === null ? null : r.bpDia));
+
+    // Prevent Chart.js from connecting BP points across large time gaps.
+    // If two consecutive samples are farther apart than GAP_MS, mark the
+    // later BP values as null so the line is broken (datasets have spanGaps:false).
+    const GAP_MS = 10 * 60 * 1000; // 10 minutes
+    if (Array.isArray(sampled) && sampled.length > 1) {
+      for (let i = 1; i < sampled.length; i++) {
+        const prevTs = Number(sampled[i - 1].timestamp) || 0;
+        const curTs = Number(sampled[i].timestamp) || 0;
+        if (prevTs && curTs && curTs - prevTs > GAP_MS) {
+          // break the connection by setting the later point to null
+          sys[i] = null;
+          dia[i] = null;
+        }
+      }
+    }
 
     chart.data.labels = labels;
     if (chart.data.datasets[0]) chart.data.datasets[0].data = hr;
@@ -435,45 +453,61 @@
     tbody.innerHTML = html;
   }
 
-  function exportCsv(patientId, rows) {
-    if (!rows || !rows.length) {
-      alert("Chưa có dữ liệu để xuất CSV. Hãy bấm Lọc trước.");
-      return;
-    }
+  async function exportCsv(patientId, rows) {
+      if (!rows || !rows.length) {
+        alert("Chưa có dữ liệu để xuất CSV. Hãy bấm Lọc trước.");
+        return;
+      }
 
-    const sorted = [...rows].sort((a, b) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0));
+      // Try to read patient name from DB; fall back to patientId when absent.
+      let patientName = "";
+      try {
+        if (patientId && db) {
+          const snap = await db.ref("patients/" + patientId).once("value");
+          const p = snap.val();
+          if (p && p.name) patientName = String(p.name);
+        }
+      } catch (err) {
+        console.warn('Could not read patient name for CSV export:', err);
+      }
 
-    const header = ["timestamp_ms", "time_local", "hr_bpm", "spo2_percent", "systolic_mmhg", "diastolic_mmhg"];
-    const lines = [header.join(",")];
+      const displayName = patientName || String(patientId || "patient");
 
-    for (const r of sorted) {
-      const row = [
-        r.timestamp || "",
-        formatLocal(r.timestamp),
-        r.hr ?? "",
-        r.spo2 ?? "",
-        r.bpSys ?? "",
-        r.bpDia ?? ""
-      ].map(escapeCsvCell);
-      lines.push(row.join(","));
-    }
+      // CSV: include patient name as the first column for clarity.
+      const header = ["patient_name", "time_local", "hr_bpm", "spo2_percent", "systolic_mmhg", "diastolic_mmhg"];
 
-    const csv = lines.join("\n");
-    const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" });
+      const sorted = [...rows].sort((a, b) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0));
 
-    const a = document.createElement("a");
-    const url = URL.createObjectURL(blob);
+      const lines = [header.join(",")];
 
-    const safePid = String(patientId || "patient").replace(/[^a-zA-Z0-9_-]+/g, "_");
-    const filename = `history_${safePid}_${Date.now()}.csv`;
+      for (const r of sorted) {
+        const row = [
+          displayName,
+          formatLocal(r.timestamp),
+          r.hr ?? "",
+          r.spo2 ?? "",
+          r.bpSys ?? "",
+          r.bpDia ?? ""
+        ].map(escapeCsvCell);
+        lines.push(row.join(","));
+      }
 
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+      const csv = lines.join("\n");
+      const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" });
 
-    setTimeout(() => URL.revokeObjectURL(url), 3000);
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+
+      const safeName = String(displayName || patientId || "patient").replace(/[^a-zA-Z0-9_-]+/g, "_");
+      const filename = `history_${safeName}.csv`;
+
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
   }
 
   async function doLoad({ patientId, startTs, endTs, statusEl, tbodyEl, exportBtn, chartCanvas, chartStatusEl }) {
