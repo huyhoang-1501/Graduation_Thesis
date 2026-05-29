@@ -243,9 +243,10 @@ function showOverviewForPatient(patientId) {
   currentPatientId = patientId;
 
   const ovSel = document.getElementById("ov-patient-select");
+  const hiSel = document.getElementById("hi-patient-select");
   const alSel = document.getElementById("al-patient-select");
   const setSel = document.getElementById("set-patient-select");
-  [ovSel, alSel, setSel].forEach(sel => {
+  [ovSel, hiSel, alSel, setSel].forEach(sel => {
     if (sel) sel.value = patientId;
   });
 
