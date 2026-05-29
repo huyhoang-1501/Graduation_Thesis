@@ -395,6 +395,39 @@ body {
   font-size:13px;
 }
 
+/* Mobile: tighten device status and notification cards to reduce visual height */
+@media (max-width: 480px) {
+  /* Reduce internal padding so cards occupy less vertical space */
+  .device-card {
+    padding: 8px 10px; /* was 12px 16px */
+  }
+
+  .device-header {
+    margin-bottom: 4px; /* was 8px */
+    font-size: 13px;
+  }
+
+  .device-body div {
+    font-size: 13px;
+    margin-bottom: 2px; /* tighten spacing between lines */
+  }
+
+  /* Make the small notification card more compact */
+  .notify-small {
+    padding: 6px 8px 6px 6px; /* was 10px 12px 10px 8px */
+    flex: 0 0 120px; /* slightly narrower */
+    justify-content: flex-start;
+  }
+
+  .notify-small .stat-title { font-size: 12px; }
+  .notify-small .stat-value { font-size: 20px; }
+  .notify-small .stat-sub { font-size: 11px; margin-top:3px; }
+
+  /* Reduce panel paddings used nearby so overall block appears shorter */
+  .panel-header { padding: 8px 10px; }
+  .panel-body { padding: 8px 10px; }
+}
+
 /* Unified patient select styling used in Overview, History and Settings.
    Keeps controls visually identical across tabs and consistent on mobile.
    We aim for a compact, touch-friendly control that won't be forced full-width. */

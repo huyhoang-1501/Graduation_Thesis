@@ -1289,10 +1289,25 @@ function adjustChartHeights() {
     // leave a 20px bottom gap
     let avail = window.innerHeight - rect.top - 20;
     // ensure reasonable bounds
-    if (avail < 260) avail = 260;
+    // allow a smaller minimum for the history chart so it appears shorter
+    let minHeight = 260;
+    if (canvas.id === 'historyChart') minHeight = 180; // smaller height for history
+    if (avail < minHeight) avail = minHeight;
     if (avail > 900) avail = 900;
     // set style height so Chart.js (maintainAspectRatio:false) will fill
-    canvas.style.height = avail + 'px';
+    // For historyChart we prefer responsive compact heights so it looks like the miniChart on phones
+    if (canvas.id === 'historyChart') {
+      // Use fixed compact heights by viewport width to ensure consistent mobile appearance
+      if (window.innerWidth <= 480) {
+        canvas.style.height = '160px';
+      } else if (window.innerWidth <= 768) {
+        canvas.style.height = '200px';
+      } else {
+        canvas.style.height = '220px';
+      }
+    } else {
+      canvas.style.height = avail + 'px';
+    }
 
     // if a Chart.js instance is attached to this canvas, trigger a resize
     try {

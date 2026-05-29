@@ -185,9 +185,9 @@
             label: "Nhịp Tim (bpm)",
             data: [],
             borderColor: "#ef4444",
-            backgroundColor: "rgba(239,68,68,0.12)",
-            fill: false,
-            tension: 0.25,
+            backgroundColor: "rgba(239,68,68,0.15)",
+            fill: true,
+            tension: 0.3,
             pointRadius: 2,
             yAxisID: "y"
           },
@@ -195,9 +195,9 @@
             label: "SpO₂ (%)",
             data: [],
             borderColor: "#3b82f6",
-            backgroundColor: "rgba(59,130,246,0.10)",
-            fill: false,
-            tension: 0.25,
+            backgroundColor: "rgba(59,130,246,0.12)",
+            fill: true,
+            tension: 0.3,
             pointRadius: 2,
             yAxisID: "ySpo2"
           },
@@ -205,22 +205,22 @@
             label: "BP Sys (mmHg)",
             data: [],
             borderColor: "#f59e0b",
-            backgroundColor: "rgba(245,158,11,0.10)",
+            backgroundColor: "rgba(245,158,11,0.08)",
             fill: false,
-                tension: 0,
-                pointRadius: 3,
-                spanGaps: false,
+            tension: 0.2,
+            pointRadius: 3,
+            spanGaps: false,
             yAxisID: "yBp"
           },
           {
             label: "BP Dia (mmHg)",
             data: [],
             borderColor: "#10b981",
-            backgroundColor: "rgba(16,185,129,0.10)",
-                fill: false,
-                tension: 0,
-                pointRadius: 3,
-                spanGaps: false,
+            backgroundColor: "rgba(16,185,129,0.08)",
+            fill: false,
+            tension: 0.2,
+            pointRadius: 3,
+            spanGaps: false,
             yAxisID: "yBp"
           }
         ]
@@ -242,16 +242,12 @@
           }
         },
         scales: {
-          x: {
-            display: true,
-            ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
-            grid: { color: "rgba(148,163,184,0.25)" }
-          },
+          x: { display: false },
           y: {
             type: "linear",
             display: true,
             position: "left",
-            title: { display: true, text: "HR" }
+            beginAtZero: false
           },
           ySpo2: {
             type: "linear",
@@ -259,17 +255,14 @@
             position: "right",
             suggestedMin: 70,
             suggestedMax: 100,
-            title: { display: true, text: "SpO₂" },
             grid: { drawOnChartArea: false }
           },
           yBp: {
             type: "linear",
-            display: true,
+            display: false,
             position: "right",
-            offset: true,
             suggestedMin: 40,
             suggestedMax: 200,
-            title: { display: true, text: "BP" },
             grid: { drawOnChartArea: false }
           }
         }
