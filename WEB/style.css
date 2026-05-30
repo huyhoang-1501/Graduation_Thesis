@@ -452,7 +452,30 @@ body {
   border-radius: 8px;
   border: 2px solid #e6e9ef;
   background: #fff;
+  color: #0f172a;          /* prevent mobile browsers from tinting text on focus/restore */
   margin-bottom: 10px;
+}
+
+/* Mobile browsers (especially iOS/PWA) sometimes restore focus to the last
+   active form control after a reload, which makes <select> appear with a blue
+   outline/border. Keep the visual style stable on :focus and only show the
+   accent ring for keyboard navigation via :focus-visible. */
+#set-patient-select:focus,
+#ov-patient-select:focus,
+.overview-header select:focus,
+.page-header-row select:focus {
+  outline: none;
+  box-shadow: none;
+  border-color: #e6e9ef;
+}
+
+#set-patient-select:focus-visible,
+#ov-patient-select:focus-visible,
+.overview-header select:focus-visible,
+.page-header-row select:focus-visible {
+  outline: none;
+  border-color: #00548a;
+  box-shadow: 0 0 0 3px rgba(0, 84, 138, 0.12);
 }
 
 /* Responsive controls in overview (Device ID + view button) */
@@ -509,11 +532,17 @@ body {
     flex: 0 0 160px; /* keep a fixed width so it doesn't force wrapping */
   }
 
-  /* let the patient select shrink/grow to fill available space so controls stay on one line */
+  /* Keep patient select compact on desktop (do NOT flex-grow).
+     When options are populated/restored after reload, flex-grow would stretch
+     the select and visually 'giãn' the row, pushing the other controls away. */
   .ov-controls select {
-    flex: 1 1 200px; /* can shrink on smaller desktops */
-    min-width: 120px;
-    max-width: none;
+    flex: 0 1 auto;
+    width: 200px;
+    min-width: 160px;
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   /* ensure the view button keeps its size */
   #ov-view-device-btn { flex: 0 0 auto; }
@@ -523,25 +552,33 @@ body {
   /* Mobile: select on first row; Device ID + button on the same row */
   .ov-controls {
     display: grid;
-    grid-template-columns: 1fr auto;
+    /* Auto-sized columns keep controls compact and prevent stretch */
+    grid-template-columns: auto auto;
     grid-auto-rows: auto;
     gap: 8px;
     align-items: center;
+    justify-content: start;
   }
   .ov-controls select {
     grid-column: 1;
-    width: auto;
-    max-width: 320px;
-    min-width: 160px;
+    /* Grid items default to justify-self: stretch; keep the select compact */
+    justify-self: start;
+    width: 160px;
+    min-width: 0;
+    max-width: 100%;
   }
   #ov-device-id-input {
     grid-column: 1;
-    width: 100%;
+    justify-self: start;
+    /* Keep input compact like screenshot #1 (avoid full-width stretch) */
+    width: 160px;
     min-width: 0;
+    max-width: 100%;
   }
   #ov-view-device-btn {
     grid-column: 2;
     width: auto;
+    justify-self: start;
   }
 }
 
@@ -1282,14 +1319,29 @@ body {
 
 /* (merged into unified block above) */
 
-/* MOBILE: Ensure overview patient select and DEVICE ID input match settings select width on phones */
-@media (max-width: 480px) {
-  /* Use same compact width as the settings patient select for better consistency on small screens */
-  .ov-controls select,
-  #ov-device-id-input {
-    min-width: 160px;
-    max-width: 320px;
-    width: 160px;
-    box-sizing: border-box;
-  }
+/* Note: do not force fixed widths for overview controls on very small screens.
+   Fixed widths make the DEVICE ID input look short and push the button far away.
+   The grid rules above already keep the layout stable and compact. */
+
+/* Strong override to prevent selects/inputs in the Overview header from stretching
+   due to browser form state restore or later CSS rules. This targets the specific
+   elements with high specificity and uses !important to ensure stability. */
+.overview-header .ov-controls #ov-patient-select,
+.overview-header .ov-controls select#ov-patient-select {
+  box-sizing: border-box;
+  width: 200px !important;
+  min-width: 160px !important;
+  max-width: 320px !important;
+  flex: 0 0 auto !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.overview-header .ov-controls #ov-device-id-input {
+  box-sizing: border-box;
+  width: 160px !important;
+  min-width: 140px !important;
+  max-width: 220px !important;
+  flex: 0 0 auto !important;
 }
