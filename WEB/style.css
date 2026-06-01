@@ -491,9 +491,9 @@ body {
      DEVICE ID input appears visually equal to the patient selector. */
   display: inline-block;
   box-sizing: border-box;
-  min-width: 140px; /* narrowed as requested */
-  max-width: 220px;
-  width: 140px; /* fixed narrow width to align visually with dropdown */
+  min-width: 160px; /* keep sensible minimum */
+  max-width: 320px;
+  width: 200px; /* align with overview patient select by default */
   padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid #ccc;
@@ -526,10 +526,10 @@ body {
 
   /* give the DEVICE ID input a slightly larger width on desktop for readability */
   #ov-device-id-input {
-    width: 160px; /* narrowed per request */
-    min-width: 140px;
-    max-width: 220px;
-    flex: 0 0 160px; /* keep a fixed width so it doesn't force wrapping */
+    width: 200px; /* match overview patient select */
+    min-width: 160px;
+    max-width: 320px;
+    flex: 0 0 200px; /* keep a fixed width so it doesn't force wrapping */
   }
 
   /* Keep patient select compact on desktop (do NOT flex-grow).
@@ -571,7 +571,7 @@ body {
     grid-column: 1;
     justify-self: start;
     /* Keep input compact like screenshot #1 (avoid full-width stretch) */
-    width: 160px;
+    width: 200px;
     min-width: 0;
     max-width: 100%;
   }
@@ -1340,8 +1340,23 @@ body {
 
 .overview-header .ov-controls #ov-device-id-input {
   box-sizing: border-box;
-  width: 160px !important;
-  min-width: 140px !important;
-  max-width: 220px !important;
+  width: 200px !important;
+  min-width: 160px !important;
+  max-width: 320px !important;
   flex: 0 0 auto !important;
+}
+
+/* Ensure History/Settings (and Alerts) patient selects match the Overview patient select width
+   so the UI looks consistent across tabs. Use !important to override broader form/grid rules. */
+#hi-patient-select,
+#set-patient-select,
+#al-patient-select {
+  box-sizing: border-box;
+  width: 200px !important;
+  min-width: 160px !important;
+  max-width: 320px !important;
+  flex: 0 0 auto !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
 }
