@@ -452,10 +452,18 @@ void Max30102_hr_spo2()
 
 static TaskHandle_t bpTaskHandle = NULL;
 
+// Cancellation flag for the background BP task. When set to true the
+// measurement loops will abort as soon as they observe the flag.
+static volatile bool bpCancelRequested = false;
+
 static void bp_task_entry(void *pvParameters) {
   (void)pvParameters;
   // call the blocking measurement
   measureBloodPressure();
+
+  // Clear any cancellation request now that the task is finishing so subsequent
+  // runs start with a clean state.
+  bpCancelRequested = false;
 
   // After finishing a BP run, queue a sync immediately so /latest and /history
   // get a fresh timestamped record as soon as results are available.
@@ -467,6 +475,8 @@ static void bp_task_entry(void *pvParameters) {
 
 void startMeasureBloodPressureAsync() {
   if (bpTaskHandle != NULL) return; // already running
+  // clear any pending cancellation request when starting a fresh run
+  bpCancelRequested = false;
   // create task with larger stack size and low priority to avoid stack overflow
   xTaskCreate(bp_task_entry, "BPTask", 8192, NULL, 1, &bpTaskHandle);
 }
@@ -474,6 +484,14 @@ void startMeasureBloodPressureAsync() {
 void startMeasureBloodPressureAsyncForOrigin(int origin) {
   bpOriginBeforeStart = origin;
   startMeasureBloodPressureAsync();
+}
+
+void stopMeasureBloodPressureAsync()
+{
+  // Request cancellation; measurement task will observe this and exit.
+  bpCancelRequested = true;
+  // Also attempt to stop pumps/valves immediately to make the UI responsive.
+  stopAll();
 }
 
 bool isBPMeasuring() {
@@ -514,6 +532,11 @@ void measureBloodPressure() {
 
   stopAll();
 
+  if (bpCancelRequested) {
+    Serial.println("BP measurement cancelled before inflation");
+    return;
+  }
+
   // start pump and inflate
   startPump(248);
   closeValve();
@@ -537,6 +560,11 @@ void measureBloodPressure() {
     }
 
     readPressure(pressure_kPa, pressure_mmHg, raw);
+    if (bpCancelRequested) {
+      Serial.println("BP measurement cancelled during inflation");
+      stopAll();
+      return;
+    }
     delay(40);
   }
 
@@ -551,6 +579,11 @@ void measureBloodPressure() {
 
   while (pressure_mmHg > 45.0f && sampleCount < MAX_SAMPLES) {
     if (readPressure(pressure_kPa, pressure_mmHg, raw)) {
+      if (bpCancelRequested) {
+        Serial.println("BP measurement cancelled during sampling");
+        stopAll();
+        return;
+      }
       // store scaled integer representations to save RAM
       pressureArr[sampleCount] = (int16_t)constrain((int)roundf(pressure_mmHg * 10.0f), -32768, 32767);
       float y = alpha * y_prev + pressure_mmHg - prev;

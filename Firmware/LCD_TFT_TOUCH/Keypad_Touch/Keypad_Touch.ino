@@ -20,6 +20,10 @@ static lv_disp_draw_buf_t draw_buf;
 
 // LVGL tick timer
 static esp_timer_handle_t lvgl_tick_timer;
+
+// lv_tick_inc is provided by LVGL when LV_TICK_CUSTOM is enabled.
+// Declare it with C linkage so the C++ compiler can find the symbol.
+extern "C" void lv_tick_inc(uint32_t ms);
 static void lv_tick_task(void *arg) { (void)arg; lv_tick_inc(1); }
 
 // ================= TOUCH (FT6336U) =================
