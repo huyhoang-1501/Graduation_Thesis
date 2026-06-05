@@ -45,6 +45,19 @@ static const char *FIREBASE_API_KEY = "";
 static const uint16_t SCREEN_WIDTH  = 480;
 static const uint16_t SCREEN_HEIGHT = 320;
 
+// TFT_eSPI rotation:
+// - 1: Landscape (current/original)
+// - 3: Landscape flipped 180° (upside-down)
+// NOTE: We intentionally restrict to landscape rotations to keep ALL LVGL UI
+// logic/layout (keypad, main screens, etc.) unchanged.
+#ifndef TFT_ROTATION
+#define TFT_ROTATION 3
+#endif
+
+#if (TFT_ROTATION != 1) && (TFT_ROTATION != 3)
+#error "TFT_ROTATION must be 1 (landscape) or 3 (landscape 180deg). Other rotations require UI re-layout."
+#endif
+
 #define TFT_BL 15
 TFT_eSPI tft;
 
@@ -327,8 +340,17 @@ static void my_touch_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
   if (!ok) touched = false;
 
   if (touched) {
+    // Base mapping (calibrated for TFT_ROTATION == 1 landscape):
+    // FT6336U reports coordinates in a 320x480 portrait orientation.
+    // Convert to our LVGL landscape coordinate space (480x320).
     uint16_t x_map = y;
     uint16_t y_map = (SCREEN_HEIGHT - 1) - x;
+
+    // If we flip the display 180° (rotation 3), we must flip touch too.
+    if (TFT_ROTATION == 3) {
+      x_map = (SCREEN_WIDTH - 1) - x_map;
+      y_map = (SCREEN_HEIGHT - 1) - y_map;
+    }
 
     if (x_map >= SCREEN_WIDTH)  x_map = SCREEN_WIDTH - 1;
     if (y_map >= SCREEN_HEIGHT) y_map = SCREEN_HEIGHT - 1;
@@ -561,7 +583,7 @@ void setup() {
 
   // TFT init
   tft.init();
-  tft.setRotation(1);
+  tft.setRotation(TFT_ROTATION);
 
   pinMode(TFT_BL, OUTPUT);
   backlight_set(true);
