@@ -23,6 +23,10 @@ static uint32_t g_push_interval_ms = 5000;
 static uint32_t g_last_push_ms = 0;
 static char g_current_user_id[16] = ""; // null-terminated
 
+static double g_location_lat = 0.0;
+static double g_location_lng = 0.0;
+static bool g_has_location = false;
+
 // background task state
 static volatile bool g_pending_push = false;
 static TaskHandle_t g_firebase_task_handle = NULL;
@@ -301,6 +305,13 @@ void FirebaseSync_SetBatteryPercent(int batteryPercent) {
   g_battery_percent = batteryPercent;
 }
 
+void FirebaseSync_SetLocation(double latitude, double longitude) {
+  g_location_lat = latitude;
+  g_location_lng = longitude;
+  g_has_location = true;
+  g_pending_push = true;
+}
+
 // Queue a push for the background task. Non-blocking.
 bool FirebaseSync_PushStatusAndBattery() {
   const char *deviceId = g_get_device_id_cb ? g_get_device_id_cb() : "";
@@ -322,8 +333,15 @@ static void firebase_push_impl() {
   // Send device-level info. Do NOT include user ownership or application-mode here;
   // dashboard/web is responsible for claim/link and mode management.
   String payload = String("{\"deviceId\":\"") + deviceId +
-                   "\",\"status\":\"online\",\"batteryPercent\":" + battStr +
-                   ",\"lastSeen\":{\".sv\":\"timestamp\"},\"updatedAt\":{\".sv\":\"timestamp\"}}";
+                   "\",\"status\":\"online\",\"batteryPercent\":" + battStr;
+
+  if (g_has_location) {
+    payload += String(",\"location\":{\"lat\":") + String(g_location_lat, 6) +
+               String(",\"lng\":") + String(g_location_lng, 6) +
+               String(",\"updatedAt\":{\".sv\":\"timestamp\"}}" );
+  }
+
+  payload += String(",\"lastSeen\":{\".sv\":\"timestamp\"},\"updatedAt\":{\".sv\":\"timestamp\"}}");
 
   // Push device info to /devices/<deviceId>. Do NOT update patients/<userId> here
   // (we intentionally send device-level info without depending on userId).
@@ -340,14 +358,6 @@ static void firebase_push_impl() {
     String mSpo2 = (spo2 >= 50 && spo2 <= 100) ? String(spo2) : String("null");
     String mSys = (lastBPOrigin == BP_ORIGIN_USER && lastSYS > 0.0f) ? String((int)roundf(lastSYS)) : String("null");
     String mDia = (lastBPOrigin == BP_ORIGIN_USER && lastDIA > 0.0f) ? String((int)roundf(lastDIA)) : String("null");
-
-    String meas = String("{") +
-      "\"hr\":" + mHr + "," +
-      "\"bpSys\":" + mSys + "," +
-      "\"bpDia\":" + mDia + "," +
-      "\"spo2\":" + mSpo2 + "," +
-      "\"timestamp\":{.sv:\"timestamp\"}" +
-      String("}");
 
     // The timestamp expression needs to be valid JSON for PATCH — embed using server-value
     // Firebase REST expects {"timestamp":{" .sv":"timestamp"}} but previous code used

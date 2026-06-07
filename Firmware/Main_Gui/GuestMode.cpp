@@ -231,29 +231,15 @@ static void build_guest_screen() {
       // Mode button switches into BP mode; enable Start only in BP mode.
       lv_obj_add_event_cb(btn_mode, [](lv_event_t *e){
         if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-        // If a BP measurement is currently running, pressing Mode will cancel it
-        // and return to normal HR/SPO2 display. Otherwise, enter BP mode and
-        // enable the Start button.
-        if (isBPMeasuring()) {
-          // request stop of background BP task
-          stopMeasureBloodPressureAsync();
-          if (label_state) lv_label_set_text(label_state, "Da huy bo do huyet ap.");
-          g_mode = MODE_HR_SPO2;
-          g_bp_result_displaying = false;
-          if (btn_start) lv_obj_add_state(btn_start, LV_STATE_DISABLED);
-          if (btn_back) lv_obj_clear_state(btn_back, LV_STATE_DISABLED);
-          if (btn_mode) lv_obj_clear_state(btn_mode, LV_STATE_DISABLED);
-        } else {
-          // enter BP mode and enable Start
-          g_mode = MODE_BP;
-          g_bp_result_displaying = false;
-          // clear any previous transient state
-          if (label_state) lv_label_set_text(label_state, "Nhan Start de do huyet ap...");
-          // clear previous SYS/DIA so user knows results will be new
-          if (label_sys) lv_label_set_text(label_sys, "--");
-          if (label_dia) lv_label_set_text(label_dia, "--");
-          if (btn_start) lv_obj_clear_state(btn_start, LV_STATE_DISABLED);
-        }
+        // enter BP mode and enable Start
+        g_mode = MODE_BP;
+        g_bp_result_displaying = false;
+        // clear any previous transient state
+        if (label_state) lv_label_set_text(label_state, "Nhan Start de do huyet ap...");
+        // clear previous SYS/DIA so user knows results will be new
+        if (label_sys) lv_label_set_text(label_sys, "--");
+        if (label_dia) lv_label_set_text(label_dia, "--");
+        if (btn_start) lv_obj_clear_state(btn_start, LV_STATE_DISABLED);
       }, LV_EVENT_CLICKED, nullptr);
     }
     // Create as child of the main screen so it sits above the footer and aligns to the screen corner

@@ -352,6 +352,7 @@ function showDeviceById(deviceId) {
       });
     }
     window._currentDeviceRefs = [];
+    window._currentDeviceLocation = null;
 
     const base = 'devices/' + deviceId;
     const ONLINE_THRESHOLD = 3 * 60 * 1000; // 3 minutes
@@ -398,6 +399,10 @@ function showDeviceById(deviceId) {
       }
       const netEl = document.getElementById('ov-network');
       if (netEl) netEl.textContent = d.network || '--';
+
+      if (d.location && d.location.lat != null && d.location.lng != null) {
+        setCurrentDeviceLocation(d.location.lat, d.location.lng, deviceId);
+      }
 
       // If device is linked to a patient, remember for measurement listener
       window._devicePatientId = d.patientId || '';
@@ -446,6 +451,17 @@ function showDeviceById(deviceId) {
     addFieldListener('network', v => {
       const netEl = document.getElementById('ov-network');
       if (netEl) netEl.textContent = v || '--';
+    });
+
+    addFieldListener('location', v => {
+      if (!v) {
+        window._currentDeviceLocation = null;
+        return;
+      }
+      const lat = (v.lat != null) ? v.lat : v.latitude;
+      const lng = (v.lng != null) ? v.lng : v.longitude;
+      if (lat == null || lng == null) return;
+      setCurrentDeviceLocation(lat, lng, deviceId);
     });
 
     // Measurements: listen to latest measurement for patient if available
@@ -657,6 +673,7 @@ function initSidebarNavigation() {
           adjustMapHeight();
           if (!leafletMap) initMap();
           else leafletMap.invalidateSize();
+          syncLocationMapToCurrentDevice();
         } catch (e) { /* ignore */ }
       }, 200);
     }
@@ -1149,17 +1166,25 @@ function initMap() {
   const mapDiv = document.getElementById("map");
   if (!mapDiv) return;
 
-  leafletMap = L.map(mapDiv).setView([10.85, 106.77], 15);
+  const defaultLat = 10.85;
+  const defaultLng = 106.77;
+  const current = window._currentDeviceLocation;
+  const startLat = (current && current.lat != null) ? current.lat : defaultLat;
+  const startLng = (current && current.lng != null) ? current.lng : defaultLng;
+
+  leafletMap = L.map(mapDiv).setView([startLat, startLng], 15);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: "&copy; OpenStreetMap"
   }).addTo(leafletMap);
-  leafletMarker = L.marker([10.85, 106.77]).addTo(leafletMap);
+  leafletMarker = L.marker([startLat, startLng]).addTo(leafletMap);
 
   // Leaflet needs an invalidateSize call if container size changed; defer slightly
   setTimeout(() => {
     try { adjustMapHeight(); leafletMap.invalidateSize(); } catch (e) { /* ignore */ }
   }, 250);
+
+  syncLocationMapToCurrentDevice();
 }
 
 function mockUpdateOverview() {
@@ -1259,11 +1284,40 @@ function askUserToRefresh() {
 // run SW handler early
 initSWUpdateHandler();
 
+function normalizeLocationCoords(lat, lng) {
+  const nLat = Number(lat);
+  const nLng = Number(lng);
+  if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) return null;
+  return { lat: nLat, lng: nLng };
+}
+
+function setCurrentDeviceLocation(lat, lng, deviceId) {
+  const coords = normalizeLocationCoords(lat, lng);
+  if (!coords) return false;
+  window._currentDeviceLocation = {
+    lat: coords.lat,
+    lng: coords.lng,
+    deviceId: deviceId || window._deviceViewedId || '',
+    updatedAt: Date.now()
+  };
+  updateMapLocation(coords.lat, coords.lng);
+  return true;
+}
+
+function syncLocationMapToCurrentDevice() {
+  const loc = window._currentDeviceLocation;
+  if (!loc) return false;
+  return updateMapLocation(loc.lat, loc.lng);
+}
+
 // Helper cập nhật vị trí trên map theo data từ Realtime Database
 function updateMapLocation(lat, lng) {
-  if (!leafletMap || !leafletMarker) return;
-  leafletMarker.setLatLng([lat, lng]);
-  leafletMap.setView([lat, lng], 15);
+  const coords = normalizeLocationCoords(lat, lng);
+  if (!coords) return false;
+  if (!leafletMap || !leafletMarker) return false;
+  leafletMarker.setLatLng([coords.lat, coords.lng]);
+  leafletMap.setView([coords.lat, coords.lng], 15);
+  return true;
 }
 
 // Adjust map container height to fill available viewport space

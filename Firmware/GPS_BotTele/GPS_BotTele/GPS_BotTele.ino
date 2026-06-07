@@ -10,7 +10,7 @@ const char* WIFI_PASS = "99999999";
 const char* BOT_TOKEN = "********************"; // token bot (cấu hình với BotFather)
 const char* CHAT_ID   = "***********"; // user id (chat riêng) hoặc group id (âm)
 
-static const int GPS_RX_PIN = 16;
+static const int GPS_RX_PIN = 26;
 static const int GPS_TX_PIN = 17;
 static const uint32_t GPS_BAUD = 9600;
 

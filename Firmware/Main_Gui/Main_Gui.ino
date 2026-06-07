@@ -2,6 +2,8 @@
 #include <TFT_eSPI.h>
 #include <Wire.h>
 #include "esp_timer.h"
+#include <TinyGPSPlus.h>
+#include <math.h>
 
 // ===== NVS / Preferences để lưu dung lượng pin =====
 #include <Preferences.h>
@@ -40,6 +42,50 @@ static FirebaseConfig config;
 // Leave empty if you don't want to hardcode the API key here.
 static const char *FIREBASE_API_KEY = "";
 #endif
+
+// ================= GPS (NEO-6M) =================
+// Dùng 2 GPIO khác nhau cho UART GPS.
+static const int GPS_RX_PIN = 25;
+static const int GPS_TX_PIN = 26;
+static const uint32_t GPS_BAUD = 9600;
+
+HardwareSerial GPSSerial(2);
+TinyGPSPlus gps;
+
+static double g_lastGpsLat = 0.0;
+static double g_lastGpsLng = 0.0;
+static bool g_hasGpsLocation = false;
+static uint32_t g_lastGpsPushMs = 0;
+static const uint32_t GPS_PUSH_INTERVAL_MS = 5000;
+
+static void gps_setup() {
+  GPSSerial.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+  Serial.printf("[GPS] UART2 started RX=%d TX=%d baud=%lu\n", GPS_RX_PIN, GPS_TX_PIN, (unsigned long)GPS_BAUD);
+}
+
+static void gps_loop() {
+  while (GPSSerial.available()) {
+    gps.encode(GPSSerial.read());
+  }
+
+  if (gps.location.isValid() && gps.location.age() < 3000) {
+    double lat = gps.location.lat();
+    double lng = gps.location.lng();
+    bool changed = !g_hasGpsLocation || fabs(lat - g_lastGpsLat) > 0.000001 || fabs(lng - g_lastGpsLng) > 0.000001;
+    bool intervalOk = (millis() - g_lastGpsPushMs >= GPS_PUSH_INTERVAL_MS);
+
+    g_lastGpsLat = lat;
+    g_lastGpsLng = lng;
+    g_hasGpsLocation = true;
+
+    if (changed || intervalOk) {
+      FirebaseSync_SetLocation(lat, lng);
+      FirebaseSync_PushStatusAndBattery();
+      g_lastGpsPushMs = millis();
+      Serial.printf("[GPS] fix %.6f, %.6f\n", lat, lng);
+    }
+  }
+}
 
 // ================= DISPLAY =================
 static const uint16_t SCREEN_WIDTH  = 480;
@@ -105,7 +151,7 @@ static bool ft6336u_read_touch(uint16_t &x, uint16_t &y, bool &touched) {
 
 // ================= RTC DS3231 =================
 RTC_DS3231 rtc;
-static bool rtc_ok = false;
+static bool rtc_ok = true;
 
 // ================= DEVICE ID / PAIRING DEMO =================
 static Preferences devicePref;
@@ -614,6 +660,9 @@ void setup() {
   // HR/SpO2 and BP module init
   hrspo2bp_setup();
 
+  // GPS init
+  gps_setup();
+
   // LVGL init
   lv_init();
 
@@ -691,6 +740,7 @@ void loop() {
 
   // Run HR/SpO2 background loop (updates spo2/heartRate)
   hrspo2bp_loop();
+  gps_loop();
 
   power_save_task();
   GuestMode_Loop();

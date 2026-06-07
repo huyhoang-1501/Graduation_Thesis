@@ -13,6 +13,7 @@ void FirebaseSync_Init(const char *wifiSsid,
                        void *firebaseDataPtr = nullptr);
 
 void FirebaseSync_SetBatteryPercent(int batteryPercent);
+void FirebaseSync_SetLocation(double latitude, double longitude);
 bool FirebaseSync_PushStatusAndBattery();
 bool FirebaseSync_ValidateUserId(const char *userId, char *errMsg, size_t errMsgSize);
 void FirebaseSync_Loop();

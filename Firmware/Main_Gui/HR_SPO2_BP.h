@@ -33,10 +33,6 @@ extern volatile int lastBPOrigin;
 // Start an async BP measurement and mark the origin (User / Guest)
 void startMeasureBloodPressureAsyncForOrigin(int origin);
 
-// Request cancellation of an ongoing async BP measurement. This will cause the
-// background BP task to stop pumps/valve and exit early. Safe to call from UI.
-void stopMeasureBloodPressureAsync();
-
 // Expose BP read helper if other modules want to call it
 bool readPressure(float &pressure_kPa, float &pressure_mmHg, int16_t &raw);
 

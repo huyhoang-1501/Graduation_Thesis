@@ -11,7 +11,7 @@ HardwareSerial mySerial(2);
 DFRobotDFPlayerMini player;
 
 // UART ESP32
-#define DF_RX 27   // ESP32 RX <- DFPlayer TX
+#define DF_RX  27  // ESP32 RX <- DFPlayer TX
 #define DF_TX 14   // ESP32 TX -> DFPlayer RX
 
 void setup() {

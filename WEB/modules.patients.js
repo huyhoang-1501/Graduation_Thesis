@@ -235,6 +235,19 @@ function attachListenerToDevice(devId) {
     // optional network indicator
     const netEl = document.getElementById('ov-network');
     if (netEl) netEl.textContent = d.network || '--';
+
+    // If device reports a last-known location, update the Overview map
+    try {
+      if (d.location && d.location.lat != null && d.location.lng != null) {
+        if (typeof setCurrentDeviceLocation === 'function') {
+          setCurrentDeviceLocation(d.location.lat, d.location.lng, devId);
+        } else if (typeof updateMapLocation === 'function') {
+          updateMapLocation(d.location.lat, d.location.lng);
+        }
+      } else {
+        window._currentDeviceLocation = null;
+      }
+    } catch (e) { /* ignore map update errors */ }
   });
 
   const idInput = document.getElementById('ov-device-id-input'); if (idInput) idInput.value = devId;
@@ -246,6 +259,8 @@ function showOverviewForPatient(patientId) {
     alert("Bạn không có quyền truy cập bệnh nhân này.");
     return;
   }
+
+  window._currentDeviceLocation = null;
 
   // Reset Overview mini chart for this patient context (so lines don't mix between patients)
   try {
@@ -379,7 +394,13 @@ function showOverviewForPatient(patientId) {
       try { document.getElementById("ov-lastseen").textContent = new Date(rec.timestamp).toLocaleString(); } catch (e) {}
     }
     if (rec && rec.location && rec.location.lat != null && rec.location.lng != null) {
-      updateMapLocation(rec.location.lat, rec.location.lng);
+      if (typeof setCurrentDeviceLocation === 'function') {
+        setCurrentDeviceLocation(rec.location.lat, rec.location.lng, patientId);
+      } else {
+        updateMapLocation(rec.location.lat, rec.location.lng);
+      }
+    } else {
+      window._currentDeviceLocation = null;
     }
 
     // Update the mini chart in Overview
