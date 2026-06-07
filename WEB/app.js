@@ -1175,17 +1175,131 @@ function initMap() {
   const startLng = hasCurrent ? current.lng : 0;
   const startZoom = hasCurrent ? 15 : 2;
 
-  leafletMap = L.map(mapDiv).setView([startLat, startLng], startZoom);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap"
-  }).addTo(leafletMap);
+  // Initialize map
+  leafletMap = L.map(mapDiv, { zoomControl: true }).setView([startLat, startLng], startZoom);
 
+  // Base layers: CartoDB Voyager (modern street style) and Esri World Imagery (satellite)
+  const streets = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+  });
+
+  const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19,
+    attribution: 'Tiles &copy; Esri'
+  });
+
+  // Add default (streets) layer
+  streets.addTo(leafletMap);
+
+  // Add marker if we have a device location
   if (hasCurrent) {
     leafletMarker = L.marker([startLat, startLng]).addTo(leafletMap);
   } else {
     leafletMarker = null;
   }
+
+  // Provide a simple layer switcher to toggle between Streets and Satellite
+  const baseLayers = { 'Streets': streets, 'Satellite': satellite };
+  L.control.layers(baseLayers, null, { position: 'topright' }).addTo(leafletMap);
+
+  // Add scale control (like Google Maps)
+  L.control.scale({ position: 'bottomleft', metric: true, imperial: false }).addTo(leafletMap);
+
+  // Add a Google-like "Locate me" control and marker (no Google API required)
+  // This creates a small control button that uses the browser Geolocation API
+  // and displays a blue pulsing marker + accuracy circle similar to Google Maps.
+  function initLocateControl() {
+    // inject minimal CSS for control and marker
+    if (!document.getElementById('gm-style-inline')) {
+      const style = document.createElement('style');
+      style.id = 'gm-style-inline';
+      style.innerHTML = `
+        /* Locate control */
+        .leaflet-control-locate { display:flex;align-items:center;justify-content:center;width:40px;height:40px;background:#fff;border-radius:8px;padding:4px;box-shadow:0 2px 6px rgba(0,0,0,0.18);cursor:pointer;border:1px solid rgba(0,0,0,0.06);transition:all .18s ease }
+        .leaflet-control-locate:hover { transform:translateY(-1px); box-shadow:0 4px 10px rgba(0,0,0,0.18) }
+        .leaflet-control-locate svg { display:block }
+        .leaflet-control-locate.locating { background:#e8f0fe; border-color:rgba(66,133,244,0.5); box-shadow:0 6px 18px rgba(66,133,244,0.18) }
+
+        /* Google-like blue marker with pulsing effect */
+        .gm-marker { width:26px;height:26px;border-radius:50%;background:#4285F4;border:3px solid #fff;box-shadow:0 4px 12px rgba(66,133,244,0.35);position:relative }
+        .gm-marker::after { content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:10px;height:10px;background:#fff;border-radius:50% }
+        .gm-pulse { position:relative;border-radius:50%;}
+        .gm-pulse::before { content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;background:rgba(66,133,244,0.18);animation:gm-pulse 1.6s infinite ease-out }
+        @keyframes gm-pulse { 0% { transform:translate(-50%,-50%) scale(0.6); opacity:0.9 } 70% { transform:translate(-50%,-50%) scale(1.6); opacity:0 } 100% { opacity:0 } }
+
+        /* Smaller, subtle dot for accuracy center */
+        .gm-center-dot { width:8px;height:8px;background:#fff;border-radius:50%;position:relative;left:9px;top:-9px }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const LocateControl = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd: function(map) {
+        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+        const btn = L.DomUtil.create('a', 'leaflet-control-locate', container);
+        btn.title = 'Tìm vị trí của tôi';
+        btn.href = '#';
+        // nicer crosshair + center dot icon
+        btn.innerHTML = `
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="8" stroke="#444" stroke-opacity="0.9" stroke-width="1" fill="none" />
+            <circle cx="12" cy="12" r="2" fill="#4285F4" />
+            <path d="M12 3v2" stroke="#444" stroke-opacity="0.9" stroke-width="1" stroke-linecap="round"/>
+            <path d="M12 21v-2" stroke="#444" stroke-opacity="0.9" stroke-width="1" stroke-linecap="round"/>
+            <path d="M3 12h2" stroke="#444" stroke-opacity="0.9" stroke-width="1" stroke-linecap="round"/>
+            <path d="M21 12h-2" stroke="#444" stroke-opacity="0.9" stroke-width="1" stroke-linecap="round"/>
+          </svg>
+        `;
+
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.on(btn, 'click', L.DomEvent.stop).on(btn, 'click', () => {
+          // toggle locating class for visual feedback
+          const b = document.querySelector('.leaflet-control-locate');
+          if (b) b.classList.add('locating');
+          locateNow().finally(() => { if (b) b.classList.remove('locating'); });
+        });
+
+        return container;
+      }
+    });
+
+    leafletMap.addControl(new LocateControl());
+
+    let userMarker = null;
+    let userCircle = null;
+
+    async function locateNow() {
+      if (!navigator.geolocation) return alert('Trình duyệt không hỗ trợ Geolocation.');
+      try {
+        const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }));
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const acc = pos.coords.accuracy || 0;
+
+        // remove previous
+        if (userMarker) userMarker.remove();
+        if (userCircle) userCircle.remove();
+
+        // blue pulsing marker using divIcon
+        const html = '<div class="gm-pulse"><div class="gm-marker"></div></div>';
+        const div = L.divIcon({ className: '', html: html, iconSize: [26,26], iconAnchor: [13,13] });
+        userMarker = L.marker([lat, lng], { icon: div }).addTo(leafletMap);
+        userCircle = L.circle([lat, lng], { radius: Math.max(5, acc), color: '#4285F4', fillColor: 'rgba(66,133,244,0.08)', weight: 1 }).addTo(leafletMap);
+
+        // set view similar to Google Maps zoom for user location
+        const z = (leafletMap.getZoom() && leafletMap.getZoom() >= 15) ? leafletMap.getZoom() : 15;
+        leafletMap.setView([lat, lng], z);
+      } catch (err) {
+        console.error('Locate error', err);
+        alert('Không lấy được vị trí: ' + (err.message || err.code || 'lỗi không xác định'));
+      }
+    }
+  }
+
+  // initialize locate control
+  try { initLocateControl(); } catch (e) { /* ignore */ }
 
   // Leaflet needs an invalidateSize call if container size changed; defer slightly
   setTimeout(() => {
