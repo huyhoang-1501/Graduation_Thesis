@@ -1,6 +1,6 @@
 // bump this value when releasing changes so clients update their service worker
 // Updated to force clients to refresh cached assets after deploy
-const CACHE_NAME = 'health-monitor-v4';
+const CACHE_NAME = 'health-monitor-v5';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -39,6 +39,15 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   // Network-first for navigation (HTML), cache-first for other assets
+  const url = new URL(event.request.url);
+  const isStaticAsset = event.request.method === 'GET' && url.origin === self.location.origin && [
+    'script',
+    'style',
+    'image',
+    'font',
+    'manifest'
+  ].includes(event.request.destination);
+
   if (event.request.mode === 'navigate' || (event.request.method === 'GET' && event.request.headers.get('accept')?.includes('text/html'))) {
     event.respondWith(
       fetch(event.request).then(resp => {
@@ -46,6 +55,19 @@ self.addEventListener('fetch', event => {
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
         return resp;
       }).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  if (isStaticAsset) {
+    event.respondWith(
+      fetch(event.request)
+        .then(resp => {
+          const copy = resp.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+          return resp;
+        })
+        .catch(() => caches.match(event.request).then(cached => cached || caches.match(url.pathname)))
     );
     return;
   }

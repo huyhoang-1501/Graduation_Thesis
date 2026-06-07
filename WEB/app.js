@@ -1166,18 +1166,26 @@ function initMap() {
   const mapDiv = document.getElementById("map");
   if (!mapDiv) return;
 
-  const defaultLat = 10.85;
-  const defaultLng = 106.77;
   const current = window._currentDeviceLocation;
-  const startLat = (current && current.lat != null) ? current.lat : defaultLat;
-  const startLng = (current && current.lng != null) ? current.lng : defaultLng;
+  const hasCurrent = current && current.lat != null && current.lng != null;
+  // Do not fall back to the old demo coordinates on mobile.
+  // If no device location is available yet, start with a neutral world view
+  // and recenter as soon as Firebase provides a real location.
+  const startLat = hasCurrent ? current.lat : 0;
+  const startLng = hasCurrent ? current.lng : 0;
+  const startZoom = hasCurrent ? 15 : 2;
 
-  leafletMap = L.map(mapDiv).setView([startLat, startLng], 15);
+  leafletMap = L.map(mapDiv).setView([startLat, startLng], startZoom);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: "&copy; OpenStreetMap"
   }).addTo(leafletMap);
-  leafletMarker = L.marker([startLat, startLng]).addTo(leafletMap);
+
+  if (hasCurrent) {
+    leafletMarker = L.marker([startLat, startLng]).addTo(leafletMap);
+  } else {
+    leafletMarker = null;
+  }
 
   // Leaflet needs an invalidateSize call if container size changed; defer slightly
   setTimeout(() => {
@@ -1237,7 +1245,12 @@ function mockUpdateOverview() {
   }
 
   if (leafletMap && leafletMarker) {
-    const lat = 10.85, lng = 106.77;
+    const lat = (window._currentDeviceLocation && window._currentDeviceLocation.lat != null)
+      ? window._currentDeviceLocation.lat
+      : 0;
+    const lng = (window._currentDeviceLocation && window._currentDeviceLocation.lng != null)
+      ? window._currentDeviceLocation.lng
+      : 0;
     leafletMarker.setLatLng([lat, lng]);
     leafletMap.setView([lat, lng], 15);
   }
@@ -1314,7 +1327,10 @@ function syncLocationMapToCurrentDevice() {
 function updateMapLocation(lat, lng) {
   const coords = normalizeLocationCoords(lat, lng);
   if (!coords) return false;
-  if (!leafletMap || !leafletMarker) return false;
+  if (!leafletMap) return false;
+  if (!leafletMarker) {
+    leafletMarker = L.marker([coords.lat, coords.lng]).addTo(leafletMap);
+  }
   leafletMarker.setLatLng([coords.lat, coords.lng]);
   leafletMap.setView([coords.lat, coords.lng], 15);
   return true;
