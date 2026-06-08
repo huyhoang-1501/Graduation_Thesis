@@ -25,6 +25,9 @@ volatile int lastBPOrigin = BP_ORIGIN_NONE;
 // origin marker for the BP run about to be started
 static volatile int bpOriginBeforeStart = BP_ORIGIN_NONE;
 
+// Flag to signal cancelling the current blood pressure measurement
+static volatile bool bpCancelRequested = false;
+
 // ========== SMOOTHING & LED CONTROL FOR MAX301 ==========
 const float HR_EMA_ALPHA = 0.28f;    // lower = smoother, higher = more responsive
 const float SPO2_EMA_ALPHA = 0.45f;  // increased to make SpO2 respond faster
@@ -467,6 +470,7 @@ static void bp_task_entry(void *pvParameters) {
 
 void startMeasureBloodPressureAsync() {
   if (bpTaskHandle != NULL) return; // already running
+  bpCancelRequested = false; // Reset cancellation flag before starting new run
   // create task with larger stack size and low priority to avoid stack overflow
   xTaskCreate(bp_task_entry, "BPTask", 8192, NULL, 1, &bpTaskHandle);
 }
@@ -478,6 +482,12 @@ void startMeasureBloodPressureAsyncForOrigin(int origin) {
 
 bool isBPMeasuring() {
   return bpTaskHandle != NULL;
+}
+
+void cancelMeasureBloodPressure() {
+  if (bpTaskHandle != NULL) {
+    bpCancelRequested = true;
+  }
 }
 
 // ====================== ĐIỀU KHIỂN BƠM & VAN ======================
@@ -519,7 +529,12 @@ void measureBloodPressure() {
   closeValve();
 
   unsigned long startTime = millis();
+  bool cancelled = false;
   while (pressure_mmHg < TARGET_PRESSURE_MMHG) {
+    if (bpCancelRequested) {
+      cancelled = true;
+      break;
+    }
     // timeout fallback like original code: if exceeded, allow proceed if above minimum
     if (millis() - startTime > PUMP_TIMEOUT_MS) {
       Serial.println("Timeout bơm!");
@@ -541,36 +556,50 @@ void measureBloodPressure() {
   }
 
   stopPump();
-  Serial.println("Xa cham");
-  openValve(45);
 
-  sampleCount = 0;
-  float prev = pressure_mmHg;
-  float y_prev = 0.0f;
-  const float alpha = 0.95f;
+  if (!cancelled) {
+    Serial.println("Xa cham");
+    openValve(45);
 
-  while (pressure_mmHg > 45.0f && sampleCount < MAX_SAMPLES) {
-    if (readPressure(pressure_kPa, pressure_mmHg, raw)) {
-      // store scaled integer representations to save RAM
-      pressureArr[sampleCount] = (int16_t)constrain((int)roundf(pressure_mmHg * 10.0f), -32768, 32767);
-      float y = alpha * y_prev + pressure_mmHg - prev;
-      oscArr[sampleCount] = (int16_t)constrain((int)roundf(fabsf(y) * 1000.0f), 0, 32767);
-      oscSignedArr[sampleCount] = (int16_t)constrain((int)roundf(y * 1000.0f), -32768, 32767);
-      timeArr[sampleCount] = millis();
-      y_prev = y;
-      prev = pressure_mmHg;
-      sampleCount++;
+    sampleCount = 0;
+    float prev = pressure_mmHg;
+    float y_prev = 0.0f;
+    const float alpha = 0.95f;
+
+    while (pressure_mmHg > 45.0f && sampleCount < MAX_SAMPLES) {
+      if (bpCancelRequested) {
+        cancelled = true;
+        break;
+      }
+      if (readPressure(pressure_kPa, pressure_mmHg, raw)) {
+        // store scaled integer representations to save RAM
+        pressureArr[sampleCount] = (int16_t)constrain((int)roundf(pressure_mmHg * 10.0f), -32768, 32767);
+        float y = alpha * y_prev + pressure_mmHg - prev;
+        oscArr[sampleCount] = (int16_t)constrain((int)roundf(fabsf(y) * 1000.0f), 0, 32767);
+        oscSignedArr[sampleCount] = (int16_t)constrain((int)roundf(y * 1000.0f), -32768, 32767);
+        timeArr[sampleCount] = millis();
+        y_prev = y;
+        prev = pressure_mmHg;
+        sampleCount++;
+      }
+      delay(50);
     }
-    delay(50);
   }
 
-  // process oscillometric envelope and compute SYS/DIA
-  processOscillometric();
+  if (!cancelled) {
+    // process oscillometric envelope and compute SYS/DIA
+    processOscillometric();
+  } else {
+    Serial.println("Do huyet ap bi huy!");
+    lastBPOrigin = BP_ORIGIN_NONE;
+    bpOriginBeforeStart = BP_ORIGIN_NONE;
+  }
 
   // rapid deflate to safe level
   Serial.println("Xa nhanh");
   openValve(245);
-  while (pressure_mmHg > FINAL_DEFLATION_MMHG) {
+  unsigned long deflateStart = millis();
+  while (pressure_mmHg > FINAL_DEFLATION_MMHG && (millis() - deflateStart < 5000)) {
     readPressure(pressure_kPa, pressure_mmHg, raw);
     delay(10);
   }

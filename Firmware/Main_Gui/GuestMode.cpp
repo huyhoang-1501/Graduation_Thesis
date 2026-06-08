@@ -231,15 +231,31 @@ static void build_guest_screen() {
       // Mode button switches into BP mode; enable Start only in BP mode.
       lv_obj_add_event_cb(btn_mode, [](lv_event_t *e){
         if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-        // enter BP mode and enable Start
-        g_mode = MODE_BP;
-        g_bp_result_displaying = false;
-        // clear any previous transient state
-        if (label_state) lv_label_set_text(label_state, "Nhan Start de do huyet ap...");
-        // clear previous SYS/DIA so user knows results will be new
-        if (label_sys) lv_label_set_text(label_sys, "--");
-        if (label_dia) lv_label_set_text(label_dia, "--");
-        if (btn_start) lv_obj_clear_state(btn_start, LV_STATE_DISABLED);
+        
+        if (isBPMeasuring()) {
+          cancelMeasureBloodPressure();
+          g_mode = MODE_HR_SPO2;
+          g_bp_result_displaying = false;
+          if (label_state) lv_label_set_text(label_state, "Da huy do huyet ap");
+          if (btn_start) lv_obj_add_state(btn_start, LV_STATE_DISABLED);
+          if (btn_back) lv_obj_clear_state(btn_back, LV_STATE_DISABLED);
+        } else {
+          // Toggle between MODE_HR_SPO2 and MODE_BP
+          if (g_mode == MODE_HR_SPO2) {
+            g_mode = MODE_BP;
+            g_bp_result_displaying = false;
+            // clear any previous transient state
+            if (label_state) lv_label_set_text(label_state, "Nhan Start de do huyet ap...");
+            // clear previous SYS/DIA so user knows results will be new
+            if (label_sys) lv_label_set_text(label_sys, "--");
+            if (label_dia) lv_label_set_text(label_dia, "--");
+            if (btn_start) lv_obj_clear_state(btn_start, LV_STATE_DISABLED);
+          } else {
+            g_mode = MODE_HR_SPO2;
+            if (label_state) lv_label_set_text(label_state, "");
+            if (btn_start) lv_obj_add_state(btn_start, LV_STATE_DISABLED);
+          }
+        }
       }, LV_EVENT_CLICKED, nullptr);
     }
     // Create as child of the main screen so it sits above the footer and aligns to the screen corner
@@ -261,8 +277,7 @@ static void build_guest_screen() {
         lv_obj_add_state(btn_start, LV_STATE_DISABLED);
         // disable Back while measurement is in progress
         if (btn_back) lv_obj_add_state(btn_back, LV_STATE_DISABLED);
-        // disable Mode while measurement is in progress
-        if (btn_mode) lv_obj_add_state(btn_mode, LV_STATE_DISABLED);
+        // Mode button is intentionally left ENABLED during measurement to allow cancellation
         if (label_state) lv_label_set_text(label_state, "Dang do huyet ap...");
         // trigger non-blocking background measurement (mark origin=GUEST)
         startMeasureBloodPressureAsyncForOrigin(BP_ORIGIN_GUEST);
@@ -341,29 +356,55 @@ void GuestMode_Loop() {
 
   // monitor background BP measurement state and update UI when finished
   bool measuring = isBPMeasuring();
+  
+  // As soon as calculations are done (lastBPOrigin is updated to GUEST),
+  // clear the measuring label and show the results immediately, even while deflating.
+  if (measuring && lastBPOrigin == BP_ORIGIN_GUEST) {
+    if (label_state && strcmp(lv_label_get_text(label_state), "Dang do huyet ap...") == 0) {
+      lv_label_set_text(label_state, "");
+      if (label_sys) {
+        char buf[32];
+        if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
+        else snprintf(buf, sizeof(buf), "--");
+        lv_label_set_text(label_sys, buf);
+      }
+      if (label_dia) {
+        char buf[32];
+        if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
+        else snprintf(buf, sizeof(buf), "--");
+        lv_label_set_text(label_dia, buf);
+      }
+    }
+  }
+
   if (measuring && !wasMeasuring) {
     // just started
     wasMeasuring = true;
   } else if (!measuring && wasMeasuring) {
     // just finished
-    // update SYS/DIA labels
-    if (label_sys) {
-      char buf[32];
-      if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
-      else snprintf(buf, sizeof(buf), "--");
-      lv_label_set_text(label_sys, buf);
-    }
-    if (label_dia) {
-      char buf[32];
-      if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
-      else snprintf(buf, sizeof(buf), "--");
-      lv_label_set_text(label_dia, buf);
-    }
-    // mark time when result became available; we'll display it for a while then auto-return to HR/SPO2 mode
-    g_bp_result_ms = millis();
-    g_bp_result_displaying = true;
     wasMeasuring = false;
-    // measurement finished -> allow Back button to be pressed now that result is shown
+    
+    if (lastBPOrigin == BP_ORIGIN_GUEST) {
+      // update SYS/DIA labels (backup/ensure updated)
+      if (label_sys) {
+        char buf[32];
+        if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
+        else snprintf(buf, sizeof(buf), "--");
+        lv_label_set_text(label_sys, buf);
+      }
+      if (label_dia) {
+        char buf[32];
+        if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
+        else snprintf(buf, sizeof(buf), "--");
+        lv_label_set_text(label_dia, buf);
+      }
+      if (label_state) lv_label_set_text(label_state, "");
+      // mark time when result became available; we'll display it for a while then auto-return to HR/SPO2 mode
+      g_bp_result_ms = millis();
+      g_bp_result_displaying = true;
+    }
+    
+    // measurement finished -> allow Back button to be pressed now
     if (btn_back) lv_obj_clear_state(btn_back, LV_STATE_DISABLED);
     // measurement finished -> allow Mode button again
     if (btn_mode) lv_obj_clear_state(btn_mode, LV_STATE_DISABLED);

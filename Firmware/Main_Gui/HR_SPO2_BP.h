@@ -24,6 +24,8 @@ void measureBloodPressure();
 void startMeasureBloodPressureAsync();
 // Query whether a background BP measurement is in progress
 bool isBPMeasuring();
+// Cancel the current BP measurement
+void cancelMeasureBloodPressure();
 
 // Track origin of the last BP measurement so UI and upload logic can
 // distinguish measurements initiated from different modes.
