@@ -90,8 +90,10 @@ static float intervalsArr[MAX_SAMPLES];
 uint16_t currentDelay = MEASURE_DELAY_MIN;
 
 // Tunable algorithm parameters (adjust at runtime via serial)
-float SYS_RATIO = 0.5f;  // increased to move SYS detection closer to MAP
-float DIA_RATIO = 0.7f;  // tuned for this trace
+float SYS_RATIO = 0.5f;  // ratio of max amplitude to detect SYS (normally 0.45 - 0.65)
+float DIA_RATIO = 0.7f;  // ratio of max amplitude to detect DIA (normally 0.65 - 0.85)
+float SYS_OFFSET = 30.0f; // additive offset to calibrate systolic pressure (mmHg)
+float DIA_OFFSET = 40.0f; // additive offset to calibrate diastolic pressure (mmHg)
 bool dumpSamplesNextRun = false; // if true, measurement will print CSV of samples
 
 // Early-accept settings: if we have this many samples after MAP, skip final rapid deflation
@@ -471,6 +473,7 @@ static void bp_task_entry(void *pvParameters) {
 void startMeasureBloodPressureAsync() {
   if (bpTaskHandle != NULL) return; // already running
   bpCancelRequested = false; // Reset cancellation flag before starting new run
+  lastBPOrigin = BP_ORIGIN_NONE; // Reset origin so UI doesn't show stale values immediately
   // create task with larger stack size and low priority to avoid stack overflow
   xTaskCreate(bp_task_entry, "BPTask", 8192, NULL, 1, &bpTaskHandle);
 }
@@ -517,6 +520,7 @@ void stopAll() {
 // ====================== ĐO HUYẾT ÁP ======================
 void measureBloodPressure() {
   Serial.println("Bat dau do huyet ap");
+  lastBPOrigin = BP_ORIGIN_NONE; // Reset origin before starting measurement
 
   float pressure_kPa = 0.0f;
   float pressure_mmHg = 0.0f;
@@ -597,7 +601,7 @@ void measureBloodPressure() {
 
   // rapid deflate to safe level
   Serial.println("Xa nhanh");
-  openValve(245);
+  openValve(255);
   unsigned long deflateStart = millis();
   while (pressure_mmHg > FINAL_DEFLATION_MMHG && (millis() - deflateStart < 5000)) {
     readPressure(pressure_kPa, pressure_mmHg, raw);
@@ -656,7 +660,7 @@ void processOscillometric()
   float SYS = 0.0f;
   float bestErr = 9999.0f;
   for (int i = 0; i < mapIndex; i++) {
-    float err = fabs(ampBuf[i] - 0.7f * maxAmp);
+    float err = fabs(ampBuf[i] - SYS_RATIO * maxAmp);
     if (err < bestErr) { bestErr = err; SYS = cuffBuf[i]; }
   }
 
@@ -672,7 +676,7 @@ void processOscillometric()
   float DIA = 0.0f;
   bestErr = 9999.0f;
   for (int i = mapIndex + 1; i < ampCount; i++) {
-    float err = fabs(ampBuf[i] - 0.8f * maxAmp);
+    float err = fabs(ampBuf[i] - DIA_RATIO * maxAmp);
     if (err < bestErr) { bestErr = err; DIA = cuffBuf[i]; }
   }
 
@@ -691,9 +695,9 @@ void processOscillometric()
   Serial.printf("DIA = %.1f\n", DIA);
   Serial.printf("MAP = %.1f\n", MAP);
 
-  // publish results for UI
-  lastSYS = SYS;
-  lastDIA = DIA;
+  // publish results for UI with calibration offsets
+  lastSYS = SYS + SYS_OFFSET;
+  lastDIA = DIA + DIA_OFFSET;
   // mark who started this measurement
   lastBPOrigin = bpOriginBeforeStart;
   bpOriginBeforeStart = BP_ORIGIN_NONE;

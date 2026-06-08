@@ -360,20 +360,18 @@ void GuestMode_Loop() {
   // As soon as calculations are done (lastBPOrigin is updated to GUEST),
   // clear the measuring label and show the results immediately, even while deflating.
   if (measuring && lastBPOrigin == BP_ORIGIN_GUEST) {
-    if (label_state && strcmp(lv_label_get_text(label_state), "Dang do huyet ap...") == 0) {
-      lv_label_set_text(label_state, "");
-      if (label_sys) {
-        char buf[32];
-        if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
-        else snprintf(buf, sizeof(buf), "--");
-        lv_label_set_text(label_sys, buf);
-      }
-      if (label_dia) {
-        char buf[32];
-        if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
-        else snprintf(buf, sizeof(buf), "--");
-        lv_label_set_text(label_dia, buf);
-      }
+    if (label_state) lv_label_set_text(label_state, "");
+    if (label_sys) {
+      char buf[32];
+      if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
+      else snprintf(buf, sizeof(buf), "--");
+      lv_label_set_text(label_sys, buf);
+    }
+    if (label_dia) {
+      char buf[32];
+      if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
+      else snprintf(buf, sizeof(buf), "--");
+      lv_label_set_text(label_dia, buf);
     }
   }
 

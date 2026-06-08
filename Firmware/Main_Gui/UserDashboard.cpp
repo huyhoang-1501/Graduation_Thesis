@@ -843,16 +843,34 @@ static void build_ud_screen() {
     lv_obj_center(mbl);
     // keep a reference to the Mode button so we can disable it during BP measurement
     ud_btn_mode = btn_mode;
-    // Mode button switches into BP mode; enable Start only in BP mode.
+    // Mode button: Toggle between HR/SpO2 mode and BP mode. During measurement, it cancels.
     lv_obj_add_event_cb(btn_mode, [](lv_event_t *e){
       if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-      // enter BP mode and enable Start
-      g_ud_mode = UDMODE_BP;
-      if (label_state) lv_label_set_text(label_state, "Nhan nut Start de do huyet ap...");
-      // clear previous SYS/DIA so user knows results will be new
-      if (label_sys) lv_label_set_text(label_sys, "--");
-      if (label_dia) lv_label_set_text(label_dia, "--");
-      if (ud_btn_start) lv_obj_clear_state(ud_btn_start, LV_STATE_DISABLED);
+      
+      if (isBPMeasuring()) {
+        cancelMeasureBloodPressure();
+        g_ud_mode = UDMODE_HR_SPO2;
+        g_ud_bp_result_displaying = false;
+        if (label_state) lv_label_set_text(label_state, "Da huy do huyet ap");
+        if (ud_btn_start) lv_obj_add_state(ud_btn_start, LV_STATE_DISABLED);
+        if (ud_btn_back) lv_obj_clear_state(ud_btn_back, LV_STATE_DISABLED);
+      } else {
+        // Toggle between UDMODE_HR_SPO2 and UDMODE_BP
+        if (g_ud_mode == UDMODE_HR_SPO2) {
+          g_ud_mode = UDMODE_BP;
+          g_ud_bp_result_displaying = false;
+          // clear any previous transient state
+          if (label_state) lv_label_set_text(label_state, "Nhan Start de do huyet ap...");
+          // clear previous SYS/DIA so user knows results will be new
+          if (label_sys) lv_label_set_text(label_sys, "--");
+          if (label_dia) lv_label_set_text(label_dia, "--");
+          if (ud_btn_start) lv_obj_clear_state(ud_btn_start, LV_STATE_DISABLED);
+        } else {
+          g_ud_mode = UDMODE_HR_SPO2;
+          if (label_state) lv_label_set_text(label_state, "");
+          if (ud_btn_start) lv_obj_add_state(ud_btn_start, LV_STATE_DISABLED);
+        }
+      }
     }, LV_EVENT_CLICKED, nullptr);
 
     // Create Start button and position it at the bottom-right corner
@@ -874,9 +892,9 @@ static void build_ud_screen() {
       if (label_state) lv_label_set_text(label_state, "Dang do huyet ap...");
       // disable the button to prevent re-entry (use global ud_btn_start)
       if (ud_btn_start) lv_obj_add_state(ud_btn_start, LV_STATE_DISABLED);
-      // disable Back and Mode while measurement is in progress
+      // disable Back while measurement is in progress
       if (ud_btn_back) lv_obj_add_state(ud_btn_back, LV_STATE_DISABLED);
-      if (ud_btn_mode) lv_obj_add_state(ud_btn_mode, LV_STATE_DISABLED);
+      // Mode button is intentionally left ENABLED during measurement to allow cancellation
       // trigger non-blocking background measurement (mark origin=USER)
       startMeasureBloodPressureAsyncForOrigin(BP_ORIGIN_USER);
     }, LV_EVENT_CLICKED, nullptr);
@@ -936,6 +954,7 @@ void UserDashboard_Show(UserDashboardBackCallback backCallback) {
     lv_scr_load(ud_scr);
     // initialize to HR/SPO2 mode and ensure Start is disabled by default
     g_ud_mode = UDMODE_HR_SPO2;
+    g_ud_bp_result_displaying = false;
     if (ud_btn_start) lv_obj_add_state(ud_btn_start, LV_STATE_DISABLED);
     // ensure Mode button is enabled on show
     if (ud_btn_mode) lv_obj_clear_state(ud_btn_mode, LV_STATE_DISABLED);
@@ -950,41 +969,58 @@ void UserDashboard_Loop() {
   if (!g_active || !ud_scr) return;
 
   static bool wasMeasuring = false;
+
+  uint32_t elapsed = millis() - g_start_ms;
+  if (elapsed < 2500) {
+    return;
+  }
+
   bool measuring = isBPMeasuring();
+
+  // As soon as calculations are done (lastBPOrigin is updated to USER),
+  // clear the measuring label and show the results immediately, even while deflating.
+  if (measuring && lastBPOrigin == BP_ORIGIN_USER) {
+    if (label_state) lv_label_set_text(label_state, "");
+    if (label_sys) {
+      char buf[32];
+      if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
+      else snprintf(buf, sizeof(buf), "--");
+      lv_label_set_text(label_sys, buf);
+    }
+    if (label_dia) {
+      char buf[32];
+      if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
+      else snprintf(buf, sizeof(buf), "--");
+      lv_label_set_text(label_dia, buf);
+    }
+  }
+
   if (measuring && !wasMeasuring) {
     wasMeasuring = true;
   } else if (!measuring && wasMeasuring) {
-    // just finished - update SYS/DIA and re-enable Start
-    if (label_sys) {
-      char buf[32];
-      if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
-      else snprintf(buf, sizeof(buf), "--");
-      lv_label_set_text(label_sys, buf);
-    }
-    if (label_dia) {
-      char buf[32];
-      if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
-      else snprintf(buf, sizeof(buf), "--");
-      lv_label_set_text(label_dia, buf);
-    }
-    // just finished - set result display timer and re-enable Back/Mode
-    if (label_sys) {
-      char buf[32];
-      if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
-      else snprintf(buf, sizeof(buf), "--");
-      lv_label_set_text(label_sys, buf);
-    }
-    if (label_dia) {
-      char buf[32];
-      if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
-      else snprintf(buf, sizeof(buf), "--");
-      lv_label_set_text(label_dia, buf);
-    }
-    // mark time when result became available; we'll display it for a while then auto-return to HR/SPO2 mode
-    g_ud_bp_result_ms = millis();
-    g_ud_bp_result_displaying = true;
     wasMeasuring = false;
-    // measurement finished -> allow Back and Mode buttons now that result is shown
+    
+    if (lastBPOrigin == BP_ORIGIN_USER) {
+      // update SYS/DIA labels (backup/ensure updated)
+      if (label_sys) {
+        char buf[32];
+        if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
+        else snprintf(buf, sizeof(buf), "--");
+        lv_label_set_text(label_sys, buf);
+      }
+      if (label_dia) {
+        char buf[32];
+        if (isfinite(lastDIA) && lastDIA > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastDIA);
+        else snprintf(buf, sizeof(buf), "--");
+        lv_label_set_text(label_dia, buf);
+      }
+      if (label_state) lv_label_set_text(label_state, "");
+      // mark time when result became available; we'll display it for a while then auto-return to HR/SPO2 mode
+      g_ud_bp_result_ms = millis();
+      g_ud_bp_result_displaying = true;
+    }
+    
+    // measurement finished -> allow Back and Mode buttons now that result is shown or cancelled
     if (ud_btn_back) lv_obj_clear_state(ud_btn_back, LV_STATE_DISABLED);
     if (ud_btn_mode) lv_obj_clear_state(ud_btn_mode, LV_STATE_DISABLED);
   }
