@@ -26,6 +26,7 @@
 #include "UserDashboard.h"
 // HR/SpO2 and BP module
 #include "HR_SPO2_BP.h"
+#include "sim_module.h"
 
 #include <WiFi.h>
 #include <DFRobotDFPlayerMini.h>
@@ -91,6 +92,10 @@ static void gps_setup() {
 }
 
 static void gps_loop() {
+  if (SimModule_IsBusy()) {
+    return; // Khi đang xử lý SOS, UART2 được nhường cho SIM module
+  }
+
   while (GPSSerial.available()) {
     gps.encode(GPSSerial.read());
   }
@@ -402,6 +407,15 @@ static void sound_button_task() {
       Serial.println("[DFPlayer] play 003.mp3");
     } else {
       Serial.println("[DFPlayer] not ready, cannot play");
+    }
+
+    // Kích hoạt cuộc gọi khẩn cấp, SMS và còi loa từ SIM module
+    const char* phone = UserDashboard_GetPhone();
+    if (phone && strlen(phone) > 0) {
+      SimModule_TriggerSOS(phone, g_lastGpsLat, g_lastGpsLng, g_hasGpsLocation);
+      Serial.printf("[SOS] Triggered call/SMS to %s, GPS_OK=%d\n", phone, g_hasGpsLocation);
+    } else {
+      Serial.println("[SOS] Failed: No phone number saved in settings!");
     }
   } else if (buttonState == HIGH) {
     buttonHandledWhilePressed = false;
@@ -785,6 +799,9 @@ void setup() {
                 (usermode_validate_cb_t)(DISABLE_FIREBASE_PUSH ? local_validate_user_id : FirebaseSync_ValidateUserId),
                 on_user_mode_success);
 
+  // Khởi tạo SIM module
+  SimModule_Init();
+
   // Day trang thai ban dau len Firebase (skipped if disabled).
   if (!DISABLE_FIREBASE_PUSH) {
     FirebaseSync_PushStatusAndBattery();
@@ -801,6 +818,7 @@ void loop() {
   hrspo2bp_loop();
   gps_loop();
   sound_button_task();
+  SimModule_Loop();
 
   power_save_task();
   GuestMode_Loop();

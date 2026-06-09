@@ -1043,3 +1043,7 @@ void UserDashboard_UpdateStatus(const char *time_str, const char *batt_str) {
   (void)time_str;
   (void)batt_str;
 }
+
+const char* UserDashboard_GetPhone() {
+  return g_phone;
+}
