@@ -28,6 +28,7 @@
 #include "HR_SPO2_BP.h"
 
 #include <WiFi.h>
+#include <DFRobotDFPlayerMini.h>
 
 // Enable Firebase_ESP_Client usage in FirebaseSync (will pass fbdo pointer)
 #define USE_FIREBASE_ESP_CLIENT
@@ -43,6 +44,18 @@ static FirebaseConfig config;
 static const char *FIREBASE_API_KEY = "";
 #endif
 
+static const int DFPLAYER_RX_PIN = 27;
+static const int DFPLAYER_TX_PIN = 14;
+static const int BUTTON_SOUND_PIN = 13;  // nút nhấn đã có điện trở kéo lên
+static const uint32_t BUTTON_DEBOUNCE_MS = 50;
+
+// ================= DFPLAYER MINI =================
+HardwareSerial DFPlayerSerial(1);
+DFRobotDFPlayerMini dfPlayer;
+static bool dfPlayerReady = false;
+static bool lastButtonState = HIGH;
+static uint32_t lastButtonChangeMs = 0;
+
 // ================= GPS (NEO-6M) =================
 // Dùng 2 GPIO khác nhau cho UART GPS.
 static const int GPS_RX_PIN = 25;
@@ -57,6 +70,20 @@ static double g_lastGpsLng = 0.0;
 static bool g_hasGpsLocation = false;
 static uint32_t g_lastGpsPushMs = 0;
 static const uint32_t GPS_PUSH_INTERVAL_MS = 5000;
+
+static void dfplayer_setup() {
+  DFPlayerSerial.begin(9600, SERIAL_8N1, DFPLAYER_RX_PIN, DFPLAYER_TX_PIN);
+  delay(800);
+
+  if (dfPlayer.begin(DFPlayerSerial)) {
+    dfPlayerReady = true;
+    dfPlayer.volume(25);  // 0..30
+    Serial.printf("[DFPlayer] OK RX=%d TX=%d\n", DFPLAYER_RX_PIN, DFPLAYER_TX_PIN);
+  } else {
+    dfPlayerReady = false;
+    Serial.printf("[DFPlayer] init failed RX=%d TX=%d\n", DFPLAYER_RX_PIN, DFPLAYER_TX_PIN);
+  }
+}
 
 static void gps_setup() {
   GPSSerial.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
@@ -353,6 +380,34 @@ static void power_save_task() {
   }
 }
 
+static void sound_button_task() {
+  bool buttonState = digitalRead(BUTTON_SOUND_PIN);
+
+  if (buttonState != lastButtonState) {
+    lastButtonChangeMs = millis();
+    lastButtonState = buttonState;
+  }
+
+  if ((millis() - lastButtonChangeMs) < BUTTON_DEBOUNCE_MS) {
+    return;
+  }
+
+  // Nút dùng pull-up: nhấn = LOW
+  static bool buttonHandledWhilePressed = false;
+  if (buttonState == LOW && !buttonHandledWhilePressed) {
+    buttonHandledWhilePressed = true;
+
+    if (dfPlayerReady) {
+      dfPlayer.play(3);  // phát file 003.mp3 trong thư mục gốc của thẻ nhớ
+      Serial.println("[DFPlayer] play 003.mp3");
+    } else {
+      Serial.println("[DFPlayer] not ready, cannot play");
+    }
+  } else if (buttonState == HIGH) {
+    buttonHandledWhilePressed = false;
+  }
+}
+
 static void handle_valid_tap() {
   uint32_t now = millis();
 
@@ -632,8 +687,12 @@ void setup() {
   tft.setRotation(TFT_ROTATION);
 
   pinMode(TFT_BL, OUTPUT);
+  pinMode(BUTTON_SOUND_PIN, INPUT_PULLUP);
   backlight_set(true);
   note_activity();
+
+  // DFPlayer init
+  dfplayer_setup();
 
   tft.fillScreen(TFT_BLACK);
 
@@ -741,6 +800,7 @@ void loop() {
   // Run HR/SpO2 background loop (updates spo2/heartRate)
   hrspo2bp_loop();
   gps_loop();
+  sound_button_task();
 
   power_save_task();
   GuestMode_Loop();
