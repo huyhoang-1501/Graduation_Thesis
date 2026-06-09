@@ -53,7 +53,7 @@ static const uint32_t BUTTON_DEBOUNCE_MS = 50;
 // ================= DFPLAYER MINI =================
 HardwareSerial DFPlayerSerial(1);
 DFRobotDFPlayerMini dfPlayer;
-static bool dfPlayerReady = false;
+bool dfPlayerReady = false;
 static bool lastButtonState = HIGH;
 static uint32_t lastButtonChangeMs = 0;
 
@@ -66,9 +66,9 @@ static const uint32_t GPS_BAUD = 9600;
 HardwareSerial GPSSerial(2);
 TinyGPSPlus gps;
 
-static double g_lastGpsLat = 0.0;
-static double g_lastGpsLng = 0.0;
-static bool g_hasGpsLocation = false;
+double g_lastGpsLat = 0.0;
+double g_lastGpsLng = 0.0;
+bool g_hasGpsLocation = false;
 static uint32_t g_lastGpsPushMs = 0;
 static const uint32_t GPS_PUSH_INTERVAL_MS = 5000;
 

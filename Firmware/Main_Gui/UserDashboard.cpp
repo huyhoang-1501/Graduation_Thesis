@@ -8,6 +8,15 @@
 #include <Preferences.h>
 // Sensor and BP API
 #include "HR_SPO2_BP.h"
+#include "sim_module.h"
+#include <DFRobotDFPlayerMini.h>
+
+// External references from Main_Gui.ino
+extern bool dfPlayerReady;
+extern DFRobotDFPlayerMini dfPlayer;
+extern double g_lastGpsLat;
+extern double g_lastGpsLng;
+extern bool g_hasGpsLocation;
 
 static lv_obj_t *ud_scr = nullptr;
 static lv_obj_t *label_spo2 = nullptr;
@@ -79,6 +88,16 @@ static void metric_edit_event_cb(lv_event_t *ev) {
 static UserDashboardBackCallback g_back_callback = nullptr;
 static bool g_active = false;
 static uint32_t g_start_ms = 0;
+
+// ---- Warning state ----
+static int g_hr_warning = 0;
+static int g_spo2_warning = 0;
+static bool g_mode1_warning = false;  // HR/SpO2 alert triggered
+static bool g_mode2_warning = false;  // BP alert triggered
+static uint32_t g_warning_last_inc_ms = 0; // millis() of last counter increment
+static const uint32_t WARNING_RESET_MS = 30000; // reset counters if idle 30s
+static const int WARNING_TRIGGER_COUNT = 5;
+
 // Mode: default runs continuous HR/SpO2. BP mode enables Start button to trigger BP measurement.
 enum UserDashboardMode { UDMODE_HR_SPO2 = 0, UDMODE_BP = 1 };
 static UserDashboardMode g_ud_mode = UDMODE_HR_SPO2;
@@ -938,6 +957,113 @@ static void refresh_values() {
     else snprintf(buf, sizeof(buf), "--");
     lv_label_set_text(label_dia, buf);
   }
+
+  // ===== Warning logic =====
+  // Only run warnings if a phone number is configured in settings
+  if (g_phone[0] == '\0') return;
+  // Don't trigger new alerts while SIM module is busy with a previous call/SMS
+  if (SimModule_IsBusy()) return;
+
+  uint32_t now_w = millis();
+
+  // --- Mode 1: HR / SpO2 warning (count to 5 within 30s) ---
+  if (!g_mode1_warning) {
+    bool hr_valid  = (heartRate > 20 && heartRate < 300);
+    bool spo2_valid = (spo2 > 30 && spo2 <= 100);
+
+    bool hr_out  = hr_valid  && (heartRate < g_hr_min  || heartRate > g_hr_max);
+    bool spo2_out = spo2_valid && (spo2 < g_spo2_min || spo2 > g_spo2_max);
+
+    bool any_inc = false;
+    if (hr_out)  { g_hr_warning++;  any_inc = true; }
+    if (spo2_out) { g_spo2_warning++; any_inc = true; }
+
+    if (any_inc) {
+      g_warning_last_inc_ms = now_w;
+    }
+
+    // Reset counters if 30s passed without reaching threshold
+    if (g_warning_last_inc_ms > 0 && (now_w - g_warning_last_inc_ms) >= WARNING_RESET_MS) {
+      g_hr_warning = 0;
+      g_spo2_warning = 0;
+      g_warning_last_inc_ms = 0;
+    }
+
+    // Trigger if either counter reaches 5
+    if (g_hr_warning >= WARNING_TRIGGER_COUNT || g_spo2_warning >= WARNING_TRIGGER_COUNT) {
+      g_mode1_warning = true;
+
+      // Determine which metric triggered and build SMS message
+      bool hr_triggered  = (g_hr_warning >= WARNING_TRIGGER_COUNT);
+      bool spo2_triggered = (g_spo2_warning >= WARNING_TRIGGER_COUNT);
+
+      // Play DFPlayer alert audio
+      if (dfPlayerReady) {
+        if (hr_triggered) {
+          dfPlayer.play(1);  // file 001 - HR warning
+        } else {
+          dfPlayer.play(2);  // file 002 - SpO2 warning
+        }
+      }
+
+      // Build SMS message
+      const char *metric_name = hr_triggered ? "HR" : "SPO2";
+      const char *direction = "";
+      if (hr_triggered) {
+        direction = (heartRate < g_hr_min) ? "thap" : "cao";
+      } else {
+        direction = (spo2 < g_spo2_min) ? "thap" : "cao";
+      }
+      char sms_msg[160];
+      snprintf(sms_msg, sizeof(sms_msg),
+        "Canh bao chi so %s dang %s so voi nguong cai dat!", metric_name, direction);
+
+      // Trigger call + SMS with location
+      SimModule_TriggerAlert(g_phone, g_lastGpsLat, g_lastGpsLng, g_hasGpsLocation, sms_msg);
+
+      // Reset counters after triggering
+      g_hr_warning = 0;
+      g_spo2_warning = 0;
+      g_warning_last_inc_ms = 0;
+    }
+  }
+
+  // --- Mode 2: BP (sys/dia) warning (immediate, no counting) ---
+  if (!g_mode2_warning) {
+    if (lastBPOrigin == BP_ORIGIN_USER && isfinite(lastSYS) && lastSYS > 0.0f
+        && isfinite(lastDIA) && lastDIA > 0.0f) {
+      int sys_val = (int)lastSYS;
+      int dia_val = (int)lastDIA;
+
+      bool sys_high = (sys_val > g_sys_max);
+      bool sys_low  = (sys_val < g_sys_min);
+      bool dia_high = (dia_val > g_dia_max);
+      bool dia_low  = (dia_val < g_dia_min);
+
+      if (sys_high || sys_low || dia_high || dia_low) {
+        g_mode2_warning = true;
+
+        bool is_high = (sys_high || dia_high);
+        // Play DFPlayer alert audio
+        if (dfPlayerReady) {
+          if (is_high) {
+            dfPlayer.play(5);  // file 005 - BP high
+          } else {
+            dfPlayer.play(6);  // file 006 - BP low
+          }
+        }
+
+        // Build SMS message
+        const char *bp_dir = is_high ? "cao" : "thap";
+        char sms_msg[160];
+        snprintf(sms_msg, sizeof(sms_msg),
+          "Canh bao chi so Huyet ap dang %s so voi nguong cai dat!", bp_dir);
+
+        // Trigger call + SMS with location
+        SimModule_TriggerAlert(g_phone, g_lastGpsLat, g_lastGpsLng, g_hasGpsLocation, sms_msg);
+      }
+    }
+  }
 }
 
 void UserDashboard_Show(UserDashboardBackCallback backCallback) {
@@ -962,6 +1088,12 @@ void UserDashboard_Show(UserDashboardBackCallback backCallback) {
     if (ud_btn_back) lv_obj_clear_state(ud_btn_back, LV_STATE_DISABLED);
     // clear transient status
     if (label_state) lv_label_set_text(label_state, "");
+    // reset warning state so alerts can re-trigger in this session
+    g_hr_warning = 0;
+    g_spo2_warning = 0;
+    g_mode1_warning = false;
+    g_mode2_warning = false;
+    g_warning_last_inc_ms = 0;
   }
 }
 
