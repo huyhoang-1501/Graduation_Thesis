@@ -56,6 +56,7 @@ DFRobotDFPlayerMini dfPlayer;
 bool dfPlayerReady = false;
 static bool lastButtonState = HIGH;
 static uint32_t lastButtonChangeMs = 0;
+static bool g_alert_sound_playing = false;  // Tracks if alert sound is currently playing
 
 // ================= GPS (NEO-6M) =================
 // Dùng 2 GPIO khác nhau cho UART GPS.
@@ -402,20 +403,32 @@ static void sound_button_task() {
   if (buttonState == LOW && !buttonHandledWhilePressed) {
     buttonHandledWhilePressed = true;
 
-    if (dfPlayerReady) {
-      dfPlayer.play(3);  // phát file 003.mp3 trong thư mục gốc của thẻ nhớ
-      Serial.println("[DFPlayer] play 003.mp3");
+    // Nếu âm thanh đang phát -> tắt âm thanh
+    if (g_alert_sound_playing) {
+      if (dfPlayerReady) {
+        dfPlayer.stop();  // Dừng phát âm thanh
+        Serial.println("[DFPlayer] Stopped alert sound");
+      }
+      g_alert_sound_playing = false;
+      // Lưu ý: cuộc gọi/SMS vẫn tiếp tục, chỉ tắt âm thanh
     } else {
-      Serial.println("[DFPlayer] not ready, cannot play");
-    }
+      // Âm thanh chưa phát -> phát file 001 và kích hoạt SOS
+      if (dfPlayerReady) {
+        dfPlayer.play(1);  // phát file 001.mp3 - âm thanh cảnh báo
+        g_alert_sound_playing = true;
+        Serial.println("[DFPlayer] play 001.mp3 - alert sound");
+      } else {
+        Serial.println("[DFPlayer] not ready, cannot play");
+      }
 
-    // Kích hoạt cuộc gọi khẩn cấp, SMS và còi loa từ SIM module
-    const char* phone = UserDashboard_GetPhone();
-    if (phone && strlen(phone) > 0) {
-      SimModule_TriggerSOS(phone, g_lastGpsLat, g_lastGpsLng, g_hasGpsLocation);
-      Serial.printf("[SOS] Triggered call/SMS to %s, GPS_OK=%d\n", phone, g_hasGpsLocation);
-    } else {
-      Serial.println("[SOS] Failed: No phone number saved in settings!");
+      // Kích hoạt cuộc gọi khẩn cấp, SMS và còi loa từ SIM module
+      const char* phone = UserDashboard_GetPhone();
+      if (phone && strlen(phone) > 0) {
+        SimModule_TriggerSOS(phone, g_lastGpsLat, g_lastGpsLng, g_hasGpsLocation);
+        Serial.printf("[SOS] Triggered call/SMS to %s, GPS_OK=%d\n", phone, g_hasGpsLocation);
+      } else {
+        Serial.println("[SOS] Failed: No phone number saved in settings!");
+      }
     }
   } else if (buttonState == HIGH) {
     buttonHandledWhilePressed = false;

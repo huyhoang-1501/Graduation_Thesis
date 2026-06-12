@@ -1002,6 +1002,11 @@ static void refresh_values() {
       bool hr_triggered  = (g_hr_warning >= WARNING_TRIGGER_COUNT);
       bool spo2_triggered = (g_spo2_warning >= WARNING_TRIGGER_COUNT);
 
+      // Play alert sound file 001
+      if (dfPlayerReady) {
+        dfPlayer.play(1);  // file 001
+      }
+
       // Build SMS message
       const char *metric_name = hr_triggered ? "HR" : "SPO2";
       const char *direction = "";
@@ -1040,6 +1045,11 @@ static void refresh_values() {
         g_mode2_warning = true;
 
         bool is_high = (sys_high || dia_high);
+
+        // Play alert sound file 001
+        if (dfPlayerReady) {
+          dfPlayer.play(1);  // file 001
+        }
 
         // Build SMS message
         const char *bp_dir = is_high ? "cao" : "thap";
