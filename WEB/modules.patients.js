@@ -84,8 +84,7 @@ function initPatientsModule() {
       age: age || "",
       sex: sex || "Nam",
       ownerUid,
-      mode: "user",
-      status: "offline"   // mặc định, phần cứng cập nhật sau
+      mode: "user"
     };
 
     const patientRef = ref.child(patientId);
@@ -96,7 +95,6 @@ function initPatientsModule() {
           return db.ref("devices/" + deviceId).update({
             ownerUid,
             patientId,
-            status: "linked",
             linked: true,
             mode: "user",
             updatedAt: firebase.database.ServerValue.TIMESTAMP
@@ -110,7 +108,6 @@ function initPatientsModule() {
           // Store settings nested under the patient so that deleting the patient
           // removes its settings automatically.
           await db.ref('patients/' + patientId + '/settings').set({
-            patientId,
             name,
             thresholds: {},
             alertphone: ''
@@ -148,6 +145,7 @@ function initPatientsModule() {
           // legacy top-level settings (if any) cleanup
           db.ref('settings/' + pid).remove().catch(() => {}),
           // measurements and alerts cleanup (optional but useful)
+          db.ref('patients/' + pid + '/measurements').remove().catch(() => {}),
           db.ref('measurements/' + pid).remove().catch(() => {}),
           db.ref('alerts/' + pid).remove().catch(() => {})
         ]))
@@ -174,84 +172,38 @@ function initPatientsModule() {
 window._currentDeviceRef = null;
 window._currentDeviceListener = null;
 
-// Helper to attach the realtime listener to a device node (reused by both
-// showOverviewForPatient and showDeviceById)
-function attachListenerToDevice(devId) {
-  if (!devId) return;
-  const devRef = db.ref("devices/" + devId);
-  // detach previous listener if any
-  if (window._currentDeviceRef && window._currentDeviceListener) {
-    try { window._currentDeviceRef.off('value', window._currentDeviceListener); } catch (e) { /* ignore */ }
-  }
-  window._currentDeviceRef = devRef;
-  window._currentDeviceListener = devRef.on('value', snap => {
-    const d = snap.val() || {};
-
-    // battery
-    const battEl = document.getElementById("ov-battery");
-    if (battEl) battEl.textContent = (d.batteryPercent != null) ? (d.batteryPercent + " %") : "-- %";
-
-    // last seen & freshness
-    const now = Date.now();
-    const lastSeenRaw = d.lastSeen || d.lastSeenAt || 0;
-    const lastSeen = Number(lastSeenRaw) || 0;
-    const lastEl = document.getElementById('ov-lastseen');
-    const freshnessEl = document.getElementById('ov-freshness');
-    if (lastEl) {
-      if (lastSeen) lastEl.textContent = new Date(lastSeen).toLocaleString();
-      else lastEl.textContent = '--';
+  // Helper to attach the realtime listener to a device node (reused by both
+  // showOverviewForPatient and showDeviceById)
+  function attachListenerToDevice(devId) {
+    if (!devId) return;
+    const devRef = db.ref("devices/" + devId);
+    // detach previous listener if any
+    if (window._currentDeviceRef && window._currentDeviceListener) {
+      try { window._currentDeviceRef.off('value', window._currentDeviceListener); } catch (e) { /* ignore */ }
     }
+    window._currentDeviceRef = devRef;
+    window._currentDeviceListener = devRef.on('value', snap => {
+      const d = snap.val() || {};
 
-    // compute derived status based on lastSeen
-    let derivedStatus = (d.status || 'offline');
-    const ONLINE_THRESHOLD = 3 * 60 * 1000; // 3 minutes
-    if (lastSeen) {
-      const age = now - lastSeen;
-      derivedStatus = (age < ONLINE_THRESHOLD) ? 'online' : 'offline';
-    } else {
-      derivedStatus = d.status || 'offline';
-    }
+      // Device status elements have been removed from UI
+      // Battery, last seen, freshness, badge, and network indicators are no longer displayed
 
-    // badge
-    const badge = document.getElementById('ov-device-badge');
-    if (badge) {
-      badge.textContent = derivedStatus.toUpperCase();
-      badge.classList.remove('badge-online','badge-offline');
-      if (derivedStatus === 'online') badge.classList.add('badge-online');
-      else badge.classList.add('badge-offline');
-    }
-
-    // freshness text
-    if (freshnessEl) {
-      if (!lastSeen) freshnessEl.textContent = '--';
-      else {
-        const sec = Math.floor((now - lastSeen) / 1000);
-        if (sec < 60) freshnessEl.textContent = 'Cập nhật mới nhất';
-        else if (sec < 3600) freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 60) + ' phút';
-        else freshnessEl.textContent = 'Cách đây ' + Math.floor(sec / 3600) + ' giờ';
-      }
-    }
-
-    // optional network indicator
-    const netEl = document.getElementById('ov-network');
-    if (netEl) netEl.textContent = d.network || '--';
-
-    // If device reports a last-known location, update the Overview map
-    try {
-      if (d.location && d.location.lat != null && d.location.lng != null) {
-        if (typeof setCurrentDeviceLocation === 'function') {
-          setCurrentDeviceLocation(d.location.lat, d.location.lng, devId);
-        } else if (typeof updateMapLocation === 'function') {
-          updateMapLocation(d.location.lat, d.location.lng);
+      // If device reports a last-known location, update the Overview map
+      try {
+        if (d.location && d.location.lat != null && d.location.lng != null) {
+          if (typeof setCurrentDeviceLocation === 'function') {
+            setCurrentDeviceLocation(d.location.lat, d.location.lng, devId);
+          } else if (typeof updateMapLocation === 'function') {
+            updateMapLocation(d.location.lat, d.location.lng);
+          }
+        } else {
+          window._currentDeviceLocation = null;
         }
-      } else {
-        window._currentDeviceLocation = null;
-      }
-    } catch (e) { /* ignore map update errors */ }
-  });
+      } catch (e) { /* ignore map update errors */ }
+    });
 
-  const idInput = document.getElementById('ov-device-id-input'); if (idInput) idInput.value = devId;
-}
+    const idInput = document.getElementById('ov-device-id-input'); if (idInput) idInput.value = devId;
+  }
 
 function showOverviewForPatient(patientId) {
   const pCache = patientsCache[patientId];
@@ -336,9 +288,7 @@ function showOverviewForPatient(patientId) {
             });
 
             if (!foundId) {
-              const battEl = document.getElementById("ov-battery"); if (battEl) battEl.textContent = "-- %";
-              const lastEl = document.getElementById("ov-lastseen"); if (lastEl) lastEl.textContent = "--";
-              const badge = document.getElementById("ov-device-badge"); if (badge) { badge.textContent = "OFFLINE"; badge.classList.remove("badge-online","badge-stale"); badge.classList.add("badge-offline"); }
+              // Device status elements have been removed from UI
               const idInput = document.getElementById('ov-device-id-input'); if (idInput) idInput.value = '';
               return;
             }
@@ -390,9 +340,7 @@ function showOverviewForPatient(patientId) {
     document.getElementById("ov-hr-value").textContent   = hr + " bpm";
     document.getElementById("ov-bp-value").textContent   = bpSys + " / " + bpDia + " mmHg";
     document.getElementById("ov-spo2-value").textContent = spo2 + " %";
-    if (rec && rec.timestamp) {
-      try { document.getElementById("ov-lastseen").textContent = new Date(rec.timestamp).toLocaleString(); } catch (e) {}
-    }
+    // Device status display (ov-lastseen) has been removed from UI
     if (rec && rec.location && rec.location.lat != null && rec.location.lng != null) {
       if (typeof setCurrentDeviceLocation === 'function') {
         setCurrentDeviceLocation(rec.location.lat, rec.location.lng, patientId);
@@ -409,8 +357,8 @@ function showOverviewForPatient(patientId) {
     } catch (e) { /* ignore */ }
   };
 
-  // 2a) One-time read: support both legacy (object) and /latest structure
-  db.ref("measurements/" + patientId)
+  // 2a) One-time read: support both current patients/<id>/measurements and legacy /latest structure
+  db.ref("patients/" + patientId + "/measurements")
     .once("value")
     .then(snap => {
       const m = snap.val();
@@ -425,7 +373,7 @@ function showOverviewForPatient(patientId) {
         return;
       }
 
-      // If measurements/<pid> is a map of child entries (legacy push), pick the last child
+      // If patients/<pid>/measurements is a map of child entries, pick the last child
       if (typeof m === 'object') {
         const vals = Object.values(m);
         if (vals.length > 0) {
@@ -441,6 +389,12 @@ function showOverviewForPatient(patientId) {
 
   // 2b) Attach realtime listeners so Overview updates live when device pushes new data
   try {
+    // current firmware writes to /patients/<pid>/measurements/latest — listen to value
+    const latestRef = db.ref('patients/' + patientId + '/measurements/latest');
+    const latestHandler = snap => { applyMeas(snap.val() || {}); };
+    latestRef.on('value', latestHandler);
+    window._currentMeasurementRefs.push({ ref: latestRef, handler: latestHandler, event: 'value' });
+
     // legacy child_added listener for push-style entries
     const legacyRef = db.ref('measurements/' + patientId).limitToLast(1);
     const legacyHandler = snap => {
@@ -451,11 +405,11 @@ function showOverviewForPatient(patientId) {
     legacyRef.on('child_added', legacyHandler);
     window._currentMeasurementRefs.push({ ref: legacyRef, handler: legacyHandler, event: 'child_added' });
 
-    // current firmware writes to /measurements/<pid>/latest — listen to value
-    const latestRef = db.ref('measurements/' + patientId + '/latest');
-    const latestHandler = snap => { applyMeas(snap.val() || {}); };
-    latestRef.on('value', latestHandler);
-    window._currentMeasurementRefs.push({ ref: latestRef, handler: latestHandler, event: 'value' });
+    // legacy /measurements/<pid>/latest fallback
+    const legacyLatestRef = db.ref('measurements/' + patientId + '/latest');
+    const legacyLatestHandler = snap => { applyMeas(snap.val() || {}); };
+    legacyLatestRef.on('value', legacyLatestHandler);
+    window._currentMeasurementRefs.push({ ref: legacyLatestRef, handler: legacyLatestHandler, event: 'value' });
   } catch (e) {
     console.warn('attach measurement listeners failed', e);
   }

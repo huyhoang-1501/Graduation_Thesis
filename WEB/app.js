@@ -492,9 +492,15 @@ function showDeviceById(deviceId) {
       };
 
       try {
-        // Support both structures:
-        // - legacy push: measurements/<pid>/<pushId>
-        // - current firmware: measurements/<pid>/latest
+        // Current firmware writes to:
+        // - patients/<pid>/measurements/latest
+        // - patients/<pid>/measurements/history
+        // Keep legacy listeners so old data under /measurements/<pid> still displays.
+        const patientLatestRef = db.ref('patients/' + pid + '/measurements/latest');
+        const patientLatestHandler = snap => { applyMeas(snap.val() || {}); };
+        patientLatestRef.on('value', patientLatestHandler);
+        window._currentDeviceRefs.push({ ref: patientLatestRef, handler: patientLatestHandler, event: 'value' });
+
         const legacyRef = db.ref('measurements/' + pid).limitToLast(1);
         const legacyHandler = snap => {
           const m = snap.val();

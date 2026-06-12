@@ -353,14 +353,14 @@
     }
   }
 
-  async function loadHistoryRows(patientId) {
-    // Prefer /measurements/<pid>/history when present, otherwise fall back
-    // to scanning /measurements/<pid> (excluding latest/history).
+    async function loadHistoryRows(patientId) {
+    // Prefer /patients/<pid>/measurements/history when present, otherwise fall back
+    // to scanning /patients/<pid>/measurements (excluding latest/history).
+    // Keep legacy /measurements/<pid> fallback for older data.
 
-    // Try history node first
-    try {
-      const histSnap = await db.ref("measurements/" + patientId + "/history").once("value");
-      const hist = histSnap.val();
+    const readHistoryNode = async (path) => {
+      const snap = await db.ref(path).once("value");
+      const hist = snap.val();
       if (hist && typeof hist === "object") {
         const rows = [];
         Object.keys(hist).forEach((k) => {
@@ -369,12 +369,26 @@
         });
         return rows;
       }
+      return null;
+    };
+
+    // Try current firmware path first
+    try {
+      const rows = await readHistoryNode("patients/" + patientId + "/measurements/history");
+      if (rows) return rows;
     } catch (err) {
-      // fall back to base node
-      console.warn("History read failed, falling back:", err);
+      console.warn("History read failed on patients path, falling back:", err);
     }
 
-    const baseSnap = await db.ref("measurements/" + patientId).once("value");
+    // Legacy history node
+    try {
+      const rows = await readHistoryNode("measurements/" + patientId + "/history");
+      if (rows) return rows;
+    } catch (err) {
+      console.warn("History read failed on legacy history node, falling back:", err);
+    }
+
+    const baseSnap = await db.ref("patients/" + patientId + "/measurements").once("value");
     const base = baseSnap.val();
     const out = [];
 
@@ -393,11 +407,37 @@
       if (r) out.push(r);
     }
 
-    // Legacy push-style children under /measurements/<pid>/<pushId>
+    // Current firmware: children under /patients/<pid>/measurements/<pushId>
     if (typeof base === "object") {
       Object.keys(base).forEach((k) => {
         if (k === "latest" || k === "history") return;
         const r = normalizeMeasurement(base[k]);
+        if (r) out.push(r);
+      });
+    }
+
+    if (out.length) return out;
+
+    // Legacy push-style fallback under /measurements/<pid>
+    const legacySnap = await db.ref("measurements/" + patientId).once("value");
+    const legacy = legacySnap.val();
+    if (!legacy) return out;
+
+    if (typeof legacy === "object" && (legacy.hr !== undefined || legacy.spo2 !== undefined || legacy.bpSys !== undefined || legacy.bpDia !== undefined)) {
+      const r = normalizeMeasurement(legacy);
+      if (r) out.push(r);
+      return out;
+    }
+
+    if (legacy.latest && typeof legacy.latest === "object") {
+      const r = normalizeMeasurement(legacy.latest);
+      if (r) out.push(r);
+    }
+
+    if (typeof legacy === "object") {
+      Object.keys(legacy).forEach((k) => {
+        if (k === "latest" || k === "history") return;
+        const r = normalizeMeasurement(legacy[k]);
         if (r) out.push(r);
       });
     }

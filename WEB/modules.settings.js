@@ -31,6 +31,20 @@ function initSettingsModule() {
     return selectedPid;
   }
 
+  function formatThresholdValue(v) {
+    return (v === null || v === undefined || v === "") ? "--" : String(v);
+  }
+
+  function renderThresholdStatus(prefix, pid, th, color) {
+    thStatus.innerHTML =
+      prefix + " bệnh nhân <strong>" + pid + "</strong>: " +
+      "HR " + formatThresholdValue(th.hrMin) + " - " + formatThresholdValue(th.hrMax) + ", " +
+      "BP Sys " + formatThresholdValue(th.bpSysMin) + " - " + formatThresholdValue(th.bpSysMax) + ", " +
+      "BP Dia " + formatThresholdValue(th.bpDiaMin) + " - " + formatThresholdValue(th.bpDiaMax) + ", " +
+      "SpO₂ " + formatThresholdValue(th.spo2Min) + " - " + formatThresholdValue(th.spo2Max);
+    thStatus.style.color = color;
+  }
+
   // khi người dùng chuyển qua tab Cài đặt, ta nên load ngưỡng nếu đã chọn bệnh nhân
   function loadThresholdsForCurrentPatient() {
     const pid = getSelectedPatientId();
@@ -53,8 +67,7 @@ function initSettingsModule() {
         // SpO2 thresholds
         thSpo2Min.value = th.spo2Min ?? "";
         thSpo2Max.value = th.spo2Max ?? "";
-        thStatus.textContent = "Đã tải ngưỡng (nếu có) cho bệnh nhân " + pid;
-        thStatus.style.color = "#6b7280";
+        renderThresholdStatus("Ngưỡng đã lưu cho", pid, th, "#6b7280");
       });
   }
 
@@ -83,8 +96,7 @@ function initSettingsModule() {
     db.ref("patients/" + pid + "/settings/thresholds")
       .set(th)
       .then(() => {
-        thStatus.textContent = "Đã lưu ngưỡng cho bệnh nhân " + pid;
-        thStatus.style.color = "#16a34a";
+        renderThresholdStatus("Đã lưu ngưỡng cho", pid, th, "#16a34a");
       })
       .catch(err => alert("Lỗi lưu ngưỡng: " + err.message));
   });
@@ -129,8 +141,8 @@ function initSettingsModule() {
       .then(snap => {
         const phone = snap.val() || "";
         phoneInput.value = phone;
-        phoneStatus.textContent = phone
-          ? "Đã tải số điện thoại cho bệnh nhân " + pid
+        phoneStatus.innerHTML = phone
+          ? "Số điện thoại đã lưu cho bệnh nhân <strong>" + pid + "</strong>: <strong>" + phone + "</strong>"
           : "Chưa có số điện thoại lưu cho bệnh nhân này.";
         phoneStatus.style.color = "#6b7280";
       });
@@ -153,7 +165,8 @@ function initSettingsModule() {
     db.ref("patients/" + pid + "/settings/alertphone")
       .set(phone)
       .then(() => {
-        phoneStatus.textContent = "Đã lưu số điện thoại cho bệnh nhân " + pid;
+        phoneStatus.innerHTML =
+          "Đã lưu số điện thoại cho bệnh nhân <strong>" + pid + "</strong>: <strong>" + phone + "</strong>";
         phoneStatus.style.color = "#16a34a";
       })
       .catch(err => alert("Lỗi lưu số điện thoại: " + err.message));

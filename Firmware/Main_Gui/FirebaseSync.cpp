@@ -371,10 +371,10 @@ static void firebase_push_impl() {
     // use the same pattern as device payload used earlier
     String measPayload = String("{\"hr\":") + mHr + ",\"bpSys\":" + mSys + ",\"bpDia\":" + mDia + ",\"spo2\":" + mSpo2 + ",\"timestamp\":{\".sv\":\"timestamp\"}}";
 
-    // Write latest measurement to a small /measurements/<userId>/latest node
+    // Write latest measurement under /patients/<userId>/measurements/latest
     // (cheap for listeners that only need newest value). Also append samples to
-    // /measurements/<userId>/history so the web History tab can filter/export by time.
-    bool mokLatest = firebase_patch(String("measurements/") + userId + String("/latest"), measPayload);
+    // /patients/<userId>/measurements/history so the web History tab can filter/export by time.
+    bool mokLatest = firebase_patch(String("patients/") + userId + String("/measurements/latest"), measPayload);
     if (!mokLatest) {
       Serial.print("[Firebase] measurement latest push fail for "); Serial.println(userId);
     }
@@ -405,7 +405,7 @@ static void firebase_push_impl() {
                            String("\"timestamp\":{\".sv\":\"timestamp\"}") +
                            String("}");
 
-      bool mokHist = firebase_post(String("measurements/") + userId + String("/history"), histPayload);
+      bool mokHist = firebase_post(String("patients/") + userId + String("/measurements/history"), histPayload);
       if (mokHist) {
         g_last_history_push_ms = nowMs;
         g_last_hist_hr = iHr;
@@ -450,12 +450,12 @@ bool FirebaseSync_ValidateUserId(const char *userId, char *errMsg, size_t errMsg
   }
 
   // Check that the patient/user exists in Firebase under /patients/<userId>.
-  // First, try a fast path: check whether measurements/<id>/latest exists
+  // First, try a fast path: check whether patients/<id>/measurements/latest exists
   const int maxTries = 3;
   String measOut;
   bool gotMeas = false;
   for (int t = 0; t < maxTries; ++t) {
-    gotMeas = firebase_get(String("measurements/") + String(userId) + String("/latest"), measOut);
+    gotMeas = firebase_get(String("patients/") + String(userId) + String("/measurements/latest"), measOut);
     if (gotMeas) break;
     vTaskDelay(pdMS_TO_TICKS(300));
   }
