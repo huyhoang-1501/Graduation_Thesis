@@ -973,7 +973,6 @@ function initDeviceBindingModule() {
           sex: oldPatient?.sex || "Nam",
           ownerUid,
           mode: "user",
-          status: oldPatient?.status || "offline",
           updatedAt: firebase.database.ServerValue.TIMESTAMP
         });
 
