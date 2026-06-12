@@ -109,7 +109,8 @@ static lv_obj_t *g_prev_scr = nullptr;
 // saved original previous screen for multi-step keypad flows
 static lv_obj_t *g_saved_prev_scr = nullptr;
 
-static char g_phone[32] = "";
+static const char *DEFAULT_SOS_PHONE = "0365089063";
+static char g_phone[32] = "0365089063";
 // thresholds (min/max for each metric)
 static int g_spo2_min = 92;
 static int g_spo2_max = 100;
@@ -138,6 +139,8 @@ static const char *USER_NVS_KEY_DIA_MIN  = "dia_min";
 static const char *USER_NVS_KEY_DIA_MAX  = "dia_max";
 
 static void load_settings_from_nvs() {
+  snprintf(g_phone, sizeof(g_phone), "%s", DEFAULT_SOS_PHONE);
+
   if (!userPrefReady) {
     if (userPref.begin(USER_NVS_NS, false)) {
       userPrefReady = true;
@@ -148,7 +151,9 @@ static void load_settings_from_nvs() {
 
   if (userPrefReady) {
     String p = userPref.getString(USER_NVS_KEY_PHONE, "");
-    if (p.length() > 0) p.toCharArray(g_phone, sizeof(g_phone));
+    if (p.length() > 0) {
+      p.toCharArray(g_phone, sizeof(g_phone));
+    }
     // load thresholds
     g_spo2_min = userPref.getInt(USER_NVS_KEY_SPO2_MIN, g_spo2_min);
     g_spo2_max = userPref.getInt(USER_NVS_KEY_SPO2_MAX, g_spo2_max);
