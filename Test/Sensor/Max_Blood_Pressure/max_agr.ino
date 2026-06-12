@@ -55,7 +55,7 @@ const int pwmRes  = 8;
 const uint8_t AGR12_I2C_ADDRESS = 0x50;
 const uint8_t CMD_MEASURE_HIGH  = 0xAC;
 const uint8_t CMD_MEASURE_LOW   = 0x12;
-const int WAIT_TIME_MS = 80;
+const int WAIT_TIME_MS = 40;
 
 //==================================================
 // BP arrays
@@ -230,7 +230,7 @@ void Max30102_hr_spo2()
 }
 
 //==================================================
-// PROCESS BP
+// PROCESS BP (FIX SYS/DIA)
 //==================================================
 void processOscillometric()
 {
@@ -240,84 +240,189 @@ void processOscillometric()
     return;
   }
 
-  int ampCount=0;
+  int ampCount = 0;
 
+  //==================================================
+  // TIM BIEN DO DAO DONG
+  //==================================================
   for(int i=1;i<sampleCount-1;i++)
   {
-    if(osc[i]>osc[i-1] && osc[i]>osc[i+1])
+    // peak
+    if(osc[i] > osc[i-1] && osc[i] > osc[i+1])
     {
+      // valley truoc peak
       for(int j=i-1;j>=1;j--)
       {
-        if(osc[j]<osc[j-1] && osc[j]<osc[j+1])
+        if(osc[j] < osc[j-1] && osc[j] < osc[j+1])
         {
-          ampBuf[ampCount]=fabs(osc[i]-osc[j]);
-          cuff[ampCount]=cuff[i];
-          ampCount++;
+          float amp = fabs(osc[i] - osc[j]);
+
+          // loc nhieu nho
+          if(amp > 0.5)
+          {
+            ampBuf[ampCount] = amp;
+            cuff[ampCount]   = cuff[i];
+            ampCount++;
+          }
+
           break;
         }
       }
     }
   }
 
-  if(ampCount<5)
+  if(ampCount < 5)
   {
     Serial.println("Khong tim thay dao dong");
     return;
   }
 
+  //==================================================
+  // SMOOTH ENVELOPE
+  //==================================================
+  float smoothAmp[MAX_SAMPLES];
+
+  for(int i=0;i<ampCount;i++)
+  {
+    if(i==0 || i==ampCount-1)
+      smoothAmp[i] = ampBuf[i];
+    else
+      smoothAmp[i] =
+      (
+        ampBuf[i-1] +
+        ampBuf[i] +
+        ampBuf[i+1]
+      ) / 3.0;
+  }
+
+  //==================================================
+  // SHOW ENVELOPE
+  //==================================================
   Serial.println("\n===== ENVELOPE =====");
 
   for(int i=0;i<ampCount;i++)
-    Serial.printf("%d %.1f %.4f\n",i,cuff[i],ampBuf[i]);
+  {
+    Serial.printf(
+      "%d %.1f %.4f\n",
+      i,
+      cuff[i],
+      smoothAmp[i]
+    );
+  }
 
-  float maxAmp=0;
-  int mapIndex=0;
+  //==================================================
+  // TIM MAP
+  //==================================================
+  float maxAmp = 0;
+  int mapIndex = 0;
 
   for(int i=0;i<ampCount;i++)
   {
-    if(ampBuf[i]>maxAmp)
+    if(smoothAmp[i] > maxAmp)
     {
-      maxAmp=ampBuf[i];
-      mapIndex=i;
+      maxAmp = smoothAmp[i];
+      mapIndex = i;
     }
   }
 
-  float MAP=cuff[mapIndex];
+  float MAP = cuff[mapIndex];
 
-  float SYS=0;
-  float bestErr=9999;
+  //==================================================
+  // TARGET
+  //==================================================
+  float sysTarget = 0.7 * maxAmp;
+  float diaTarget = 0.65 * maxAmp;
 
-  for(int i=0;i<mapIndex;i++)
-  {
-    float err=fabs(ampBuf[i]-0.7*maxAmp);
+  float SYS = 0;
+  float DIA = 0;
 
-    if(err<bestErr)
+  //==================================================
+// TIM SYS (0.7 * MAP)
+//==================================================
+SYS = cuff[0];
+
+for(int i = mapIndex; i >= 1; i--)
+{
+    if(smoothAmp[i] < sysTarget)
     {
-      bestErr=err;
-      SYS=cuff[i];
+        float x1 = cuff[i];
+        float y1 = smoothAmp[i];
+
+        float x2 = cuff[i+1];
+        float y2 = smoothAmp[i+1];
+
+        SYS = x1 +
+              (sysTarget - y1) *
+              (x2 - x1) /
+              (y2 - y1);
+
+        break;
     }
-  }
-
-  float DIA=0;
-  bestErr=9999;
-
-  for(int i=mapIndex+1;i<ampCount;i++)
-  {
-    float err=fabs(ampBuf[i]-0.8*maxAmp);
-
-    if(err<bestErr)
-    {
-      bestErr=err;
-      DIA=cuff[i];
-    }
-  }
-
-  Serial.println("\n===== RESULT =====");
-  Serial.printf("SYS = %.1f\n",SYS);
-  Serial.printf("DIA = %.1f\n",DIA);
-  Serial.printf("MAP = %.1f\n",MAP);
 }
 
+//==================================================
+// TIM DIA (0.65 * MAP)
+//==================================================
+DIA = cuff[ampCount - 1];
+
+for(int i = mapIndex; i < ampCount - 1; i++)
+{
+    if(smoothAmp[i+1] < diaTarget)
+    {
+        float x1 = cuff[i];
+        float y1 = smoothAmp[i];
+
+        float x2 = cuff[i+1];
+        float y2 = smoothAmp[i+1];
+
+        DIA = x1 +
+              (diaTarget - y1) *
+              (x2 - x1) /
+              (y2 - y1);
+
+        break;
+    }
+}
+  //==================================================
+  // NEU DIA KHONG HOP LE -> TIM LAI
+  //==================================================
+  if((SYS - DIA) < 15)
+  {
+    for(int i=mapIndex+1;i<ampCount;i++)
+    {
+      if((SYS - cuff[i]) >= 15)
+      {
+        DIA = cuff[i];
+        break;
+      }
+    }
+  }
+
+  //==================================================
+  // FIX DAO NGUOC
+  //==================================================
+  if(SYS < DIA)
+  {
+    float t = SYS;
+    SYS = DIA;
+    DIA = t;
+  }
+
+  //==================================================
+  // GIOI HAN
+  //==================================================
+  SYS = constrain(SYS, 90, 180);
+  DIA = constrain(DIA, 50, 120);
+
+  //==================================================
+  // RESULT
+  //==================================================
+  Serial.println("\n===== RESULT =====");
+
+  Serial.printf("SYS = %.1f mmHg\n", SYS);
+  Serial.printf("DIA = %.1f mmHg\n", DIA);
+  Serial.printf("MAP = %.1f mmHg\n", MAP);
+}
 //==================================================
 // MEASURE BP
 //==================================================
@@ -329,19 +434,19 @@ void measureBloodPressure()
 
   Serial.println("Bat dau do huyet ap");
 
-  startPump(248);
+  startPump(240);
   closeValve();
 
   while(mmHg < 180)
   {
     readPressure(kPa, mmHg, raw);
-    delay(40);
+    delay(10);
   }
 
   stopPump();
 
   Serial.println("Xa cham");
-  openValve(45);
+  openValve(10);
 
   sampleCount=0;
 
@@ -365,7 +470,7 @@ void measureBloodPressure()
       sampleCount++;
     }
 
-    delay(50);
+    delay(80);
   }
 
   processOscillometric();
