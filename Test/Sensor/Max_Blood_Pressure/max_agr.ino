@@ -29,8 +29,8 @@ int8_t validHeartRate;
 int32_t bufferLength = BUFFER_SIZE;
 
 #define EMA_ALPHA       0.08f
-#define EMA_ALPHA_HR    0.25f
-#define EMA_ALPHA_SPO2  0.15f
+#define EMA_ALPHA_HR    0.45f
+#define EMA_ALPHA_SPO2  0.75f
 
 float emaIR=0, emaRed=0;
 float emaHR=0, emaSPO2=0;
@@ -446,7 +446,7 @@ void measureBloodPressure()
   stopPump();
 
   Serial.println("Xa cham");
-  openValve(10);
+  openValve(120);
 
   sampleCount=0;
 
@@ -476,7 +476,7 @@ void measureBloodPressure()
   processOscillometric();
 
   Serial.println("Xa nhanh");
-  openValve(245);
+  openValve(255);
 
   while(mmHg > 5)
   {
