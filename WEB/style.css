@@ -314,28 +314,6 @@ body {
   font-size:34px; font-weight:700; color:#111827; line-height:1;
 }
 
-/* small notification card variant used beside device status */
-.notify-small {
-  flex: 0 0 160px; /* narrower small width */
-  /* keep a bit of internal padding but push contents toward the left edge */
-  padding: 10px 12px 10px 8px;
-  /* layout: stack items vertically and align them to the left */
-  display: flex;
-  flex-direction: column;
-  justify-content: center; /* vertical centering within the card */
-  align-items: flex-start;  /* align contents to the left */
-  text-align: left;
-}
-.notify-small .stat-title i {
-  /* Make the bell match the mobile accent color */
-  color: #ffb020;
-  background: rgba(255, 176, 32, 0.16);
-}
-.notify-small .stat-value { font-size:24px; }
-.stat-sub {
-  font-size:12px; color:#6b7280; margin-top:4px;
-}
-
 .device-card {
   flex:1; background:#fff; border-radius:6px;
   padding:12px 16px; border:1px solid #dde1eb;
@@ -395,7 +373,7 @@ body {
   font-size:13px;
 }
 
-/* Mobile: tighten device status and notification cards to reduce visual height */
+/* Mobile: tighten device status card to reduce visual height */
 @media (max-width: 480px) {
   /* Reduce internal padding so cards occupy less vertical space */
   .device-card {
@@ -411,21 +389,6 @@ body {
     font-size: 13px;
     margin-bottom: 2px; /* tighten spacing between lines */
   }
-
-  /* Make the small notification card more compact */
-  .notify-small {
-    padding: 6px 8px 6px 6px; /* was 10px 12px 10px 8px */
-    /* Do not force a fixed flex-basis on mobile (when stacked vertically this
-       would become a forced height). Let it size naturally or be controlled
-       by JS which can set an explicit height to match the device card. */
-    flex: 0 0 auto;
-    align-self: stretch;
-    justify-content: flex-start;
-  }
-
-  .notify-small .stat-title { font-size: 12px; }
-  .notify-small .stat-value { font-size: 20px; }
-  .notify-small .stat-sub { font-size: 11px; margin-top:3px; }
 
   /* Reduce panel paddings used nearby so overall block appears shorter */
   .panel-header { padding: 8px 10px; }
@@ -935,20 +898,17 @@ body {
   }
 }
 
-/* MOBILE: ensure device status and notification cards use flex layout so JS can
-   measure and set explicit heights. We avoid fixed min-height so the JS matcher
-   decides the final pixel height at runtime. */
+/* MOBILE: ensure device status card uses flex layout so JS can
+   measure and set explicit heights. */
 @media (max-width: 768px) {
-  .overview-row .device-card,
-  .overview-row .notify-small {
+  .overview-row .device-card {
     display: flex;
     flex-direction: column;
     justify-content: center;
   }
 
-  /* Force compact, matching paddings so both cards measure similarly on mobile */
+  /* Force compact, matching paddings */
   .overview-row .device-card { padding: 8px 10px; }
-  .overview-row .notify-small { padding: 8px 10px; min-height: 0; }
 }
 .settings-grid label {
   font-size:12px;
@@ -1068,48 +1028,6 @@ body {
   .patients-form input,
   .patients-form select { width: 100%; }
   .patients-form button { width: 100%; }
-
-  /* Mobile: compact/small notification card (kept small and tidy) */
-  .notify-small {
-    /* Avoid forcing a fixed flex-basis (which becomes a fixed height when
-       flex-direction is column). Allow natural sizing or JS-driven heights. */
-    flex: 0 0 auto;
-    align-self: stretch;
-    width: auto;
-    display: flex;
-    flex-direction: column; /* stacked: count above, label below */
-    /* keep mobile consistent with left-aligned layout */
-    align-items: flex-start;
-    gap: 6px;
-    padding: 8px 10px 8px 8px;
-    border-radius: 10px;
-    background: #ffffff;
-    border: 1px solid #e6eef8;
-    box-shadow: 0 6px 12px rgba(6, 30, 60, 0.04);
-  }
-
-  .notify-small .stat-title {
-    font-size: 11px;
-    color: #6b7280;
-    margin: 0;
-    text-transform: none;
-    display: block;
-  }
-
-  .notify-small .stat-title i { font-size: 16px; color: #ffb020; margin-right:6px; }
-
-  .notify-small .stat-value {
-    font-size: 20px;
-    font-weight: 800;
-    color: #00548a;
-    line-height: 1;
-  }
-
-  .notify-small .stat-sub {
-    font-size: 12px;
-    color: #6b7280;
-    margin: 0;
-  }
 
   /* Device actions: keep device buttons side-by-side on mobile while inputs stack */
   .device-actions {
@@ -1256,32 +1174,6 @@ body {
   /* History: stack KPI blocks on mobile */
   .history-summary-top {
     grid-template-columns: 1fr;
-  }
-
-  /* Ensure header containers are positioned so notification card can sit at top-right
-     aligned with the patient/device controls on mobile. This keeps the notify box
-     visually level with the ov-controls (patient select + Device ID + button). */
-  .overview-header,
-  .page-header-row {
-    position: relative;
-  }
-
-  /* Place the small notification card at the top-right of the header and vertically
-     center it relative to the header's content (so it lines up with ov-controls).
-     NOTE: for height-matching we prefer the notify card to remain in the flow
-     so JS/CSS can size it relative to the device card. On mobile we keep it
-     visually aligned but do not use absolute positioning which removes it
-     from the flow and prevents natural height matching. */
-  .overview-header .notify-small,
-  .page-header-row .notify-small {
-    /* avoid absolute positioning on mobile to allow height sync with device card */
-    position: static;
-    right: auto;
-    top: auto;
-    transform: none;
-    z-index: 5;
-    margin: 0; /* remove any extra margin that could push it down */
-    align-self: flex-end; /* keep it visually to the right when header is flex/flow */
   }
 
   /* Alerts: stack small selects vertically and keep them compact like the screenshot */

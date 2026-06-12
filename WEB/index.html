@@ -250,7 +250,6 @@
                 <div class="stat-value" id="ov-bp-value">-- / -- mmHg</div>
               </div>
 
-              <!-- notification moved to device row (small) -->
             </div>
 
             <!-- Row 2: device status -->
@@ -266,27 +265,16 @@
                   <div>Pin: <span id="ov-battery">-- %</span></div>
                 </div>
               </div>
-              <!-- small notification card placed beside device status -->
-              <div class="stat-card notify-small" id="ov-notify-card">
-                <div class="stat-title">
-                  <i class="fas fa-bell"></i> Thông báo
-                </div>
-                <div class="stat-value" id="ov-notify-count">0</div>
-                <div class="stat-sub" id="ov-notify-text">Không có cảnh báo mới</div>
-              </div>
             </div>
 
-            <!-- Row 3: mini chart + map -->
+            <!-- Row 3: mini chart -->
             <div class="overview-row overview-row-2col">
               <div class="panel">
-                    <div class="panel-header">Biểu đồ cập nhật sinh hiệu</div>
-                    <div class="panel-body">
-                      <canvas id="miniChart"></canvas>
-                    </div>
-                  </div>
-
-                  <!-- Map moved to its own tab: "Vị trí của thiết bị" -->
-              
+                <div class="panel-header">Biểu đồ cập nhật sinh hiệu</div>
+                <div class="panel-body">
+                  <canvas id="miniChart"></canvas>
+                </div>
+              </div>
             </div>
           </div>
         </section>

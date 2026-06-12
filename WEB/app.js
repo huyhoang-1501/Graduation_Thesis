@@ -817,76 +817,9 @@ function pushOverviewMiniChartSample(rec, patientId = '') {
 window.resetOverviewMiniChart = resetOverviewMiniChart;
 window.pushOverviewMiniChartSample = pushOverviewMiniChartSample;
 
-function initOverviewEqualCardHeights() {
-  // Keep "Thông báo" card height equal to "Trạng thái thiết bị" on mobile.
-  // We do this via JS because pure CSS can't reliably match heights when cards stack.
-  if (window._ovEqualHeightInit) return;
-  window._ovEqualHeightInit = true;
-
-  const deviceCard = document.querySelector("#page-overview .device-card");
-  const notifyCard = document.getElementById("ov-notify-card");
-  if (!deviceCard || !notifyCard) return;
-
-  const mq = window.matchMedia("(max-width: 768px)");
-
-  let rafId = 0;
-  function apply() {
-    rafId = 0;
-
-    // Clear on desktop
-    if (!mq.matches) {
-      deviceCard.style.height = "";
-      notifyCard.style.height = "";
-      notifyCard.style.overflow = "";
-      return;
-    }
-
-    // IMPORTANT: Take device card's NATURAL height as the source of truth.
-    // We only constrain the notify card to match it, so notify can never
-    // force the device card to grow taller.
-    deviceCard.style.height = "";
-    notifyCard.style.height = "";
-
-    const devH = deviceCard.getBoundingClientRect().height;
-    if (devH > 0) {
-      const px = Math.round(devH) + "px";
-      notifyCard.style.height = px;
-      // Avoid notify content pushing layout when constrained
-      notifyCard.style.overflow = "hidden";
-    }
-  }
-
-  function schedule() {
-    if (rafId) return;
-    rafId = requestAnimationFrame(apply);
-  }
-
-  // Initial
-  schedule();
-
-  // Update on viewport changes
-  window.addEventListener("resize", schedule, { passive: true });
-  if (mq.addEventListener) mq.addEventListener("change", schedule);
-  else if (mq.addListener) mq.addListener(schedule);
-
-  // Update when content changes (device last seen/battery, notify text/count)
-  if (window.ResizeObserver) {
-    const ro = new ResizeObserver(() => schedule());
-    ro.observe(deviceCard);
-    ro.observe(notifyCard);
-  }
-
-  if (window.MutationObserver) {
-    const mo = new MutationObserver(() => schedule());
-    mo.observe(deviceCard, { subtree: true, childList: true, characterData: true });
-    mo.observe(notifyCard, { subtree: true, childList: true, characterData: true });
-  }
-}
-
 function initOverview() {
   initMiniChart();
   initMap();
-  initOverviewEqualCardHeights();
 }
 
 function initDeviceBindingModule() {
@@ -1330,17 +1263,6 @@ function mockUpdateOverview() {
   document.getElementById("ov-battery").textContent = "85 %";
   document.getElementById("ov-network").textContent = "WiFi";
   document.getElementById("ov-freshness").textContent = "Dữ liệu mới";
-
-  // Ô thông báo
-  const notifyCountEl = document.getElementById("ov-notify-count");
-  const notifyTextEl = document.getElementById("ov-notify-text");
-  if (notifyCountEl && notifyTextEl) {
-    const newAlerts = 2; // demo
-    notifyCountEl.textContent = newAlerts;
-    notifyTextEl.textContent = newAlerts > 0
-      ? "Có " + newAlerts + " cảnh báo chưa xem"
-      : "Không có cảnh báo mới";
-  }
 
   if (miniChart) {
     const labels = [];
