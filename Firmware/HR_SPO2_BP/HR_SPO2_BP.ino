@@ -2,7 +2,7 @@
 #include <Wire.h>
 #include "MAX30105.h"
 #include "spo2_algorithm.h"
-
+#include <DFRobotDFPlayerMini.h>
 MAX30105 particleSensor;
 
 //==================================================
@@ -28,6 +28,26 @@ int32_t heartRate;
 int8_t validHeartRate;
 int32_t bufferLength = BUFFER_SIZE;
 
+float hr;
+float s;
+
+String phone_default = "0365089063";
+int g_spo2_min = 92;
+int g_spo2_max = 100;
+int g_hr_min  = 55;
+int g_hr_max  = 130;
+int g_sys_min = 90;
+int g_sys_max = 150;
+int g_dia_min = 55;
+int g_dia_max =110;
+
+unsigned long time_incr_warn;
+
+int hr_warning = 0;
+int spo2_warning = 0;
+int mode1_warning = 0;
+int mode2_warning = 0;
+
 #define EMA_ALPHA       0.08f
 #define EMA_ALPHA_HR    0.45f
 #define EMA_ALPHA_SPO2  0.75f
@@ -48,6 +68,19 @@ const int ENB = 33;
 
 const int pwmFreq = 1000;
 const int pwmRes  = 8;
+
+//SIM, GPS, DFPlayer
+#define SIM_RX_PIN 16
+#define SIM_TX_PIN 17
+#define GPS_RX_PIN 25
+#define GPS_TX_PIN 26
+#define DFPLAYER_RX_PIN 27
+#define DFPLAYER_TX_PIN 14
+
+HardwareSerial simSerial(2);   // UART2 cho SIM
+HardwareSerial dfSerial(1);    // UART1 cho DFPlayer
+
+DFRobotDFPlayerMini dfPlayer;
 
 //==================================================
 // AGR12
@@ -83,7 +116,10 @@ float applyEMA(float value, float &ema, float alpha, bool &init)
   ema = alpha*value + (1-alpha)*ema;
   return ema;
 }
-
+void sendAT(String cmd) {
+  simSerial.println(cmd);
+  Serial.println(">> " + cmd);
+}
 //==================================================
 // PWM
 //==================================================
@@ -209,7 +245,7 @@ void Max30102_hr_spo2()
 
   if(validHeartRate)
   {
-    float hr=applyEMA(heartRate, emaHR, EMA_ALPHA_HR, emaHRInit);
+    hr=applyEMA(heartRate, emaHR, EMA_ALPHA_HR, emaHRInit);
     Serial.printf("HR=%.1f ", hr);
   }
   else
@@ -217,11 +253,23 @@ void Max30102_hr_spo2()
 
   if(validSPO2)
   {
-    float s=applyEMA(spo2, emaSPO2, EMA_ALPHA_SPO2, emaSPO2Init);
+    s=applyEMA(spo2, emaSPO2, EMA_ALPHA_SPO2, emaSPO2Init);
     Serial.printf("SpO2=%.1f%%\n", s);
   }
   else
     Serial.println("SpO2=-");
+  if ((hr < g_hr_min )||(hr > g_hr_max))
+    {
+      hr_warning ++;
+      Serial.printf("hr_warning %d\n", hr_warning);
+      time_incr_warn = millis();
+    }
+  if ((s < g_spo2_min )||(s > g_spo2_max))
+    {
+      spo2_warning ++;
+       Serial.printf(" spo2_warning %d\n",  spo2_warning);
+      time_incr_warn = millis();
+    }
 }
 
 //==================================================
@@ -417,6 +465,10 @@ for(int i = mapIndex; i < ampCount - 1; i++)
   Serial.printf("SYS = %.1f mmHg\n", SYS);
   Serial.printf("DIA = %.1f mmHg\n", DIA);
   Serial.printf("MAP = %.1f mmHg\n", MAP);
+  if(((SYS < g_sys_min )||(SYS > g_sys_max))||((DIA < g_dia_min )||(hr > g_dia_max)))
+  {
+    mode2_warning = 1;
+  }
 }
 //==================================================
 // MEASURE BP
@@ -526,6 +578,38 @@ void checkSerial()
   }
 }
 
+void warning_measure()
+{
+  if(millis() - time_incr_warn >= 30000)
+  {
+    hr_warning = 0;
+    spo2_warning = 0;
+  }
+  else
+  {
+    if((hr_warning >=5)||(spo2_warning >=5))
+    {
+      mode1_warning = 1;
+    }
+  }
+  if((mode1_warning == 1)||(mode2_warning == 1))
+  {
+    dfPlayer.playFolder(1, 1);
+    delay(1000);
+    sendAT("AT+CHUP");       // Dừng cuộc gọi cũ nếu có
+    delay(1000);
+    sendAT("AT+CREG?");
+    delay(1000);
+    sendAT("ATD" + phone_default + ";");
+    
+    mode1_warning = 0;
+    mode2_warning = 0;
+    hr_warning = 0;
+    spo2_warning = 0;
+
+  }
+}
+
 //==================================================
 void setup()
 {
@@ -536,7 +620,21 @@ void setup()
 
   ledcAttach(ENA,pwmFreq,pwmRes);
   ledcAttach(ENB,pwmFreq,pwmRes);
+  // SIM800/SIM7600
+  simSerial.begin(115200,SERIAL_8N1,SIM_RX_PIN,SIM_TX_PIN);
+// DFPLAYER
+//==================================================
+  dfSerial.begin(9600,SERIAL_8N1,DFPLAYER_RX_PIN, DFPLAYER_TX_PIN);
 
+  if(dfPlayer.begin(dfSerial))
+  {
+    Serial.println("DFPlayer OK");
+    dfPlayer.volume(25);
+  }
+  else
+  {
+    Serial.println("DFPlayer FAIL");
+  }
   stopAll();
 
   if(!particleSensor.begin(Wire,I2C_SPEED_FAST))
@@ -575,4 +673,5 @@ void loop()
 
   if(currentMode == MODE_MAX30102)
     Max30102_hr_spo2();
+  warning_measure();
 }
