@@ -142,7 +142,7 @@ TFT_eSPI tft;
 
 // ================= LVGL BUFFER =================
 // Reduced draw buffer lines to save ~11 KB of RAM (was 24)
-static const uint16_t LVGL_DRAW_BUF_LINES = 8;
+static const uint16_t LVGL_DRAW_BUF_LINES = 5;
 static lv_color_t buf1[SCREEN_WIDTH * LVGL_DRAW_BUF_LINES];
 static lv_disp_draw_buf_t draw_buf;
 

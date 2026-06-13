@@ -1,0 +1,6 @@
+- [x] Analyze existing codebase structure
+- [ ] Add sync_settings_to_hrspo2bp() helper in GuestMode.cpp to push NVS-loaded settings to HR_SPO2_BP.cpp
+- [ ] Add sync_settings_to_hrspo2bp() helper in UserDashboard.cpp to push NVS-loaded settings to HR_SPO2_BP.cpp
+- [ ] Call sync after load_settings_from_nvs() in both files
+- [ ] Call sync after save_settings_to_nvs() in both files
+- [ ] Verify Mode/Start button functionality already handles auto-start of HR/SPO2 mode

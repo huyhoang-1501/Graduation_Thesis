@@ -38,4 +38,14 @@ void startMeasureBloodPressureAsyncForOrigin(int origin);
 // Expose BP read helper if other modules want to call it
 bool readPressure(float &pressure_kPa, float &pressure_mmHg, int16_t &raw);
 
+// ====================== WARNING SYSTEM ======================
+// Configure thresholds and phone number for health warnings
+void hrspo2bp_set_thresholds(int spo2_min, int spo2_max, int hr_min, int hr_max,
+                              int sys_min, int sys_max, int dia_min, int dia_max);
+void hrspo2bp_set_phone(const char *phone);
+
+// Call this in the main loop. Returns true if a warning alert was triggered
+// (plays DFPlayer alarm and initiates SOS call via SIM module).
+bool hrspo2bp_warning_check();
+
 #endif // HR_SPO2_BP_H

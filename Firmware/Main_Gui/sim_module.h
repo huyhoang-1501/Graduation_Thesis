@@ -20,3 +20,6 @@ void SimModule_TriggerAlert(const char* phone, double lat, double lng, bool hasG
 
 // Kiểm tra SIM module đang bận xử lý SOS hay không
 bool SimModule_IsBusy();
+
+// Gửi lệnh AT trực tiếp đến SIM module (blocking, dùng cho cảnh báo sức khoẻ)
+void sendAT(const String &cmd);

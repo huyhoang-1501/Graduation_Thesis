@@ -11,6 +11,9 @@
 #include "sim_module.h"
 #include <DFRobotDFPlayerMini.h>
 
+// Forward declare settings sync helper
+static void apply_settings_to_hrspo2bp();
+
 // External references from Main_Gui.ino
 extern bool dfPlayerReady;
 extern DFRobotDFPlayerMini dfPlayer;
@@ -166,9 +169,17 @@ static void load_settings_from_nvs() {
   }
 }
 
+// Push local settings (thresholds + phone) to HR_SPO2_BP engine
+static void apply_settings_to_hrspo2bp() {
+  hrspo2bp_set_thresholds(g_spo2_min, g_spo2_max, g_hr_min, g_hr_max,
+                          g_sys_min, g_sys_max, g_dia_min, g_dia_max);
+  hrspo2bp_set_phone(g_phone);
+}
+
 // Preload settings (especially phone number) at boot so SOS works even before GuestMode UI is shown
 void GuestMode_Init(void) {
   load_settings_from_nvs();
+  apply_settings_to_hrspo2bp();
 }
 
 static void save_settings_to_nvs() {
@@ -190,6 +201,8 @@ static void save_settings_to_nvs() {
   userPref.putInt(USER_NVS_KEY_SYS_MAX, g_sys_max);
   userPref.putInt(USER_NVS_KEY_DIA_MIN, g_dia_min);
   userPref.putInt(USER_NVS_KEY_DIA_MAX, g_dia_max);
+  // Sync to HR_SPO2_BP engine immediately so warning system uses the latest values
+  apply_settings_to_hrspo2bp();
 }
 
 static const lv_font_t *pick_font_large() {
@@ -968,104 +981,7 @@ static void refresh_values() {
     lv_label_set_text(label_dia, buf);
   }
 
-  // ===== Warning logic =====
-  // Only run warnings if a phone number is configured in settings
-  if (g_phone[0] == '\0') return;
-  // Don't trigger new alerts while SIM module is busy with a previous call/SMS
-  if (SimModule_IsBusy()) return;
-
-  uint32_t now_w = millis();
-
-  // --- Mode 1: HR / SpO2 warning (count to 5 within 30s) ---
-  if (!g_mode1_warning) {
-    bool hr_valid  = (heartRate > 20 && heartRate < 300);
-    bool spo2_valid = (spo2 > 30 && spo2 <= 100);
-
-    bool hr_out  = hr_valid  && (heartRate < g_hr_min  || heartRate > g_hr_max);
-    bool spo2_out = spo2_valid && (spo2 < g_spo2_min || spo2 > g_spo2_max);
-
-    bool any_inc = false;
-    if (hr_out)  { g_hr_warning++;  any_inc = true; }
-    if (spo2_out) { g_spo2_warning++; any_inc = true; }
-
-    if (any_inc) {
-      g_warning_last_inc_ms = now_w;
-    }
-
-    // Reset counters if 30s passed without reaching threshold
-    if (g_warning_last_inc_ms > 0 && (now_w - g_warning_last_inc_ms) >= WARNING_RESET_MS) {
-      g_hr_warning = 0;
-      g_spo2_warning = 0;
-      g_warning_last_inc_ms = 0;
-    }
-
-    // Trigger if either counter reaches 5
-    if (g_hr_warning >= WARNING_TRIGGER_COUNT || g_spo2_warning >= WARNING_TRIGGER_COUNT) {
-      g_mode1_warning = true;
-      // Determine which metric triggered and build SMS message
-      bool hr_triggered  = (g_hr_warning >= WARNING_TRIGGER_COUNT);
-      bool spo2_triggered = (g_spo2_warning >= WARNING_TRIGGER_COUNT);
-
-      // Play alert sound file 001
-      if (dfPlayerReady) {
-        dfPlayer.play(1);  // file 001
-      }
-
-      // Build SMS message
-      const char *metric_name = hr_triggered ? "HR" : "SPO2";
-      const char *direction = "";
-      if (hr_triggered) {
-        direction = (heartRate < g_hr_min) ? "thap" : "cao";
-      } else {
-        direction = (spo2 < g_spo2_min) ? "thap" : "cao";
-      }
-      char sms_msg[160];
-      snprintf(sms_msg, sizeof(sms_msg),
-        "Canh bao chi so %s dang %s so voi nguong cai dat!", metric_name, direction);
-
-      // Trigger call + SMS with location
-      SimModule_TriggerAlert(g_phone, g_lastGpsLat, g_lastGpsLng, g_hasGpsLocation, sms_msg);
-
-      // Reset counters after triggering
-      g_hr_warning = 0;
-      g_spo2_warning = 0;
-      g_warning_last_inc_ms = 0;
-    }
-  }
-
-  // --- Mode 2: BP (sys/dia) warning (immediate, no counting) ---
-  if (!g_mode2_warning) {
-    if (lastBPOrigin == BP_ORIGIN_GUEST && isfinite(lastSYS) && lastSYS > 0.0f
-        && isfinite(lastDIA) && lastDIA > 0.0f) {
-      int sys_val = (int)lastSYS;
-      int dia_val = (int)lastDIA;
-
-      bool sys_high = (sys_val > g_sys_max);
-      bool sys_low  = (sys_val < g_sys_min);
-      bool dia_high = (dia_val > g_dia_max);
-      bool dia_low  = (dia_val < g_dia_min);
-
-      if (sys_high || sys_low || dia_high || dia_low) {
-        g_mode2_warning = true;
-
-        bool is_high = (sys_high || dia_high);
-
-        // Play alert sound file 001
-        if (dfPlayerReady) {
-          dfPlayer.play(1);  // file 001
-        }
-
-        // Build SMS message
-        const char *bp_dir = is_high ? "cao" : "thap";
-        char sms_msg[160];
-        snprintf(sms_msg, sizeof(sms_msg),
-          "Canh bao chi so Huyet ap dang %s so voi nguong cai dat!", bp_dir);
-
-        // Trigger call + SMS with location
-        SimModule_TriggerAlert(g_phone, g_lastGpsLat, g_lastGpsLng, g_hasGpsLocation, sms_msg);
-      }
-    }
-  }
+  
 }
 
 void GuestMode_Show(GuestBackCallback backCallback) {
@@ -1079,6 +995,8 @@ void GuestMode_Show(GuestBackCallback backCallback) {
     if (label_hr)   lv_label_set_text(label_hr, "");
     if (label_sys)  lv_label_set_text(label_sys, "");
     if (label_dia)  lv_label_set_text(label_dia, "");
+    // Sync local settings to HR_SPO2_BP engine before starting measurements
+    apply_settings_to_hrspo2bp();
     lv_scr_load(gm_scr);
     // initialize to HR/SPO2 mode and ensure Start is disabled by default
     g_gm_mode = GMODE_HR_SPO2;
@@ -1170,6 +1088,10 @@ void GuestMode_Loop() {
       if (gm_btn_start) lv_obj_add_state(gm_btn_start, LV_STATE_DISABLED);
     }
   }
+
+  // Check for health warnings (HR/SpO2/BP) and trigger alerts if needed
+  hrspo2bp_warning_check();
+
   refresh_values();
 }
 

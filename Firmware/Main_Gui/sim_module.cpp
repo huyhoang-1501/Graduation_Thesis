@@ -46,10 +46,22 @@ static unsigned long last_at_send_ms = 0;
 static String sim_rx_buffer = "";
 static bool sms_success = false;
 
-// Gửi lệnh AT phi blocking
 static void sendATCommand(const String &cmd) {
   GPSSerial.println(cmd);
   last_at_send_ms = millis();
+}
+
+// Gửi lệnh AT blocking (dùng cho cảnh báo sức khoẻ)
+void sendAT(const String &cmd) {
+  GPSSerial.println(cmd);
+  // Chờ phản hồi (blocking) - được gọi từ HR_SPO2_BP.cpp với delay sau đó
+  while (!GPSSerial.available()) {
+    delay(1);
+  }
+  // Đọc phản hồi (không cần xử lý, chỉ cần clear buffer)
+  while (GPSSerial.available()) {
+    GPSSerial.read();
+  }
 }
 
 void SimModule_Init() {

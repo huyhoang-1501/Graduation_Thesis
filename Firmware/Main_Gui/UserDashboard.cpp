@@ -11,6 +11,9 @@
 #include "sim_module.h"
 #include <DFRobotDFPlayerMini.h>
 
+// Forward declare settings sync helper
+static void apply_settings_to_hrspo2bp();
+
 // External references from Main_Gui.ino
 extern bool dfPlayerReady;
 extern DFRobotDFPlayerMini dfPlayer;
@@ -185,6 +188,15 @@ static void save_settings_to_nvs() {
   userPref.putInt(USER_NVS_KEY_SYS_MAX, g_sys_max);
   userPref.putInt(USER_NVS_KEY_DIA_MIN, g_dia_min);
   userPref.putInt(USER_NVS_KEY_DIA_MAX, g_dia_max);
+  // Push updated settings to HR_SPO2_BP module
+  apply_settings_to_hrspo2bp();
+}
+
+// Push current settings (thresholds + phone) to HR_SPO2_BP module
+static void apply_settings_to_hrspo2bp() {
+  hrspo2bp_set_thresholds(g_spo2_min, g_spo2_max, g_hr_min, g_hr_max,
+                          g_sys_min, g_sys_max, g_dia_min, g_dia_max);
+  hrspo2bp_set_phone(g_phone);
 }
 
 static const lv_font_t *pick_font_large() {
@@ -970,6 +982,8 @@ void UserDashboard_Show(UserDashboardBackCallback backCallback) {
   build_ud_screen();
   g_active = true;
   g_start_ms = millis();
+  // Sync loaded settings to HR_SPO2_BP module when dashboard is shown
+  apply_settings_to_hrspo2bp();
   if (ud_scr) {
     // Keep metric displays empty until real sensors are hooked up
     if (label_spo2) lv_label_set_text(label_spo2, "");
@@ -1067,6 +1081,10 @@ void UserDashboard_Loop() {
       if (ud_btn_start) lv_obj_add_state(ud_btn_start, LV_STATE_DISABLED);
     }
   }
+
+  // Check for health warnings (HR/SpO2/BP) and trigger alerts if needed
+  hrspo2bp_warning_check();
+
   refresh_values();
 }
 
@@ -1082,4 +1100,6 @@ const char* UserDashboard_GetPhone() {
 // Preload settings (especially phone number) at boot so SOS works even before UserDashboard UI is shown
 void UserDashboard_Init(void) {
   load_settings_from_nvs();
+  // Sync loaded settings to HR_SPO2_BP module so it uses the saved thresholds/phone
+  apply_settings_to_hrspo2bp();
 }
