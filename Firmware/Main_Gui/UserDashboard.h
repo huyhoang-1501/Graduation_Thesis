@@ -8,3 +8,4 @@ void UserDashboard_Show(UserDashboardBackCallback backCallback);
 void UserDashboard_Loop();
 void UserDashboard_UpdateStatus(const char *time_str, const char *batt_str);
 const char* UserDashboard_GetPhone();
+void UserDashboard_Init(void);

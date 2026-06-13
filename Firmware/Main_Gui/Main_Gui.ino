@@ -142,7 +142,7 @@ TFT_eSPI tft;
 
 // ================= LVGL BUFFER =================
 // Reduced draw buffer lines to save ~11 KB of RAM (was 24)
-static const uint16_t LVGL_DRAW_BUF_LINES = 14;
+static const uint16_t LVGL_DRAW_BUF_LINES = 8;
 static lv_color_t buf1[SCREEN_WIDTH * LVGL_DRAW_BUF_LINES];
 static lv_disp_draw_buf_t draw_buf;
 
@@ -226,8 +226,8 @@ static const char *ui_get_device_id() {
 // ui_get_user_id removed; pass nullptr where a user-id getter was used.
 
 // ================= FIREBASE SYNC CONFIG =================
-static const char *WIFI_SSID = "Huy Hoang";
-static const char *WIFI_PASSWORD = "cudiroiseden";
+static const char *WIFI_SSID = "The Coffee House";
+static const char *WIFI_PASSWORD = "nguyentandat";
 static const char *FIREBASE_DB_URL = "https://graduation-thesis-3a3df-default-rtdb.firebaseio.com";
 static const uint32_t FIREBASE_PUSH_INTERVAL_MS = 5000;
 
@@ -422,7 +422,7 @@ static void sound_button_task() {
       }
 
       // Kích hoạt cuộc gọi khẩn cấp, SMS và còi loa từ SIM module
-      const char* phone = UserDashboard_GetPhone();
+      const char* phone = GuestMode_GetPhone();
       if (phone && strlen(phone) > 0) {
         SimModule_TriggerSOS(phone, g_lastGpsLat, g_lastGpsLng, g_hasGpsLocation);
         Serial.printf("[SOS] Triggered call/SMS to %s, GPS_OK=%d\n", phone, g_hasGpsLocation);
@@ -814,6 +814,10 @@ void setup() {
 
   // Khởi tạo SIM module
   SimModule_Init();
+  // Load GuestMode settings (phone number, thresholds) at boot so SOS works even if GuestMode UI hasn't been shown yet
+  GuestMode_Init();
+  // Load UserDashboard settings (phone number, thresholds) at boot so warning logic works
+  UserDashboard_Init();
 
   // Day trang thai ban dau len Firebase (skipped if disabled).
   if (!DISABLE_FIREBASE_PUSH) {

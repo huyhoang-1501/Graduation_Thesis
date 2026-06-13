@@ -452,7 +452,7 @@ static void build_settings_screen() {
   lv_obj_set_style_bg_color(h, lv_color_white(), 0);
   lv_obj_clear_flag(h, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_t *t = lv_label_create(h);
-  lv_label_set_text(t, "User Settings");
+  lv_label_set_text(t, "Settings Online");
   lv_obj_set_style_text_font(t, pick_font_large(), 0);
   lv_obj_set_style_text_color(t, lv_color_black(), 0);
   lv_obj_align(t, LV_ALIGN_LEFT_MID, 0, 0);
@@ -1176,4 +1176,9 @@ void UserDashboard_UpdateStatus(const char *time_str, const char *batt_str) {
 
 const char* UserDashboard_GetPhone() {
   return g_phone;
+}
+
+// Preload settings (especially phone number) at boot so SOS works even before UserDashboard UI is shown
+void UserDashboard_Init(void) {
+  load_settings_from_nvs();
 }
