@@ -209,7 +209,7 @@ bool readPressure(float &kPa, float &mmHg, int16_t &raw) {
   if (Wire.endTransmission() != 0)
     return false;
 
-  delay(WAIT_TIME_MS);
+  vTaskDelay(pdMS_TO_TICKS(WAIT_TIME_MS));
 
   if (Wire.requestFrom(AGR12_I2C_ADDRESS, 4) < 4)
     return false;
@@ -263,7 +263,7 @@ void Max30102_hr_spo2() {
       idx++;
       particleSensor.nextSample();
     } else
-      delay(5);
+      vTaskDelay(pdMS_TO_TICKS(5));
   }
 
   uint32_t avgIR = sumIR / BUFFER_SIZE;
@@ -272,7 +272,7 @@ void Max30102_hr_spo2() {
   if (avgIR < 10000)  // NO_FINGER_THRESHOLD
   {
     Serial.println("No finger");
-    delay(100);
+    vTaskDelay(pdMS_TO_TICKS(100));
     return;
   }
 
@@ -323,7 +323,7 @@ void measureBloodPressure() {
 
   while (mmHg < 180) {
     readPressure(kPa, mmHg, raw);
-    delay(10);
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 
   stopPump();
@@ -351,7 +351,7 @@ void measureBloodPressure() {
       sampleCount++;
     }
 
-    delay(80);
+    vTaskDelay(pdMS_TO_TICKS(80));
   }
 
   processOscillometric();
@@ -361,7 +361,7 @@ void measureBloodPressure() {
 
   while (mmHg > 5) {
     readPressure(kPa, mmHg, raw);
-    delay(10);
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 
   stopAll();

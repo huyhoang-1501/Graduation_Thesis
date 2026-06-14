@@ -17,6 +17,7 @@ const String APN = "v-internet";
 // Các trạng thái của máy trạng thái SOS
 enum SOSState {
   SOS_IDLE,
+  SOS_STARTING,       // Khởi động UART cho SIM
   SOS_AT_INIT,        // gửi AT, chờ OK để xác nhận SIM sẵn sàng
   SOS_SETUP_LBS_1,
   SOS_SETUP_LBS_2,
@@ -30,7 +31,8 @@ enum SOSState {
   SOS_PRE_CALL,       // chờ rồi gửi AT+CHUP
   SOS_MAKE_CALL,      // gửi ATD, chờ xác nhận
   SOS_IN_CALL,        // đang trong cuộc gọi 30s
-  SOS_FINISHED
+  SOS_FINISHED,
+  SOS_CLEANUP         // Trả UART về cho GPS
 };
 
 static SOSState sos_state = SOS_IDLE;
@@ -51,18 +53,6 @@ static void sendATCommand(const String &cmd) {
   last_at_send_ms = millis();
 }
 
-// Gửi lệnh AT blocking (dùng cho cảnh báo sức khoẻ)
-void sendAT(const String &cmd) {
-  GPSSerial.println(cmd);
-  // Chờ phản hồi (blocking) - được gọi từ HR_SPO2_BP.cpp với delay sau đó
-  while (!GPSSerial.available()) {
-    delay(1);
-  }
-  // Đọc phản hồi (không cần xử lý, chỉ cần clear buffer)
-  while (GPSSerial.available()) {
-    GPSSerial.read();
-  }
-}
 
 void SimModule_Init() {
   // Không cấu hình UART ở đây để GPS chạy bình thường
@@ -78,11 +68,8 @@ void SimModule_TriggerSOS(const char* phone, double lat, double lng, bool hasGps
     return; // Không có số điện thoại
   }
 
-  Serial.println("[SIM] Triggered SOS! Switching GPSSerial to SIM (115200 baud, pins 16,17)...");
+  Serial.println("[SIM] Triggered SOS! Switching GPSSerial to SIM...");
   GPSSerial.end();
-  delay(50);
-  GPSSerial.begin(115200, SERIAL_8N1, SIM_RX_PIN, SIM_TX_PIN);
-  delay(50);
 
   sos_phone = String(phone);
   sos_lat = lat;
@@ -94,10 +81,7 @@ void SimModule_TriggerSOS(const char* phone, double lat, double lng, bool hasGps
   sim_rx_buffer = "";
 
   state_start_ms = millis();
-
-  // Gửi AT để kiểm tra SIM sẵn sàng
-  sendATCommand("AT");
-  sos_state = SOS_AT_INIT;
+  sos_state = SOS_STARTING;
 }
 
 bool SimModule_IsBusy() {
@@ -127,6 +111,17 @@ void SimModule_Loop() {
   unsigned long now = millis();
 
   switch (sos_state) {
+
+    case SOS_STARTING:
+      if (now - state_start_ms > 100) {
+        GPSSerial.begin(115200, SERIAL_8N1, SIM_RX_PIN, SIM_TX_PIN);
+        Serial.println("[SIM] UART started at 115200");
+        sim_rx_buffer = "";
+        sendATCommand("AT");
+        state_start_ms = now;
+        sos_state = SOS_AT_INIT;
+      }
+      break;
 
     // ── AT INIT: xác nhận SIM sẵn sàng ──────────────────────────────────
     case SOS_AT_INIT:
@@ -339,12 +334,18 @@ void SimModule_Loop() {
 
     // ── Hoàn tất: trả UART về GPS ────────────────────────────────────────
     case SOS_FINISHED:
-      Serial.println("[SIM] SOS finished. Switching GPSSerial back to GPS (9600 baud)...");
+      Serial.println("[SIM] SOS finished. Switching GPSSerial back to GPS...");
       GPSSerial.end();
-      delay(50);
-      GPSSerial.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
-      delay(50);
-      sos_state = SOS_IDLE;
+      state_start_ms = now;
+      sos_state = SOS_CLEANUP;
+      break;
+
+    case SOS_CLEANUP:
+      if (now - state_start_ms > 100) {
+        GPSSerial.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+        Serial.println("[SIM] UART restored to GPS (9600)");
+        sos_state = SOS_IDLE;
+      }
       break;
 
     case SOS_IDLE:
