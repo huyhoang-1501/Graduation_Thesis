@@ -69,12 +69,12 @@ int g_dia_max  = 110;
 char g_phone[32] = "0365089063";
 
 // Warning counters
-int hr_warning = 0;
-int spo2_warning = 0;
-int mode1_warning = 0;
-int mode2_warning = 0;
+volatile int hr_warning = 0;
+volatile int spo2_warning = 0;
+volatile int mode1_warning = 0;
+volatile int mode2_warning = 0;
 
-unsigned long time_incr_warn = 0;
+volatile unsigned long time_incr_warn = 0;
 
 // ================== PUMP + VALVE ==================
 const int ENA = 32;
@@ -115,7 +115,17 @@ static void bp_task_entry(void *pvParameters);
 
 // DFPlayer (external reference from Main_Gui)
 extern DFRobotDFPlayerMini dfPlayer;
-// sendAT is declared in sim_module.h and implemented in sim_module.cpp
+extern bool dfPlayerReady;
+extern bool g_alert_sound_playing;
+
+// GPS location (external reference from Main_Gui.ino)
+extern double g_lastGpsLat;
+extern double g_lastGpsLng;
+extern bool g_hasGpsLocation;
+
+// Cooldown to prevent repeated alert triggers
+static unsigned long g_alert_cooldown_ms = 0;
+static const unsigned long ALERT_COOLDOWN_PERIOD_MS = 60000; // 60 seconds between alerts
 
 // ====================== FREE RTOS TASK ENTRY POINTS ======================
 static void max301_task_entry(void *pvParameters) {
@@ -502,29 +512,49 @@ void processOscillometric() {
 // ====================== WARNING CHECK (matching .ino warning_measure()) ======================
 bool hrspo2bp_warning_check() {
   // Reset counters if no warnings for 30 seconds
-  if (millis() - time_incr_warn >= 30000) {
+  if (time_incr_warn > 0 && (millis() - time_incr_warn >= 30000)) {
     hr_warning = 0;
     spo2_warning = 0;
-  } else {
-    if ((hr_warning >= 5) || (spo2_warning >= 5)) {
-      mode1_warning = 1;
-    }
+    time_incr_warn = 0;
+  }
+
+  if ((hr_warning >= 5) || (spo2_warning >= 5)) {
+    mode1_warning = 1;
   }
 
   // If any mode is triggered, fire alert
   if ((mode1_warning == 1) || (mode2_warning == 1)) {
+    // Check cooldown to prevent repeated triggers in quick succession
+    if (millis() - g_alert_cooldown_ms < ALERT_COOLDOWN_PERIOD_MS) {
+      Serial.println("[ALERT] Cooldown active, skipping...");
+      return false;
+    }
+
+    // Check if SIM module is busy (already processing another SOS/alert)
+    if (SimModule_IsBusy()) {
+      Serial.println("[ALERT] SIM module busy, skipping...");
+      return false;
+    }
+
     Serial.println("=== HEALTH WARNING: Initiating alert ===");
     
     // Play warning sound via DFPlayer
-    dfPlayer.playFolder(1, 1);
-    delay(1000);
+    if (dfPlayerReady) {
+      dfPlayer.play(1); // Play file 001.mp3 in root
+      g_alert_sound_playing = true;
+      Serial.println("[DFPlayer] Playing alert sound (file 001.mp3)");
+    }
     
-    // Make emergency call via SIM
-    sendAT("AT+CHUP");       // Hang up any existing call
-    delay(1000);
-    sendAT("AT+CREG?");
-    delay(1000);
-    sendAT("ATD" + String(g_phone) + ";");
+    // Make emergency call + SMS via SimModule state machine (non-blocking)
+    if (g_phone[0] != '\0') {
+      SimModule_TriggerAlert(g_phone, g_lastGpsLat, g_lastGpsLng, g_hasGpsLocation, "Canh bao suc khoe!");
+      Serial.printf("[ALERT] Triggered call/SMS to %s\n", g_phone);
+    } else {
+      Serial.println("[ALERT] No phone number configured!");
+    }
+
+    // Set cooldown timer to prevent re-triggering too soon
+    g_alert_cooldown_ms = millis();
 
     // Reset all flags
     mode1_warning = 0;

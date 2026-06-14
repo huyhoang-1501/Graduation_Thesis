@@ -56,7 +56,7 @@ DFRobotDFPlayerMini dfPlayer;
 bool dfPlayerReady = false;
 static bool lastButtonState = HIGH;
 static uint32_t lastButtonChangeMs = 0;
-static bool g_alert_sound_playing = false;  // Tracks if alert sound is currently playing
+bool g_alert_sound_playing = false;  // Tracks if alert sound is currently playing
 
 // ================= GPS (NEO-6M) =================
 // Dùng 2 GPIO khác nhau cho UART GPS.
