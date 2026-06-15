@@ -92,15 +92,6 @@ static GuestBackCallback g_back_callback = nullptr;
 static bool g_active = false;
 static uint32_t g_start_ms = 0;
 
-// ---- Warning state ----
-static int g_hr_warning = 0;
-static int g_spo2_warning = 0;
-static bool g_mode1_warning = false;  // HR/SpO2 alert triggered
-static bool g_mode2_warning = false;  // BP alert triggered
-static uint32_t g_warning_last_inc_ms = 0; // millis() of last counter increment
-static const uint32_t WARNING_RESET_MS = 30000; // reset counters if idle 30s
-static const int WARNING_TRIGGER_COUNT = 5;
-
 // Mode: default runs continuous HR/SpO2. BP mode enables Start button to trigger BP measurement.
 enum GuestModeType { GMODE_HR_SPO2 = 0, GMODE_BP = 1 };
 static GuestModeType g_gm_mode = GMODE_HR_SPO2;
@@ -111,18 +102,6 @@ static bool g_gm_bp_result_displaying = false;
 static lv_obj_t *g_prev_scr = nullptr;
 // saved original previous screen for multi-step keypad flows
 static lv_obj_t *g_saved_prev_scr = nullptr;
-
-static const char *DEFAULT_SOS_PHONE = "0365089063";
-static char g_phone[32] = "0365089063";
-// thresholds (min/max for each metric)
-static int g_spo2_min = 92;
-static int g_spo2_max = 100;
-static int g_hr_min   = 55;
-static int g_hr_max   = 130;
-static int g_sys_min  = 90;
-static int g_sys_max  = 160;
-static int g_dia_min  = 55;
-static int g_dia_max  = 110;
 
 // current edit target (uses enum defined above)
 static EditTarget g_current_edit = EDIT_NONE;
@@ -1011,8 +990,8 @@ void GuestMode_Show(GuestBackCallback backCallback) {
     // reset warning state so alerts can re-trigger in this session
     g_hr_warning = 0;
     g_spo2_warning = 0;
-    g_mode1_warning = false;
-    g_mode2_warning = false;
+    g_mode1_warning = 0;
+    g_mode2_warning = 0;
     g_warning_last_inc_ms = 0;
   }
 }
@@ -1095,11 +1074,11 @@ void GuestMode_Loop() {
   refresh_values();
 }
 
+const char* GuestMode_GetPhone() {
+  return g_phone;
+}
+
 void GuestMode_UpdateStatus(const char *time_str, const char *batt_str) {
   (void)time_str;
   (void)batt_str;
-}
-
-const char* GuestMode_GetPhone() {
-  return g_phone;
 }

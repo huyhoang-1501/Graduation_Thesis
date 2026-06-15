@@ -39,10 +39,34 @@ void startMeasureBloodPressureAsyncForOrigin(int origin);
 bool readPressure(float &pressure_kPa, float &pressure_mmHg, int16_t &raw);
 
 // ====================== WARNING SYSTEM ======================
-// Configure thresholds and phone number for health warnings
+// Shared thresholds and phone (single source of truth in HR_SPO2_BP.cpp)
+extern int g_spo2_min;
+extern int g_spo2_max;
+extern int g_hr_min;
+extern int g_hr_max;
+extern int g_sys_min;
+extern int g_sys_max;
+extern int g_dia_min;
+extern int g_dia_max;
+
+extern char g_phone[32];
+extern const char *DEFAULT_SOS_PHONE;
+
+// Warning counters (owned by HR_SPO2_BP.cpp)
+extern volatile int g_hr_warning;
+extern volatile int g_spo2_warning;
+extern volatile int g_mode1_warning;
+extern volatile int g_mode2_warning;
+extern volatile unsigned long g_warning_last_inc_ms;
+
+// Thresholds and phone config
 void hrspo2bp_set_thresholds(int spo2_min, int spo2_max, int hr_min, int hr_max,
                               int sys_min, int sys_max, int dia_min, int dia_max);
 void hrspo2bp_set_phone(const char *phone);
+
+// Warning constants
+#define WARNING_TRIGGER_COUNT 5
+#define WARNING_RESET_MS 30000
 
 // Call this in the main loop. Returns true if a warning alert was triggered
 // (plays DFPlayer alarm and initiates SOS call via SIM module).

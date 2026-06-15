@@ -66,15 +66,16 @@ int g_sys_max  = 150;
 int g_dia_min  = 55;
 int g_dia_max  = 110;
 
+const char *DEFAULT_SOS_PHONE = "0365089063";
 char g_phone[32] = "0365089063";
 
 // Warning counters
-volatile int hr_warning = 0;
-volatile int spo2_warning = 0;
-volatile int mode1_warning = 0;
-volatile int mode2_warning = 0;
+volatile int g_hr_warning = 0;
+volatile int g_spo2_warning = 0;
+volatile int g_mode1_warning = 0;
+volatile int g_mode2_warning = 0;
 
-volatile unsigned long time_incr_warn = 0;
+volatile unsigned long g_warning_last_inc_ms = 0;
 
 // ================== PUMP + VALVE ==================
 const int ENA = 32;
@@ -299,14 +300,14 @@ void Max30102_hr_spo2() {
 
   // Warning counting (matching .ino)
   if ((hr < g_hr_min) || (hr > g_hr_max)) {
-    hr_warning++;
-    Serial.printf("hr_warning %d\n", hr_warning);
-    time_incr_warn = millis();
+    g_hr_warning++;
+    Serial.printf("hr_warning %d\n", g_hr_warning);
+    g_warning_last_inc_ms = millis();
   }
   if ((s < g_spo2_min) || (s > g_spo2_max)) {
-    spo2_warning++;
-    Serial.printf("spo2_warning %d\n", spo2_warning);
-    time_incr_warn = millis();
+    g_spo2_warning++;
+    Serial.printf("spo2_warning %d\n", g_spo2_warning);
+    g_warning_last_inc_ms = millis();
   }
 }
 
@@ -503,27 +504,27 @@ void processOscillometric() {
 
   // Warning counting for BP (matching .ino)
   if ((SYS < g_sys_min) || (SYS > g_sys_max) || (DIA < g_dia_min) || (DIA > g_dia_max)) {
-    mode2_warning = 1;
+    g_mode2_warning = 1;
     Serial.printf("BP warning triggered\n");
-    time_incr_warn = millis();
+    g_warning_last_inc_ms = millis();
   }
 }
 
 // ====================== WARNING CHECK (matching .ino warning_measure()) ======================
 bool hrspo2bp_warning_check() {
   // Reset counters if no warnings for 30 seconds
-  if (time_incr_warn > 0 && (millis() - time_incr_warn >= 30000)) {
-    hr_warning = 0;
-    spo2_warning = 0;
-    time_incr_warn = 0;
+  if (g_warning_last_inc_ms > 0 && (millis() - g_warning_last_inc_ms >= WARNING_RESET_MS)) {
+    g_hr_warning = 0;
+    g_spo2_warning = 0;
+    g_warning_last_inc_ms = 0;
   }
 
-  if ((hr_warning >= 5) || (spo2_warning >= 5)) {
-    mode1_warning = 1;
+  if ((g_hr_warning >= WARNING_TRIGGER_COUNT) || (g_spo2_warning >= WARNING_TRIGGER_COUNT)) {
+    g_mode1_warning = 1;
   }
 
   // If any mode is triggered, fire alert
-  if ((mode1_warning == 1) || (mode2_warning == 1)) {
+  if ((g_mode1_warning == 1) || (g_mode2_warning == 1)) {
     // Check cooldown to prevent repeated triggers in quick succession
     if (millis() - g_alert_cooldown_ms < ALERT_COOLDOWN_PERIOD_MS) {
       Serial.println("[ALERT] Cooldown active, skipping...");
@@ -557,10 +558,10 @@ bool hrspo2bp_warning_check() {
     g_alert_cooldown_ms = millis();
 
     // Reset all flags
-    mode1_warning = 0;
-    mode2_warning = 0;
-    hr_warning = 0;
-    spo2_warning = 0;
+    g_mode1_warning = 0;
+    g_mode2_warning = 0;
+    g_hr_warning = 0;
+    g_spo2_warning = 0;
 
     return true;  // Alert was triggered
   }
