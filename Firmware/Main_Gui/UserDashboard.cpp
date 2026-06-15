@@ -10,9 +10,12 @@
 #include "HR_SPO2_BP.h"
 #include "sim_module.h"
 #include <DFRobotDFPlayerMini.h>
+// Firebase RTDB sync for fetching user settings (phone + thresholds)
+#include "FirebaseSync.h"
 
 // Forward declare settings sync helper
 static void apply_settings_to_hrspo2bp();
+static void save_settings_to_nvs();
 
 // External references from Main_Gui.ino
 extern bool dfPlayerReady;
@@ -145,6 +148,46 @@ static void load_settings_from_nvs() {
     g_sys_max  = userPref.getInt(USER_NVS_KEY_SYS_MAX, g_sys_max);
     g_dia_min  = userPref.getInt(USER_NVS_KEY_DIA_MIN, g_dia_min);
     g_dia_max  = userPref.getInt(USER_NVS_KEY_DIA_MAX, g_dia_max);
+  }
+}
+
+// Try to fetch settings from Firebase RTDB. If userId is set and data exists,
+// override the NVS-loaded values. If RTDB has no data, keep NVS values.
+static void fetch_settings_from_rtdb() {
+  const char *userId = FirebaseSync_GetCurrentUserId();
+  if (!userId || !userId[0]) {
+    Serial.println("[UserDashboard] No userId set, using NVS defaults");
+    return;
+  }
+
+  // Temporary variables to receive RTDB values
+  char rtPhone[16] = "";
+  int rtSpo2Min = g_spo2_min, rtSpo2Max = g_spo2_max;
+  int rtHrMin = g_hr_min, rtHrMax = g_hr_max;
+  int rtSysMin = g_sys_min, rtSysMax = g_sys_max;
+  int rtDiaMin = g_dia_min, rtDiaMax = g_dia_max;
+
+  if (FirebaseSync_FetchUserSettings(userId, rtPhone, sizeof(rtPhone),
+                                      &rtSpo2Min, &rtSpo2Max,
+                                      &rtHrMin, &rtHrMax,
+                                      &rtSysMin, &rtSysMax,
+                                      &rtDiaMin, &rtDiaMax)) {
+    // RTDB data found — apply it (override NVS values)
+    if (rtPhone[0]) {
+      strncpy(g_phone, rtPhone, sizeof(g_phone) - 1);
+      g_phone[sizeof(g_phone) - 1] = '\0';
+      Serial.print("[UserDashboard] RTDB phone: "); Serial.println(g_phone);
+    }
+    g_spo2_min = rtSpo2Min; g_spo2_max = rtSpo2Max;
+    g_hr_min   = rtHrMin;   g_hr_max   = rtHrMax;
+    g_sys_min  = rtSysMin;  g_sys_max  = rtSysMax;
+    g_dia_min  = rtDiaMin;  g_dia_max  = rtDiaMax;
+    Serial.println("[UserDashboard] Applied settings from Firebase RTDB");
+    // Persist the fetched values into NVS immediately so they survive a reboot
+    save_settings_to_nvs();
+  } else {
+    // RTDB fetch failed or no data — keep NVS values already loaded
+    Serial.println("[UserDashboard] RTDB fetch failed/empty, keeping NVS settings");
   }
 }
 
@@ -661,6 +704,8 @@ static void build_metric_screen() {
 static void build_ud_screen() {
   // load persisted values once before building UI
   load_settings_from_nvs();
+  // Try to fetch settings from Firebase RTDB (overrides NVS if data exists)
+  fetch_settings_from_rtdb();
   if (ud_scr) return;
 
   ud_scr = lv_obj_create(nullptr);
@@ -1079,6 +1124,8 @@ const char* UserDashboard_GetPhone() {
 // Preload settings (especially phone number) at boot so SOS works even before UserDashboard UI is shown
 void UserDashboard_Init(void) {
   load_settings_from_nvs();
+  // Try to fetch settings from Firebase RTDB (overrides NVS if data exists)
+  fetch_settings_from_rtdb();
   // Sync loaded settings to HR_SPO2_BP module so it uses the saved thresholds/phone
   apply_settings_to_hrspo2bp();
 }

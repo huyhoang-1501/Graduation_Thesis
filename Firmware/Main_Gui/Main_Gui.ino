@@ -226,8 +226,8 @@ static const char *ui_get_device_id() {
 // ui_get_user_id removed; pass nullptr where a user-id getter was used.
 
 // ================= FIREBASE SYNC CONFIG =================
-static const char *WIFI_SSID = "realme 10 ";
-static const char *WIFI_PASSWORD = "12345679";
+static const char *WIFI_SSID = "Huy Hoang";
+static const char *WIFI_PASSWORD = "cudiroiseden";
 static const char *FIREBASE_DB_URL = "https://graduation-thesis-3a3df-default-rtdb.firebaseio.com";
 static const uint32_t FIREBASE_PUSH_INTERVAL_MS = 5000;
 

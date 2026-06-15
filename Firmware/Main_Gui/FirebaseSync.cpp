@@ -263,6 +263,10 @@ void FirebaseSync_SetCurrentUserId(const char *userId) {
   Serial.print("[Firebase] Current user id set: "); Serial.println(g_current_user_id);
 }
 
+const char* FirebaseSync_GetCurrentUserId() {
+  return g_current_user_id;
+}
+
 // NOTE: auth token support removed — this project does not use Firebase REST auth tokens.
 
 // Public: force push measurement now (non-blocking queued)
@@ -488,6 +492,103 @@ bool FirebaseSync_ValidateUserId(const char *userId, char *errMsg, size_t errMsg
   // Optionally, we could verify /devices/<deviceId>.patientId == userId here.
   if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "OK");
   return true;
+}
+
+static bool parse_json_string_value(const String &json, const char *key, String &out) {
+  // Simple JSON parsing for "key": "value"
+  String searchKey = String("\"") + key + "\":\"";
+  int idx = json.indexOf(searchKey);
+  if (idx < 0) return false;
+  idx += searchKey.length();
+  int endIdx = json.indexOf('"', idx);
+  if (endIdx < 0) return false;
+  out = json.substring(idx, endIdx);
+  return true;
+}
+
+static bool parse_json_int_value(const String &json, const char *key, int &out) {
+  // Simple JSON parsing for "key": number
+  String searchKey = String("\"") + key + "\":";
+  int idx = json.indexOf(searchKey);
+  if (idx < 0) return false;
+  idx += searchKey.length();
+  // skip whitespace
+  while (idx < (int)json.length() && json[idx] == ' ') idx++;
+  // read number (may be negative)
+  int startIdx = idx;
+  if (idx < (int)json.length() && json[idx] == '-') idx++;
+  while (idx < (int)json.length() && json[idx] >= '0' && json[idx] <= '9') idx++;
+  if (idx == startIdx) return false;
+  String numStr = json.substring(startIdx, idx);
+  out = numStr.toInt();
+  return true;
+}
+
+bool FirebaseSync_FetchUserSettings(const char *userId, char *phoneOut, size_t phoneOutSize,
+                                    int *spo2Min, int *spo2Max,
+                                    int *hrMin, int *hrMax,
+                                    int *sysMin, int *sysMax,
+                                    int *diaMin, int *diaMax) {
+  if (!userId || !userId[0]) return false;
+  
+  // Ensure WiFi is connected
+  if (!wifi_connect_if_needed() && WiFi.status() != WL_CONNECTED) {
+    // Try to wait a bit for WiFi
+    uint32_t start = millis();
+    while (millis() - start < 5000) {
+      if (wifi_connect_if_needed() && WiFi.status() == WL_CONNECTED) break;
+      vTaskDelay(pdMS_TO_TICKS(200));
+    }
+    if (WiFi.status() != WL_CONNECTED) return false;
+  }
+  
+  String basePath = String("patients/") + userId + "/settings";
+  String response;
+  bool fetchedAny = false;
+  
+  // Fetch phone number from patients/<userId>/settings/alertphone
+  if (firebase_get(basePath + "/alertphone", response)) {
+    if (response.length() > 0 && response != "null") {
+      // Remove surrounding quotes if present
+      String phoneStr = response;
+      if (phoneStr.startsWith("\"") && phoneStr.endsWith("\"")) {
+        phoneStr = phoneStr.substring(1, phoneStr.length() - 1);
+      }
+      phoneStr.trim();
+      if (phoneStr.length() > 0) {
+        strncpy(phoneOut, phoneStr.c_str(), phoneOutSize - 1);
+        phoneOut[phoneOutSize - 1] = '\0';
+        fetchedAny = true;
+        Serial.print("[FirebaseSync] Fetched alertphone: "); Serial.println(phoneOut);
+      }
+    }
+  }
+  
+  // Fetch thresholds from patients/<userId>/settings/thresholds
+  String thresholdsPath = basePath + "/thresholds";
+  if (firebase_get(thresholdsPath, response)) {
+    if (response.length() > 0 && response != "null") {
+      int val;
+      if (parse_json_int_value(response, "bpDiaMax", val)) { *diaMax = val; fetchedAny = true; }
+      if (parse_json_int_value(response, "bpDiaMin", val)) { *diaMin = val; fetchedAny = true; }
+      if (parse_json_int_value(response, "bpSysMax", val)) { *sysMax = val; fetchedAny = true; }
+      if (parse_json_int_value(response, "bpSysMin", val)) { *sysMin = val; fetchedAny = true; }
+      if (parse_json_int_value(response, "hrMax", val))    { *hrMax = val; fetchedAny = true; }
+      if (parse_json_int_value(response, "hrMin", val))    { *hrMin = val; fetchedAny = true; }
+      if (parse_json_int_value(response, "spo2Max", val))  { *spo2Max = val; fetchedAny = true; }
+      if (parse_json_int_value(response, "spo2Min", val))  { *spo2Min = val; fetchedAny = true; }
+      
+      if (fetchedAny) {
+        Serial.println("[FirebaseSync] Fetched thresholds from Firebase");
+        Serial.print("  bpSys: "); Serial.print(*sysMin); Serial.print(" - "); Serial.println(*sysMax);
+        Serial.print("  bpDia: "); Serial.print(*diaMin); Serial.print(" - "); Serial.println(*diaMax);
+        Serial.print("  hr: "); Serial.print(*hrMin); Serial.print(" - "); Serial.println(*hrMax);
+        Serial.print("  spo2: "); Serial.print(*spo2Min); Serial.print(" - "); Serial.println(*spo2Max);
+      }
+    }
+  }
+  
+  return fetchedAny;
 }
 
 void FirebaseSync_Loop() {
