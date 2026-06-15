@@ -72,4 +72,12 @@ void hrspo2bp_set_phone(const char *phone);
 // (plays DFPlayer alarm and initiates SOS call via SIM module).
 bool hrspo2bp_warning_check();
 
+// ====================== FALLBACK MECHANISM ======================
+// After an alert, if user doesn't cancel within 1 minute, call the default
+// SOS number (DEFAULT_SOS_PHONE) as a fallback.
+void hrspo2bp_start_fallback_timer(const char *first_called_phone);
+void hrspo2bp_cancel_fallback();
+bool hrspo2bp_is_fallback_pending();
+void hrspo2bp_fallback_loop();
+
 #endif // HR_SPO2_BP_H

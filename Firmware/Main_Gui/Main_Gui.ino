@@ -430,6 +430,12 @@ static void sound_button_task() {
         Serial.println("[SOS] Failed: No phone number saved in settings!");
       }
     }
+
+    // Cancel fallback timer if user presses button (user is responding to alert)
+    if (hrspo2bp_is_fallback_pending()) {
+      hrspo2bp_cancel_fallback();
+      Serial.println("[BUTTON] Fallback cancelled by user button press");
+    }
   } else if (buttonState == HIGH) {
     buttonHandledWhilePressed = false;
   }
@@ -833,6 +839,8 @@ void loop() {
 
   // Run HR/SpO2 background loop (updates spo2/heartRate)
   hrspo2bp_loop();
+  // Check fallback timer (call default SOS number if 1 min elapsed without cancellation)
+  hrspo2bp_fallback_loop();
   gps_loop();
   sound_button_task();
   SimModule_Loop();

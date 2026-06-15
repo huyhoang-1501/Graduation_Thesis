@@ -66,8 +66,8 @@ int g_sys_max  = 150;
 int g_dia_min  = 55;
 int g_dia_max  = 110;
 
-const char *DEFAULT_SOS_PHONE = "0365089063";
-char g_phone[32] = "0365089063";
+const char *DEFAULT_SOS_PHONE = "0342128488";
+char g_phone[32] = "0342128488";
 
 // Warning counters
 volatile int g_hr_warning = 0;
@@ -127,6 +127,90 @@ extern bool g_hasGpsLocation;
 // Cooldown to prevent repeated alert triggers
 static unsigned long g_alert_cooldown_ms = 0;
 static const unsigned long ALERT_COOLDOWN_PERIOD_MS = 60000; // 60 seconds between alerts
+
+// ====================== FALLBACK MECHANISM ======================
+// After initial alert (health warning or button press), if user doesn't
+// cancel within 1 minute, call the default SOS number.
+static unsigned long g_fallback_timer_start_ms = 0;
+static const unsigned long FALLBACK_DELAY_MS = 60000; // 1 minute
+static bool g_fallback_pending = false;
+static bool g_fallback_triggered = false;
+static char g_fallback_phone[32] = ""; // copy of first-called number to avoid re-calling same
+
+void hrspo2bp_start_fallback_timer(const char *first_called_phone) {
+  g_fallback_timer_start_ms = millis();
+  g_fallback_pending = true;
+  g_fallback_triggered = false;
+  if (first_called_phone) {
+    strncpy(g_fallback_phone, first_called_phone, sizeof(g_fallback_phone) - 1);
+    g_fallback_phone[sizeof(g_fallback_phone) - 1] = '\0';
+  } else {
+    g_fallback_phone[0] = '\0';
+  }
+  Serial.println("[FALLBACK] Timer started - will call default number in 1 minute if not cancelled");
+}
+
+void hrspo2bp_cancel_fallback() {
+  if (g_fallback_pending) {
+    g_fallback_pending = false;
+    g_fallback_triggered = false;
+    g_fallback_phone[0] = '\0';
+    Serial.println("[FALLBACK] Cancelled by user");
+  }
+}
+
+bool hrspo2bp_is_fallback_pending() {
+  return g_fallback_pending;
+}
+
+void hrspo2bp_fallback_loop() {
+  if (!g_fallback_pending) return;
+  if (g_fallback_triggered) return;
+
+  // If SIM module is busy (still processing the first call), wait
+  if (SimModule_IsBusy()) return;
+
+  // Check if 1 minute has elapsed
+  if (millis() - g_fallback_timer_start_ms >= FALLBACK_DELAY_MS) {
+    g_fallback_pending = false;
+    g_fallback_triggered = true;
+
+    Serial.println("=== FALLBACK: 1 minute elapsed without cancellation ===");
+
+    // Call the DEFAULT number (stored phone number from settings)
+    const char *fallback_number = DEFAULT_SOS_PHONE;
+    if (fallback_number && fallback_number[0] != '\0') {
+      // Avoid calling the same number that was already called
+      if (g_fallback_phone[0] != '\0' && strcmp(fallback_number, g_fallback_phone) == 0) {
+        Serial.println("[FALLBACK] Default number is same as first-called, trying alternate...");
+        // If same as already-called, try the g_phone if different
+        if (strcmp(fallback_number, g_phone) != 0 && g_phone[0] != '\0') {
+          fallback_number = g_phone;
+        } else {
+          Serial.println("[FALLBACK] No alternate number available, skipping");
+          g_fallback_phone[0] = '\0';
+          return;
+        }
+      }
+
+      // Play alert sound again for fallback
+      if (dfPlayerReady) {
+        dfPlayer.play(1);
+        g_alert_sound_playing = true;
+        Serial.println("[DFPlayer] Playing alert sound for fallback");
+      }
+
+      // Send SMS + Call to fallback number
+      SimModule_TriggerAlert(fallback_number, g_lastGpsLat, g_lastGpsLng,
+                              g_hasGpsLocation, "Canh bao suc khoe - Khong co phan hoi!");
+      Serial.printf("[FALLBACK] Triggered call/SMS to %s\n", fallback_number);
+    } else {
+      Serial.println("[FALLBACK] No default number configured!");
+    }
+
+    g_fallback_phone[0] = '\0';
+  }
+}
 
 // ====================== FREE RTOS TASK ENTRY POINTS ======================
 static void max301_task_entry(void *pvParameters) {
@@ -550,6 +634,9 @@ bool hrspo2bp_warning_check() {
     if (g_phone[0] != '\0') {
       SimModule_TriggerAlert(g_phone, g_lastGpsLat, g_lastGpsLng, g_hasGpsLocation, "Canh bao suc khoe!");
       Serial.printf("[ALERT] Triggered call/SMS to %s\n", g_phone);
+
+      // Start fallback timer: after 1 minute without cancellation, call default number
+      hrspo2bp_start_fallback_timer(g_phone);
     } else {
       Serial.println("[ALERT] No phone number configured!");
     }
