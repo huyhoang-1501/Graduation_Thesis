@@ -97,8 +97,8 @@ uint16_t currentDelay = MEASURE_DELAY_MIN;
 // Tunable algorithm parameters (adjust at runtime via serial)
 float SYS_RATIO = 0.5f;  // ratio of max amplitude to detect SYS (normally 0.45 - 0.65)
 float DIA_RATIO = 0.7f;  // ratio of max amplitude to detect DIA (normally 0.65 - 0.85)
-float SYS_OFFSET = 30.0f; // additive offset to calibrate systolic pressure (mmHg)
-float DIA_OFFSET = 40.0f; // additive offset to calibrate diastolic pressure (mmHg)
+float SYS_OFFSET = -50.0f; // additive offset to calibrate systolic pressure (mmHg)
+float DIA_OFFSET = -50.0f;//additive offset to calibrate diastolic pressure (mmHg)
 bool dumpSamplesNextRun = false; // if true, measurement will print CSV of samples
 
 // Early-accept settings: if we have this many samples after MAP, skip final rapid deflation
