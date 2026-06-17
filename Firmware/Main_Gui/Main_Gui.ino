@@ -377,7 +377,7 @@ static void rtc_sync_if_needed() {
 
 // Dung lượng danh định của pack pin (mAh).
 // 2 cell nối tiếp (2S1P) => mAh giữ nguyên như 1 cell.
-const float BATTERY_CAPACITY_mAh = 2600.0f;
+const float BATTERY_CAPACITY_mAh = 2500.0f;
 
 // INA219
 Adafruit_INA219 ina219;
@@ -403,7 +403,7 @@ const uint32_t NVS_SAVE_INTERVAL_MS = 10000; // 10 giây
 static uint32_t last_nvs_save_ms = 0;
 
 // ================= POWER SAVE / BACKLIGHT =================
-static const uint32_t IDLE_OFF_MS = 30000; // 30s không chạm -> tắt backlight
+static const uint32_t IDLE_OFF_MS = 45000; // 45s không chạm -> tắt backlight
 
 static const uint32_t TAP_MIN_MS = 35;
 static const uint32_t TAP_MAX_MS = 450;
