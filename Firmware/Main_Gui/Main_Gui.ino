@@ -279,6 +279,15 @@ static bool local_validate_user_id(const char *userId, char *errMsg, size_t errM
 // sau đó để lại false để tránh bị reset giờ mỗi lần nạp code.
 static const bool RTC_FORCE_SET_ON_BOOT = false;
 
+// NVS-backed RTC freeze detection.
+// Luu timestamp RTC vao NVS dinh ky (5 phut).
+// Khi boot, neu thoi gian RTC nho hon gia tri da luu qua nhieu
+// (pin backup yeu/het -> RTC dung lai khi mat nguon) => ep set lai tu build time.
+static Preferences rtcPref;
+static const char *RTC_NVS_NAMESPACE    = "rtc";
+static const uint32_t RTC_NVS_INTERVAL_MS = 300000;   // 5 phut ghi NVS 1 lan
+static const int32_t  RTC_FREEZE_TOLERANCE_SEC = 60;  // sai lech toi da cho phep (giay)
+
 
 static const int32_t RTC_TIMEZONE_OFFSET_SEC = 0;
 
@@ -303,26 +312,64 @@ static void rtc_sync_if_needed() {
   bool need_adjust = RTC_FORCE_SET_ON_BOOT;
 
   if (rtc.lostPower()) {
-    Serial.println("RTC lost power -> will adjust from build time");
+    Serial.println("[RTC] lostPower() true -> will adjust from build time");
     need_adjust = true;
   }
 
   DateTime current = rtc.now();
   if (rtc_time_looks_invalid(current)) {
-    Serial.println("RTC invalid datetime -> will adjust from build time");
+    Serial.println("[RTC] invalid datetime -> will adjust from build time");
     need_adjust = true;
+  }
+
+  // ===== NVS-based freeze detection =====
+  // Khi pin backup DS3231 yeu/het, RTC ngung chay khi mat nguon chinh,
+  // nhung lostPower() khong phat hien duoc. Ta kiem tra bang NVS timestamp.
+  if (!need_adjust) {
+    rtcPref.begin(RTC_NVS_NAMESPACE, false);
+    uint32_t stored_ts = rtcPref.getULong("last_ts", 0);
+    rtcPref.end();
+
+    if (stored_ts != 0) {
+      uint32_t current_ts = current.unixtime();
+      // Neu thoi gian RTC nho hon stored_ts qua nhieu => RTC da dung lai khi mat nguon
+      if (current_ts < stored_ts && (stored_ts - current_ts) > (uint32_t)RTC_FREEZE_TOLERANCE_SEC) {
+        Serial.print("[RTC] FREEZE detected: stored_ts=");
+        Serial.print(stored_ts);
+        Serial.print(" current_ts=");
+        Serial.print(current_ts);
+        Serial.print(" diff=");
+        Serial.print(stored_ts - current_ts);
+        Serial.println("s -> adjusting from build time");
+        need_adjust = true;
+      } else {
+        Serial.println("[RTC] NVS sanity check passed");
+      }
+    } else {
+      Serial.println("[RTC] No NVS timestamp stored yet (first boot)");
+    }
   }
 
   if (need_adjust) {
     DateTime build_time = get_build_time_with_tz();
     rtc.adjust(build_time);
-    Serial.print("RTC adjusted to: ");
+    Serial.print("[RTC] Adjusted to: ");
     Serial.print(build_time.hour()); Serial.print(":");
     Serial.print(build_time.minute()); Serial.print(":");
     Serial.print(build_time.second()); Serial.print("  ");
     Serial.print(build_time.day()); Serial.print("/");
     Serial.print(build_time.month()); Serial.print("/");
     Serial.println(build_time.year());
+
+    // Luu lai timestamp vua set vao NVS
+    rtcPref.begin(RTC_NVS_NAMESPACE, false);
+    rtcPref.putULong("last_ts", build_time.unixtime());
+    rtcPref.end();
+  } else {
+    // RTC time OK, cap nhat stored_ts de lam moc so sanh cho lan boot sau
+    rtcPref.begin(RTC_NVS_NAMESPACE, false);
+    rtcPref.putULong("last_ts", current.unixtime());
+    rtcPref.end();
   }
 }
 
@@ -871,7 +918,20 @@ void loop() {
 
     MainUi_UpdateStatus(tbuf, bbuf);
 
-    // Lưu NVS định kỳ
+    // Lưu NVS định kỳ (pin)
     maybe_save_battery_to_nvs();
+
+    // Lưu timestamp RTC vao NVS dinh ky (5 phut) de phat hien RTC treo
+    if (rtc_ok) {
+      static uint32_t last_rtc_nvs_ms = 0;
+      if (millis() - last_rtc_nvs_ms >= RTC_NVS_INTERVAL_MS) {
+        last_rtc_nvs_ms = millis();
+        DateTime rtcnow = rtc.now();
+        rtcPref.begin(RTC_NVS_NAMESPACE, false);
+        rtcPref.putULong("last_ts", rtcnow.unixtime());
+        rtcPref.end();
+        Serial.println("[RTC] Timestamp saved to NVS");
+      }
+    }
   }
 }
