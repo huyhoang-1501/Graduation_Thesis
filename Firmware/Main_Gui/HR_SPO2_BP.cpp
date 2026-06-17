@@ -455,6 +455,9 @@ void measureBloodPressure() {
     readPressure(kPa, mmHg, raw);
     vTaskDelay(pdMS_TO_TICKS(10));
   }
+  Serial.println("Xa hoan toan - giu van mo 5s");
+  openValve(255);
+  vTaskDelay(pdMS_TO_TICKS(5000));
 
   stopAll();
 
@@ -689,7 +692,7 @@ void hrspo2bp_set_phone(const char *phone) {
 }
 
 // ====================== BP OFFSET CONFIG ======================
-#include <Preferences.h>
+#include <Preferences.h>  
 
 void hrspo2bp_set_bp_offsets(int sys_offset, int dia_offset) {
   g_sys_offset = sys_offset;
