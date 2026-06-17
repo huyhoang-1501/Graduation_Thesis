@@ -66,8 +66,8 @@ int g_sys_max  = 150;
 int g_dia_min  = 55;
 int g_dia_max  = 110;
 
-const char *DEFAULT_SOS_PHONE = "0342128488";
-char g_phone[32] = "0342128488";
+const char *DEFAULT_SOS_PHONE = "036508963";
+char g_phone[32] = "0365089063";
 
 // Warning counters
 volatile int g_hr_warning = 0;

@@ -136,7 +136,7 @@ static lv_obj_t* create_status_bar(lv_obj_t *parent,
   lv_obj_t *img_wifi = lv_img_create(status);
   lv_img_set_src(img_wifi, &wifi_icon);
   // Nudge WiFi icon a bit further to the left for better spacing.
-  lv_obj_align_to(img_wifi, batt, LV_ALIGN_OUT_LEFT_MID, -20, 0);
+  lv_obj_align_to(img_wifi, batt, LV_ALIGN_OUT_LEFT_MID, -22, 0);
   lv_obj_set_style_img_recolor(img_wifi, lv_color_make(0, 0, 0), LV_PART_MAIN);
   lv_obj_set_style_img_recolor_opa(img_wifi, 255, LV_PART_MAIN);
   lv_obj_set_style_opa(img_wifi, 255, LV_PART_MAIN);
