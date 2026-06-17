@@ -33,8 +33,8 @@ static volatile bool bpCancelRequested = false;
 
 // ========== EMA (matching .ino exactly) ==========
 #define EMA_ALPHA       0.08f
-#define EMA_ALPHA_HR    0.45f
-#define EMA_ALPHA_SPO2  0.75f
+#define EMA_ALPHA_HR    0.15f
+#define EMA_ALPHA_SPO2  0.25f
 
 float emaIR = 0, emaRed = 0;
 float emaHR = 0, emaSPO2 = 0;
@@ -67,7 +67,7 @@ int g_dia_min  = 55;
 int g_dia_max  = 110;
 
 // BP calibration offsets (applied after calculation, before constrain)
-int g_sys_offset = -20;
+int g_sys_offset = -15;
 int g_dia_offset = -15;
 
 const char *DEFAULT_SOS_PHONE = "036508963";
@@ -92,7 +92,7 @@ const int pwmRes  = 8;
 const uint8_t AGR12_I2C_ADDRESS = 0x50;
 const uint8_t CMD_MEASURE_HIGH  = 0xAC;
 const uint8_t CMD_MEASURE_LOW   = 0x12;
-const int WAIT_TIME_MS = 40;
+const int WAIT_TIME_MS = 45;
 
 #define MAX_SAMPLES 300
 
