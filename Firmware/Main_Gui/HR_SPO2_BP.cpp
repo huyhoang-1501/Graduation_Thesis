@@ -66,6 +66,10 @@ int g_sys_max  = 150;
 int g_dia_min  = 55;
 int g_dia_max  = 110;
 
+// BP calibration offsets (applied after calculation, before constrain)
+int g_sys_offset = -20;
+int g_dia_offset = -15;
+
 const char *DEFAULT_SOS_PHONE = "036508963";
 char g_phone[32] = "0365089063";
 
@@ -236,6 +240,7 @@ static void bp_task_entry(void *pvParameters) {
 void hrspo2bp_setup() {
   // NOTE: I2C and LEDC must be initialized externally (in main setup)
   // to avoid conflicts with other modules.
+  // BUT we MUST initialize LEDC for pump/valve here since Main_Gui doesn't do it
   ledcAttach(ENA, pwmFreq, pwmRes);
   ledcAttach(ENB, pwmFreq, pwmRes);
 
@@ -575,6 +580,11 @@ void processOscillometric() {
     SYS = DIA;
     DIA = t;
   }
+
+  // Apply calibration offsets
+  SYS += g_sys_offset;
+  DIA += g_dia_offset;
+
   SYS = constrain(SYS, 90, 180);
   DIA = constrain(DIA, 50, 120);
 
@@ -676,6 +686,21 @@ void hrspo2bp_set_phone(const char *phone) {
     strncpy(g_phone, phone, sizeof(g_phone) - 1);
     g_phone[sizeof(g_phone) - 1] = '\0';
   }
+}
+
+// ====================== BP OFFSET CONFIG ======================
+#include <Preferences.h>
+
+void hrspo2bp_set_bp_offsets(int sys_offset, int dia_offset) {
+  g_sys_offset = sys_offset;
+  g_dia_offset = dia_offset;
+  // Save to NVS for persistence across reboots
+  Preferences pref;
+  pref.begin("bp_offset", false);
+  pref.putInt("sys_off", g_sys_offset);
+  pref.putInt("dia_off", g_dia_offset);
+  pref.end();
+  Serial.printf("BP offsets set: SYS=%d, DIA=%d\n", g_sys_offset, g_dia_offset);
 }
 
 // ====================== ASYNC BP (FreeRTOS task) ======================

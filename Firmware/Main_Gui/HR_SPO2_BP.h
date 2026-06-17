@@ -49,6 +49,10 @@ extern int g_sys_max;
 extern int g_dia_min;
 extern int g_dia_max;
 
+// BP calibration offsets
+extern int g_sys_offset;
+extern int g_dia_offset;
+
 extern char g_phone[32];
 extern const char *DEFAULT_SOS_PHONE;
 
@@ -63,6 +67,7 @@ extern volatile unsigned long g_warning_last_inc_ms;
 void hrspo2bp_set_thresholds(int spo2_min, int spo2_max, int hr_min, int hr_max,
                               int sys_min, int sys_max, int dia_min, int dia_max);
 void hrspo2bp_set_phone(const char *phone);
+void hrspo2bp_set_bp_offsets(int sys_offset, int dia_offset);
 
 // Warning constants
 #define WARNING_TRIGGER_COUNT 5
