@@ -454,6 +454,12 @@ void measureBloodPressure() {
 
   processOscillometric();
 
+  // Publish result origin immediately after calculation so TFT can display
+  // SYS/DIA while the cuff is still deflating.
+  if (lastSYS > 0.0f && lastDIA > 0.0f) {
+    lastBPOrigin = bpOriginBeforeStart;
+  }
+
   Serial.println("Xa nhanh");
   openValve(255);
 
@@ -469,9 +475,6 @@ void measureBloodPressure() {
 
   Serial.println("Done");
 
-  // Publish results
-  // lastSYS/lastDIA are set inside processOscillometric()
-  lastBPOrigin = bpOriginBeforeStart;
   bpOriginBeforeStart = BP_ORIGIN_NONE;
 }
 
