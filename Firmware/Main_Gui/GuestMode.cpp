@@ -106,7 +106,9 @@ static lv_obj_t *g_saved_prev_scr = nullptr;
 // current edit target (uses enum defined above)
 static EditTarget g_current_edit = EDIT_NONE;
 
-// NVS for persisting phone and threshold
+#include "FirebaseSync.h"
+
+// NVS for persisting phone, threshold, and user ID
 static Preferences userPref;
 static bool userPrefReady = false;
 static const char *USER_NVS_NS = "usercfg";   // use the same NVS namespace as UserDashboard
@@ -119,6 +121,7 @@ static const char *USER_NVS_KEY_SYS_MIN  = "sys_min";
 static const char *USER_NVS_KEY_SYS_MAX  = "sys_max";
 static const char *USER_NVS_KEY_DIA_MIN  = "dia_min";
 static const char *USER_NVS_KEY_DIA_MAX  = "dia_max";
+static const char *USER_NVS_KEY_ID       = "current_user_id";
 
 static void load_settings_from_nvs() {
   snprintf(g_phone, sizeof(g_phone), "%s", DEFAULT_SOS_PHONE);
@@ -136,6 +139,19 @@ static void load_settings_from_nvs() {
     if (p.length() > 0) {
       p.toCharArray(g_phone, sizeof(g_phone));
     }
+
+    // restore stored user id so GuestMode can keep uploading to
+    // patients/<id>/measurements after reboot without re-entering the ID
+    String uid = userPref.getString(USER_NVS_KEY_ID, "");
+    if (uid.length() > 0) {
+      FirebaseSync_SetCurrentUserId(uid.c_str());
+      Serial.print("[GuestMode] Restored user id from NVS: ");
+      Serial.println(uid);
+    } else {
+      FirebaseSync_SetCurrentUserId(nullptr);
+      Serial.println("[GuestMode] No stored user id in NVS");
+    }
+
     // load thresholds
     g_spo2_min = userPref.getInt(USER_NVS_KEY_SPO2_MIN, g_spo2_min);
     g_spo2_max = userPref.getInt(USER_NVS_KEY_SPO2_MAX, g_spo2_max);
@@ -272,12 +288,12 @@ static void on_kp_next_phone(const char *text) {
   size_t len = strlen(text);
   if (len != 10) {
     // keep keypad open and show hint
-    keypad_set_placeholder_text("Phone must be 10 digits");
+    keypad_set_placeholder_text("So dien thoai phai du 10 so");
     return;
   }
   for (size_t i = 0; i < len; ++i) {
     if (!isdigit((unsigned char)text[i])) {
-      keypad_set_placeholder_text("Phone must be numeric (10 digits)");
+      keypad_set_placeholder_text("So dien thoai phai la so");
       return;
     }
   }
@@ -312,57 +328,41 @@ static void on_kp_next_threshold(const char *text) {
   if (!text) text = "";
   int v = 0;
   if (!parse_int_str(text, v)) {
-    keypad_set_placeholder_text("Value must be numeric");
+    keypad_set_placeholder_text("Gia tri phai la so");
     return;
   }
 
-  // validate and assign based on current edit target
+  // Khong gioi han nguong: chi can nhap so hop le.
   switch (g_current_edit) {
     case EDIT_SPO2_MIN:
-      if (v < 50 || v > 100) { keypad_set_placeholder_text("SPO2 min must be 50-100"); return; }
-      if (v > g_spo2_max) { keypad_set_placeholder_text("Min cannot be > Max"); return; }
       g_spo2_min = v;
       update_settings_label_int(settings_label_spo2_min, g_spo2_min);
       break;
     case EDIT_SPO2_MAX:
-      if (v < 50 || v > 100) { keypad_set_placeholder_text("SPO2 max must be 50-100"); return; }
-      if (v < g_spo2_min) { keypad_set_placeholder_text("Max cannot be < Min"); return; }
       g_spo2_max = v;
       update_settings_label_int(settings_label_spo2_max, g_spo2_max);
       break;
     case EDIT_HR_MIN:
-      if (v < 30 || v > 220) { keypad_set_placeholder_text("HR min must be 30-220"); return; }
-      if (v > g_hr_max) { keypad_set_placeholder_text("Min cannot be > Max"); return; }
       g_hr_min = v;
       update_settings_label_int(settings_label_hr_min, g_hr_min);
       break;
     case EDIT_HR_MAX:
-      if (v < 30 || v > 220) { keypad_set_placeholder_text("HR max must be 30-220"); return; }
-      if (v < g_hr_min) { keypad_set_placeholder_text("Max cannot be < Min"); return; }
       g_hr_max = v;
       update_settings_label_int(settings_label_hr_max, g_hr_max);
       break;
     case EDIT_SYS_MIN:
-      if (v < 60 || v > 250) { keypad_set_placeholder_text("Sys min must be 60-250"); return; }
-      if (v > g_sys_max) { keypad_set_placeholder_text("Min cannot be > Max"); return; }
       g_sys_min = v;
       update_settings_label_int(settings_label_sys_min, g_sys_min);
       break;
     case EDIT_SYS_MAX:
-      if (v < 60 || v > 250) { keypad_set_placeholder_text("Sys max must be 60-250"); return; }
-      if (v < g_sys_min) { keypad_set_placeholder_text("Max cannot be < Min"); return; }
       g_sys_max = v;
       update_settings_label_int(settings_label_sys_max, g_sys_max);
       break;
     case EDIT_DIA_MIN:
-      if (v < 30 || v > 180) { keypad_set_placeholder_text("Dia min must be 30-180"); return; }
-      if (v > g_dia_max) { keypad_set_placeholder_text("Min cannot be > Max"); return; }
       g_dia_min = v;
       update_settings_label_int(settings_label_dia_min, g_dia_min);
       break;
     case EDIT_DIA_MAX:
-      if (v < 30 || v > 180) { keypad_set_placeholder_text("Dia max must be 30-180"); return; }
-      if (v < g_dia_min) { keypad_set_placeholder_text("Max cannot be < Min"); return; }
       g_dia_max = v;
       update_settings_label_int(settings_label_dia_max, g_dia_max);
       break;
@@ -449,7 +449,7 @@ static void build_settings_screen() {
   lv_obj_set_style_bg_color(h, lv_color_white(), 0);
   lv_obj_clear_flag(h, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_t *t = lv_label_create(h);
-  lv_label_set_text(t, "Settings Offline");
+  lv_label_set_text(t, "Settings");
   lv_obj_set_style_text_font(t, pick_font_large(), 0);
   lv_obj_set_style_text_color(t, lv_color_black(), 0);
   lv_obj_align(t, LV_ALIGN_LEFT_MID, 0, 0);
@@ -612,7 +612,7 @@ static void build_metric_screen() {
     // allocate small struct to keep target and placeholder alive
     MetricEditData *dmin = new MetricEditData();
     dmin->target = min_tgt;
-    dmin->placeholder = "Enter min value";
+    dmin->placeholder = "Nhap gia tri nho nhat";
     lv_obj_add_event_cb(btn_min, metric_edit_event_cb, LV_EVENT_CLICKED, dmin);
     lv_obj_t *lminb = lv_label_create(btn_min);
     lv_label_set_text(lminb, "Edit");
@@ -637,7 +637,7 @@ static void build_metric_screen() {
     lv_obj_align(btn_max, LV_ALIGN_TOP_RIGHT, -8, 52);
     MetricEditData *dmax = new MetricEditData();
     dmax->target = max_tgt;
-    dmax->placeholder = "Enter max value";
+    dmax->placeholder = "Nhap gia tri lon nhat";
     lv_obj_add_event_cb(btn_max, metric_edit_event_cb, LV_EVENT_CLICKED, dmax);
     lv_obj_t *lmaxb = lv_label_create(btn_max);
     lv_label_set_text(lmaxb, "Edit");
@@ -686,7 +686,7 @@ static void build_gm_screen() {
   lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_t *title = lv_label_create(header);
-  lv_label_set_text(title, "Mode Offline");
+  lv_label_set_text(title, "Health Guardian");
   lv_obj_set_style_text_color(title, primary, 0);
   // use larger title font like GuestMode
   lv_obj_set_style_text_font(title, pick_font_large(), 0);

@@ -215,7 +215,7 @@ static void create_main_gui() {
 
   // Split the mode hint into two lines: Guest above, User below
   lv_obj_t *label_guest_hint = lv_label_create(text_cont);
-  lv_label_set_text(label_guest_hint, "Mode Offline: Quick Measure");
+  lv_label_set_text(label_guest_hint, "Measure Now: Measure Quickly");
   // Use same (larger) font as Device ID and match color for consistency
   lv_obj_set_style_text_color(label_guest_hint, dark, 0);
   lv_obj_set_style_text_font(label_guest_hint, pick_font_18_or_14(), 0);
@@ -223,7 +223,7 @@ static void create_main_gui() {
   lv_obj_align_to(label_guest_hint, label_device_id, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 0);
 
   lv_obj_t *label_user_hint = lv_label_create(text_cont);
-  lv_label_set_text(label_user_hint, "Mode Online: Sync Measure");
+  lv_label_set_text(label_user_hint, "Link ID: Enter New ID");
   lv_label_set_long_mode(label_user_hint, LV_LABEL_LONG_WRAP);
   lv_obj_set_width(label_user_hint, 280);
   // Match Device ID size/color and move slightly up
@@ -261,7 +261,7 @@ static void create_main_gui() {
   lv_obj_add_event_cb(btn_guest, guest_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
   lv_obj_t *lg = lv_label_create(btn_guest);
-  lv_label_set_text(lg, "Mode Offline");
+  lv_label_set_text(lg, "Measure Now");
   lv_obj_center(lg);
   lv_obj_set_style_text_color(lg, dark, 0);
   lv_obj_set_style_text_font(lg, pick_font_28_or_14(), 0);
@@ -279,7 +279,7 @@ static void create_main_gui() {
   lv_obj_add_event_cb(btn_user, user_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
   lv_obj_t *lu = lv_label_create(btn_user);
-  lv_label_set_text(lu, "Mode Online");
+  lv_label_set_text(lu, "Link ID");
   lv_obj_center(lu);
   lv_obj_set_style_text_color(lu, lv_color_white(), 0);
   lv_obj_set_style_text_font(lu, pick_font_28_or_14(), 0);

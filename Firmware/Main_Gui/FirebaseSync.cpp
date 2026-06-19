@@ -1,6 +1,7 @@
 #include "FirebaseSync.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <Preferences.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "HR_SPO2_BP.h"
@@ -22,6 +23,9 @@ static int g_battery_percent = -1;
 static uint32_t g_push_interval_ms = 5000;
 static uint32_t g_last_push_ms = 0;
 static char g_current_user_id[16] = ""; // null-terminated
+static bool g_current_user_id_loaded_from_nvs = false;
+static const char *USER_NVS_NAMESPACE = "usercfg";
+static const char *USER_NVS_KEY_ID = "current_user_id";
 
 static double g_location_lat = 0.0;
 static double g_location_lng = 0.0;
@@ -59,11 +63,12 @@ static void firebase_task(void *arg) {
     // This allows near-realtime pushes when sensor values update.
     int curHr = (heartRate >= 30 && heartRate <= 220) ? (int)heartRate : -1;
     int curSpo2 = (spo2 >= 50 && spo2 <= 100) ? (int)spo2 : -1;
-    // Only consider BP values for upload when the last measurement was initiated
-    // from the User dashboard (online mode). Measurements initiated from Guest
-    // mode should not be uploaded.
-    int curSys = (lastBPOrigin == BP_ORIGIN_USER && lastSYS > 0.0f) ? (int)roundf(lastSYS) : -1;
-    int curDia = (lastBPOrigin == BP_ORIGIN_USER && lastDIA > 0.0f) ? (int)roundf(lastDIA) : -1;
+    // Upload BP values when they come from UserDashboard or GuestMode.
+    // GuestMode can upload after a user id has been stored in NVS and restored
+    // into FirebaseSync_SetCurrentUserId() at boot.
+    bool bpUploadOrigin = (lastBPOrigin == BP_ORIGIN_USER || lastBPOrigin == BP_ORIGIN_GUEST);
+    int curSys = (bpUploadOrigin && lastSYS > 0.0f) ? (int)roundf(lastSYS) : -1;
+    int curDia = (bpUploadOrigin && lastDIA > 0.0f) ? (int)roundf(lastDIA) : -1;
 
     if (curHr != g_last_sent_hr || curSpo2 != g_last_sent_spo2 || curSys != g_last_sent_sys || curDia != g_last_sent_dia) {
       // update snapshot
@@ -252,7 +257,29 @@ static bool firebase_get(const String &path, String &outBody) {
 #endif
 }
 
+static void firebase_load_current_user_id_from_nvs() {
+  if (g_current_user_id_loaded_from_nvs) return;
+  g_current_user_id_loaded_from_nvs = true;
+
+  Preferences pref;
+  if (!pref.begin(USER_NVS_NAMESPACE, true)) {
+    Serial.println("[Firebase] Failed to open NVS for current user id");
+    return;
+  }
+
+  String storedId = pref.getString(USER_NVS_KEY_ID, "");
+  pref.end();
+  storedId.trim();
+
+  if (storedId.length() > 0) {
+    storedId.toCharArray(g_current_user_id, sizeof(g_current_user_id));
+    Serial.print("[Firebase] Loaded current user id from NVS: ");
+    Serial.println(g_current_user_id);
+  }
+}
+
 void FirebaseSync_SetCurrentUserId(const char *userId) {
+  g_current_user_id_loaded_from_nvs = true;
   if (!userId || !userId[0]) {
     g_current_user_id[0] = '\0';
     Serial.println("[Firebase] Cleared current user id");
@@ -264,6 +291,9 @@ void FirebaseSync_SetCurrentUserId(const char *userId) {
 }
 
 const char* FirebaseSync_GetCurrentUserId() {
+  if (g_current_user_id[0] == '\0') {
+    firebase_load_current_user_id_from_nvs();
+  }
   return g_current_user_id;
 }
 
@@ -330,6 +360,9 @@ static void firebase_push_impl() {
   const char *deviceId = g_get_device_id_cb ? g_get_device_id_cb() : "";
   const char *userId = g_get_user_id_cb ? g_get_user_id_cb() : "";
   // fallback to internal user id when no callback provided
+  if ((!userId || !userId[0]) && g_current_user_id[0] == '\0') {
+    firebase_load_current_user_id_from_nvs();
+  }
   if ((!userId || !userId[0]) && g_current_user_id[0]) userId = g_current_user_id;
   if (!deviceId || !deviceId[0]) return;
 
@@ -351,7 +384,9 @@ static void firebase_push_impl() {
   // (we intentionally send device-level info without depending on userId).
   bool ok = firebase_patch(String("devices/") + deviceId, payload);
 
-  // If a userId is set, also push latest measurement under /measurements/<userId>
+  // If a userId is set, also push latest measurement under /patients/<userId>/measurements.
+  // The userId may come from the active UserDashboard session or from NVS after reboot,
+  // allowing GuestMode to keep uploading without asking the user to enter the ID again.
   if (userId && userId[0]) {
     // To reduce round-trips, we skip an existence GET and optimistically push
     // the measurement. The web/dashboard can ignore measurements for unknown
@@ -360,8 +395,9 @@ static void firebase_push_impl() {
     // Only include fields that look valid (non-zero or in-range)
     String mHr = (heartRate >= 30 && heartRate <= 220) ? String(heartRate) : String("null");
     String mSpo2 = (spo2 >= 50 && spo2 <= 100) ? String(spo2) : String("null");
-    String mSys = (lastBPOrigin == BP_ORIGIN_USER && lastSYS > 0.0f) ? String((int)roundf(lastSYS)) : String("null");
-    String mDia = (lastBPOrigin == BP_ORIGIN_USER && lastDIA > 0.0f) ? String((int)roundf(lastDIA)) : String("null");
+    bool bpUploadOrigin = (lastBPOrigin == BP_ORIGIN_USER || lastBPOrigin == BP_ORIGIN_GUEST);
+    String mSys = (bpUploadOrigin && lastSYS > 0.0f) ? String((int)roundf(lastSYS)) : String("null");
+    String mDia = (bpUploadOrigin && lastDIA > 0.0f) ? String((int)roundf(lastDIA)) : String("null");
 
     // The timestamp expression needs to be valid JSON for PATCH — embed using server-value
     // Firebase REST expects {"timestamp":{" .sv":"timestamp"}} but previous code used

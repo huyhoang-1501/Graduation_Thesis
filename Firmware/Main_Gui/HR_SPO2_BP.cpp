@@ -67,8 +67,8 @@ int g_dia_min  = 55;
 int g_dia_max  = 110;
 
 // BP calibration offsets (applied after calculation, before constrain)
-int g_sys_offset = -15;
-int g_dia_offset = -15;
+int g_sys_offset = +10;
+int g_dia_offset = +10;
 
 const char *DEFAULT_SOS_PHONE = "036508963";
 char g_phone[32] = "0365089063";

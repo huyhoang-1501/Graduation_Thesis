@@ -122,6 +122,7 @@ static const char *USER_NVS_KEY_SYS_MIN  = "sys_min";
 static const char *USER_NVS_KEY_SYS_MAX  = "sys_max";
 static const char *USER_NVS_KEY_DIA_MIN  = "dia_min";
 static const char *USER_NVS_KEY_DIA_MAX  = "dia_max";
+static const char *USER_NVS_KEY_ID       = "current_user_id";
 
 static void load_settings_from_nvs() {
   snprintf(g_phone, sizeof(g_phone), "%s", DEFAULT_SOS_PHONE);
@@ -212,6 +213,21 @@ static void save_settings_to_nvs() {
   userPref.putInt(USER_NVS_KEY_DIA_MAX, g_dia_max);
   // Push updated settings to HR_SPO2_BP module
   apply_settings_to_hrspo2bp();
+}
+
+static void save_current_user_id_to_nvs(const char *userId) {
+  if (!userId || !userId[0]) return;
+  if (!userPrefReady) {
+    if (userPref.begin(USER_NVS_NS, false)) {
+      userPrefReady = true;
+    } else {
+      return;
+    }
+  }
+  userPref.putString(USER_NVS_KEY_ID, userId);
+  FirebaseSync_SetCurrentUserId(userId);
+  Serial.print("[UserDashboard] Saved current user id to NVS: ");
+  Serial.println(userId);
 }
 
 // Push current settings (thresholds + phone) to HR_SPO2_BP module
@@ -309,12 +325,13 @@ static void on_kp_next_phone(const char *text) {
   size_t len = strlen(text);
   if (len != 10) {
     // keep keypad open and show hint
-    keypad_set_placeholder_text("Phone must be 10 digits");
+    keypad_set_placeholder_text("So dien thoai phai du 10 so");
     return;
   }
   for (size_t i = 0; i < len; ++i) {
     if (!isdigit((unsigned char)text[i])) {
-      keypad_set_placeholder_text("Phone must be numeric (10 digits)");
+      keypad_set_placeholder_text("So dien thoai phai la so");
+
       return;
     }
   }
@@ -349,57 +366,41 @@ static void on_kp_next_threshold(const char *text) {
   if (!text) text = "";
   int v = 0;
   if (!parse_int_str(text, v)) {
-    keypad_set_placeholder_text("Value must be numeric");
+    keypad_set_placeholder_text("Gia tri phai la so");
     return;
   }
 
-  // validate and assign based on current edit target
+  // Khong gioi han nguong: chi can nhap so hop le.
   switch (g_current_edit) {
     case EDIT_SPO2_MIN:
-      if (v < 50 || v > 100) { keypad_set_placeholder_text("SPO2 min must be 50-100"); return; }
-      if (v > g_spo2_max) { keypad_set_placeholder_text("Min cannot be > Max"); return; }
       g_spo2_min = v;
       update_settings_label_int(settings_label_spo2_min, g_spo2_min);
       break;
     case EDIT_SPO2_MAX:
-      if (v < 50 || v > 100) { keypad_set_placeholder_text("SPO2 max must be 50-100"); return; }
-      if (v < g_spo2_min) { keypad_set_placeholder_text("Max cannot be < Min"); return; }
       g_spo2_max = v;
       update_settings_label_int(settings_label_spo2_max, g_spo2_max);
       break;
     case EDIT_HR_MIN:
-      if (v < 30 || v > 220) { keypad_set_placeholder_text("HR min must be 30-220"); return; }
-      if (v > g_hr_max) { keypad_set_placeholder_text("Min cannot be > Max"); return; }
       g_hr_min = v;
       update_settings_label_int(settings_label_hr_min, g_hr_min);
       break;
     case EDIT_HR_MAX:
-      if (v < 30 || v > 220) { keypad_set_placeholder_text("HR max must be 30-220"); return; }
-      if (v < g_hr_min) { keypad_set_placeholder_text("Max cannot be < Min"); return; }
       g_hr_max = v;
       update_settings_label_int(settings_label_hr_max, g_hr_max);
       break;
     case EDIT_SYS_MIN:
-      if (v < 60 || v > 250) { keypad_set_placeholder_text("Sys min must be 60-250"); return; }
-      if (v > g_sys_max) { keypad_set_placeholder_text("Min cannot be > Max"); return; }
       g_sys_min = v;
       update_settings_label_int(settings_label_sys_min, g_sys_min);
       break;
     case EDIT_SYS_MAX:
-      if (v < 60 || v > 250) { keypad_set_placeholder_text("Sys max must be 60-250"); return; }
-      if (v < g_sys_min) { keypad_set_placeholder_text("Max cannot be < Min"); return; }
       g_sys_max = v;
       update_settings_label_int(settings_label_sys_max, g_sys_max);
       break;
     case EDIT_DIA_MIN:
-      if (v < 30 || v > 180) { keypad_set_placeholder_text("Dia min must be 30-180"); return; }
-      if (v > g_dia_max) { keypad_set_placeholder_text("Min cannot be > Max"); return; }
       g_dia_min = v;
       update_settings_label_int(settings_label_dia_min, g_dia_min);
       break;
     case EDIT_DIA_MAX:
-      if (v < 30 || v > 180) { keypad_set_placeholder_text("Dia max must be 30-180"); return; }
-      if (v < g_dia_min) { keypad_set_placeholder_text("Max cannot be < Min"); return; }
       g_dia_max = v;
       update_settings_label_int(settings_label_dia_max, g_dia_max);
       break;
@@ -456,6 +457,7 @@ static void open_keypad_for_threshold(EditTarget target, const char *placeholder
   if (scr) lv_scr_load(scr);
 }
 
+
 static void open_keypad_for_phone() {
   // remember previous screen so we can return correctly
   g_prev_scr = lv_scr_act();
@@ -466,6 +468,30 @@ static void open_keypad_for_phone() {
   keypad_init_screen(NULL, NULL, on_kp_back_from_edit, on_kp_next_phone, "Save");
   keypad_set_text(g_phone);
   keypad_set_placeholder_text("Nhap so dien thoai...");
+  lv_obj_t *scr = keypad_get_screen();
+  if (scr) lv_scr_load(scr);
+}
+
+static void open_keypad_for_user_id() {
+  g_prev_scr = lv_scr_act();
+  g_saved_prev_scr = g_prev_scr;
+  keypad_init_screen(NULL, NULL, on_kp_back_from_edit, [](const char *text){
+    if (!text) text = "";
+    size_t len = strlen(text);
+    if (len == 0) {
+      keypad_set_placeholder_text("ID khong duoc de trong");
+      return;
+    }
+
+    // overwrite old ID in NVS and FirebaseSync, then enter UserDashboard
+    save_current_user_id_to_nvs(text);
+    if (settings_scr) {
+      lv_scr_load(ud_scr);
+    }
+  }, "Save");
+  const char *curId = FirebaseSync_GetCurrentUserId();
+  keypad_set_text(curId ? curId : "");
+  keypad_set_placeholder_text("Nhap ID...");
   lv_obj_t *scr = keypad_get_screen();
   if (scr) lv_scr_load(scr);
 }
@@ -486,7 +512,7 @@ static void build_settings_screen() {
   lv_obj_set_style_bg_color(h, lv_color_white(), 0);
   lv_obj_clear_flag(h, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_t *t = lv_label_create(h);
-  lv_label_set_text(t, "Settings Online");
+  lv_label_set_text(t, "Settings");
   lv_obj_set_style_text_font(t, pick_font_large(), 0);
   lv_obj_set_style_text_color(t, lv_color_black(), 0);
   lv_obj_align(t, LV_ALIGN_LEFT_MID, 0, 0);
@@ -649,7 +675,7 @@ static void build_metric_screen() {
     // allocate small struct to keep target and placeholder alive
     MetricEditData *dmin = new MetricEditData();
     dmin->target = min_tgt;
-    dmin->placeholder = "Enter min value";
+    dmin->placeholder = "Nhap gia tri nho nhat";
     lv_obj_add_event_cb(btn_min, metric_edit_event_cb, LV_EVENT_CLICKED, dmin);
     lv_obj_t *lminb = lv_label_create(btn_min);
     lv_label_set_text(lminb, "Edit");
@@ -674,7 +700,7 @@ static void build_metric_screen() {
     lv_obj_align(btn_max, LV_ALIGN_TOP_RIGHT, -8, 52);
     MetricEditData *dmax = new MetricEditData();
     dmax->target = max_tgt;
-    dmax->placeholder = "Enter max value";
+    dmax->placeholder = "Nhap gia tri lon nhat";
     lv_obj_add_event_cb(btn_max, metric_edit_event_cb, LV_EVENT_CLICKED, dmax);
     lv_obj_t *lmaxb = lv_label_create(btn_max);
     lv_label_set_text(lmaxb, "Edit");
@@ -725,7 +751,7 @@ static void build_ud_screen() {
   lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_t *title = lv_label_create(header);
-  lv_label_set_text(title, "Mode Online");
+  lv_label_set_text(title, "Health Guardian");
   lv_obj_set_style_text_color(title, primary, 0);
   // use larger title font like GuestMode
   lv_obj_set_style_text_font(title, pick_font_large(), 0);
@@ -861,8 +887,7 @@ static void build_ud_screen() {
     lv_obj_set_style_border_color(btn_setting_hdr, lv_color_make(200,200,200), 0);
     lv_obj_set_style_shadow_width(btn_setting_hdr, 0, 0);
     lv_obj_add_event_cb(btn_setting_hdr, [](lv_event_t *e){ if (lv_event_get_code(e)==LV_EVENT_CLICKED) {
-      build_settings_screen();
-      if (settings_scr) lv_scr_load(settings_scr);
+      open_keypad_for_user_id();
     } }, LV_EVENT_ALL, nullptr);
     lv_obj_t *hdr_lbl = lv_label_create(btn_setting_hdr);
     lv_label_set_text(hdr_lbl, "Setting");

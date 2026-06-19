@@ -216,8 +216,58 @@ static void load_or_create_device_identity() {
   Serial.println(g_device_id);
 }
 
-// User ID storage/display removed per user request.
-// (No functions to save or return user id are provided.)
+static Preferences userPref;
+static bool userPrefReady = false;
+static const char *USER_NVS_NAMESPACE = "usercfg";
+static const char *USER_NVS_KEY_ID = "current_user_id";
+static char g_current_user_id[16] = "";
+
+static void load_user_id_from_nvs() {
+  if (!userPref.begin(USER_NVS_NAMESPACE, false)) {
+    Serial.println("[UserNVS] Failed to open NVS for user id");
+    return;
+  }
+
+  String storedId = userPref.getString(USER_NVS_KEY_ID, "");
+  userPref.end();
+
+  storedId.trim();
+  if (storedId.length() > 0) {
+    storedId.toCharArray(g_current_user_id, sizeof(g_current_user_id));
+    FirebaseSync_SetCurrentUserId(g_current_user_id);
+    Serial.print("[UserNVS] Loaded user id: ");
+    Serial.println(g_current_user_id);
+  } else {
+    FirebaseSync_SetCurrentUserId(nullptr);
+    Serial.println("[UserNVS] No stored user id");
+  }
+}
+
+static void save_user_id_to_nvs(const char *userId) {
+  if (!userId || !userId[0]) {
+    if (userPref.begin(USER_NVS_NAMESPACE, false)) {
+      userPref.remove(USER_NVS_KEY_ID);
+      userPref.end();
+    }
+    g_current_user_id[0] = '\0';
+    FirebaseSync_SetCurrentUserId(nullptr);
+    Serial.println("[UserNVS] Cleared stored user id");
+    return;
+  }
+
+  snprintf(g_current_user_id, sizeof(g_current_user_id), "%s", userId);
+
+  if (!userPref.begin(USER_NVS_NAMESPACE, false)) {
+    Serial.println("[UserNVS] Failed to open NVS for saving user id");
+    return;
+  }
+  userPref.putString(USER_NVS_KEY_ID, g_current_user_id);
+  userPref.end();
+
+  FirebaseSync_SetCurrentUserId(g_current_user_id);
+  Serial.print("[UserNVS] Saved user id: ");
+  Serial.println(g_current_user_id);
+}
 
 static const char *ui_get_device_id() {
   return g_device_id;
@@ -236,13 +286,12 @@ static const bool DISABLE_FIREBASE_PUSH = false;
 
 static void on_user_mode_back() {
   MainUi_ShowMainScreen();
-  // Clear current user id so device stops pushing measurements for previous user
-  FirebaseSync_SetCurrentUserId(nullptr);
+  // Keep the stored user id so GuestMode can continue using it after reboot
+  // and after navigating back from UserDashboard.
 }
 
 static void on_user_mode_success(const char *userId) {
-  // User ID not stored locally; still perform push and show dashboard
-  // Set the current user id for measurement uploads and UI
+  save_user_id_to_nvs(userId);
   FirebaseSync_SetCurrentUserId(userId);
 
   if (!DISABLE_FIREBASE_PUSH) {
@@ -271,6 +320,8 @@ static bool local_validate_user_id(const char *userId, char *errMsg, size_t errM
     return false;
   }
   if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "OK");
+  save_user_id_to_nvs(userId);
+  FirebaseSync_SetCurrentUserId(userId);
   return true;
 }
 
@@ -742,6 +793,7 @@ static void firebase_init_task(void *arg) {
 
 void setup() {
   Serial.begin(115200);
+  load_user_id_from_nvs();
 
   // NVS / Preferences
     if (!pref.begin(NVS_NAMESPACE, false)) {
