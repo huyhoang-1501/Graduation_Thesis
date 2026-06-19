@@ -33,7 +33,7 @@ static volatile bool bpCancelRequested = false;
 
 // ========== EMA (matching .ino exactly) ==========
 #define EMA_ALPHA       0.08f
-#define EMA_ALPHA_HR    0.15f
+#define EMA_ALPHA_HR    0.3f
 #define EMA_ALPHA_SPO2  0.25f
 
 float emaIR = 0, emaRed = 0;
@@ -70,7 +70,7 @@ int g_dia_max  = 110;
 int g_sys_offset = +10;
 int g_dia_offset = +10;
 
-const char *DEFAULT_SOS_PHONE = "036508963";
+const char *DEFAULT_SOS_PHONE = "0365089063";
 char g_phone[32] = "0365089063";
 
 // Warning counters
@@ -94,7 +94,7 @@ const uint8_t CMD_MEASURE_HIGH  = 0xAC;
 const uint8_t CMD_MEASURE_LOW   = 0x12;
 const int WAIT_TIME_MS = 45;
 
-#define MAX_SAMPLES 300
+#define MAX_SAMPLES 600
 
 float cuff[MAX_SAMPLES];
 float osc[MAX_SAMPLES];
@@ -361,9 +361,15 @@ void Max30102_hr_spo2() {
   uint32_t avgIR = sumIR / BUFFER_SIZE;
   uint32_t avgRed = sumRed / BUFFER_SIZE;
 
-  if (avgIR < 10000)  // NO_FINGER_THRESHOLD
+  Serial.printf("IR=%d RED=%d\n",(int)avgIR,(int)avgRed);
+
+  if (avgIR < 80000)  // NO_FINGER_THRESHOLD
   {
     Serial.println("No finger");
+    hr = 0;
+    s = 0; 
+    validHeartRate = 0; 
+    validSPO2 = 0;
     vTaskDelay(pdMS_TO_TICKS(100));
     return;
   }
@@ -584,9 +590,9 @@ void processOscillometric() {
     DIA = t;
   }
 
-  // Apply calibration offsets
-  SYS += g_sys_offset;
-  DIA += g_dia_offset;
+  // // Apply calibration offsets
+  // SYS += g_sys_offset;
+  // DIA += g_dia_offset;
 
   SYS = constrain(SYS, 90, 180);
   DIA = constrain(DIA, 50, 120);
