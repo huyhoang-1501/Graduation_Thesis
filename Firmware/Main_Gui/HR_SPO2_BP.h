@@ -12,8 +12,8 @@ void hrspo2bp_setup();
 void hrspo2bp_loop();
 
 // Expose raw/latest measurements so UI modules can display them
-extern int32_t spo2;
-extern int32_t heartRate;
+extern float hr;
+extern float s;
 // Last computed systolic/diastolic from the most recent BP run
 extern float lastSYS;
 extern float lastDIA;

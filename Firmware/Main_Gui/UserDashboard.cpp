@@ -1002,13 +1002,13 @@ static void refresh_values() {
   char buf[32];
   // SpO2
   if (label_spo2) {
-    if (spo2 > 30 && spo2 <= 100) snprintf(buf, sizeof(buf), "%d", spo2);
+    if (s > 30 && s <= 100) snprintf(buf, sizeof(buf), "%.1f", s);
     else snprintf(buf, sizeof(buf), "--");
     lv_label_set_text(label_spo2, buf);
   }
   // Heart rate
   if (label_hr) {
-    if (heartRate > 20 && heartRate < 300) snprintf(buf, sizeof(buf), "%d", heartRate);
+    if (hr > 20 && hr < 300) snprintf(buf, sizeof(buf), "%.1f", hr);
     else snprintf(buf, sizeof(buf), "--");
     lv_label_set_text(label_hr, buf);
   }

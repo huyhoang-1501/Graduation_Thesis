@@ -61,8 +61,8 @@ static void firebase_task(void *arg) {
 
     // Detect measurement changes (read globals from HR_SPO2_BP) and queue an immediate push.
     // This allows near-realtime pushes when sensor values update.
-    int curHr = (heartRate >= 30 && heartRate <= 220) ? (int)heartRate : -1;
-    int curSpo2 = (spo2 >= 50 && spo2 <= 100) ? (int)spo2 : -1;
+    int curHr = (hr >= 30 && hr <= 220) ? (int)roundf(hr) : -1;
+    int curSpo2 = (s >= 50 && s <= 100) ? (int)roundf(s) : -1;
     // Upload BP values when they come from UserDashboard or GuestMode.
     // GuestMode can upload after a user id has been stored in NVS and restored
     // into FirebaseSync_SetCurrentUserId() at boot.
@@ -393,8 +393,8 @@ static void firebase_push_impl() {
     // users if necessary. This avoids a costly GET before every push.
     // Read globals from HR_SPO2_BP (declared extern in header)
     // Only include fields that look valid (non-zero or in-range)
-    String mHr = (heartRate >= 30 && heartRate <= 220) ? String(heartRate) : String("null");
-    String mSpo2 = (spo2 >= 50 && spo2 <= 100) ? String(spo2) : String("null");
+    String mHr = (hr >= 30 && hr <= 220) ? String(hr, 1) : String("null");
+    String mSpo2 = (s >= 50 && s <= 100) ? String(s, 1) : String("null");
     bool bpUploadOrigin = (lastBPOrigin == BP_ORIGIN_USER || lastBPOrigin == BP_ORIGIN_GUEST);
     String mSys = (bpUploadOrigin && lastSYS > 0.0f) ? String((int)roundf(lastSYS)) : String("null");
     String mDia = (bpUploadOrigin && lastDIA > 0.0f) ? String((int)roundf(lastDIA)) : String("null");
@@ -428,8 +428,8 @@ static void firebase_push_impl() {
     const bool intervalOk = (g_last_history_push_ms == 0) || (nowMs - g_last_history_push_ms >= HISTORY_PUSH_INTERVAL_MS);
 
     // Convert to ints for dedup comparisons (use sentinel when null)
-    int iHr = (mHr == "null") ? -1 : (int)roundf(heartRate);
-    int iSpo2 = (mSpo2 == "null") ? -1 : (int)roundf(spo2);
+    int iHr = (mHr == "null") ? -1 : (int)roundf(hr);
+    int iSpo2 = (mSpo2 == "null") ? -1 : (int)roundf(s);
     int iSys = (mSys == "null") ? -1 : (int)roundf(lastSYS);
     int iDia = (mDia == "null") ? -1 : (int)roundf(lastDIA);
     const bool bpChanged = (iSys != g_last_hist_sys) || (iDia != g_last_hist_dia);
