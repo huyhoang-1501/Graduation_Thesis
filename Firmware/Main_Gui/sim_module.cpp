@@ -11,19 +11,11 @@ static String sos_custom_msg = "";
 // Chia sẻ UART2 với GPS
 extern HardwareSerial GPSSerial;
 
-// APN của nhà mạng dùng cho LBS định vị (mặc định Viettel v-internet)
-const String APN = "v-internet";
-
-// Các trạng thái của máy trạng thái SOS
+ // Các trạng thái của máy trạng thái SOS
 enum SOSState {
   SOS_IDLE,
   SOS_STARTING,       // Khởi động UART cho SIM
   SOS_AT_INIT,        // gửi AT, chờ OK để xác nhận SIM sẵn sàng
-  SOS_SETUP_LBS_1,
-  SOS_SETUP_LBS_2,
-  SOS_SETUP_LBS_3,
-  SOS_SETUP_LBS_4,
-  SOS_GET_LBS,
   SOS_CMGF_CMD,       // gửi AT+CMGF=1, chờ OK
   SOS_SEND_SMS_CMD,   // gửi AT+CMGS="phone", chờ dấu >
   SOS_SEND_SMS_BODY,  // gửi nội dung SMS + Ctrl+Z
@@ -40,7 +32,6 @@ static String sos_phone = "";
 static double sos_lat = 0.0;
 static double sos_lng = 0.0;
 static bool sos_has_gps = false;
-static String sos_lbs_url = "";
 static int sos_at_retry = 0;   // số lần thử gửi AT
 
 static unsigned long state_start_ms = 0;
@@ -75,7 +66,6 @@ void SimModule_TriggerSOS(const char* phone, double lat, double lng, bool hasGps
   sos_lat = lat;
   sos_lng = lng;
   sos_has_gps = hasGps;
-  sos_lbs_url = "";
   sms_success = false;
   sos_at_retry = 0;
   sim_rx_buffer = "";
@@ -129,11 +119,7 @@ void SimModule_Loop() {
         Serial.println("[SIM] AT OK – SIM ready");
         sim_rx_buffer = "";
         state_start_ms = now;
-        if (sos_has_gps) {
-          sos_state = SOS_CMGF_CMD;
-        } else {
-          sos_state = SOS_SETUP_LBS_1;
-        }
+        sos_state = SOS_CMGF_CMD;
       } else if (now - state_start_ms > 2000) {
         // Chưa nhận OK, thử lại tối đa 3 lần
         sos_at_retry++;
@@ -143,76 +129,11 @@ void SimModule_Loop() {
           Serial.println("[SIM] AT init failed, proceeding anyway");
           sim_rx_buffer = "";
           state_start_ms = now;
-          if (sos_has_gps) {
-            sos_state = SOS_CMGF_CMD;
-          } else {
-            sos_state = SOS_SETUP_LBS_1;
-          }
+          sos_state = SOS_CMGF_CMD;
         } else {
           sim_rx_buffer = "";
           sendATCommand("AT");
           state_start_ms = now;
-        }
-      }
-      break;
-
-    // ── LBS SETUP ────────────────────────────────────────────────────────
-    case SOS_SETUP_LBS_1:
-      if (now - state_start_ms > 100) {
-        sim_rx_buffer = "";
-        sendATCommand("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");
-        state_start_ms = now;
-        sos_state = SOS_SETUP_LBS_2;
-      }
-      break;
-
-    case SOS_SETUP_LBS_2:
-      if (sim_rx_buffer.indexOf("OK") != -1 || now - state_start_ms > 2000) {
-        sim_rx_buffer = "";
-        sendATCommand("AT+SAPBR=3,1,\"APN\",\"" + APN + "\"");
-        state_start_ms = now;
-        sos_state = SOS_SETUP_LBS_3;
-      }
-      break;
-
-    case SOS_SETUP_LBS_3:
-      if (sim_rx_buffer.indexOf("OK") != -1 || now - state_start_ms > 2000) {
-        sim_rx_buffer = "";
-        sendATCommand("AT+SAPBR=1,1");
-        state_start_ms = now;
-        sos_state = SOS_SETUP_LBS_4;
-      }
-      break;
-
-    case SOS_SETUP_LBS_4:
-      if (sim_rx_buffer.indexOf("OK") != -1 || sim_rx_buffer.indexOf("ERROR") != -1
-          || now - state_start_ms > 3000) {
-        sim_rx_buffer = "";
-        sendATCommand("AT+CLBS=1,1");
-        state_start_ms = now;
-        sos_state = SOS_GET_LBS;
-      }
-      break;
-
-    case SOS_GET_LBS:
-      {
-        int index = sim_rx_buffer.indexOf("+CLBS: 0,");
-        if (index != -1) {
-          String data = sim_rx_buffer.substring(index + 9);
-          int firstComma = data.indexOf(',');
-          int secondComma = data.indexOf(',', firstComma + 1);
-          if (firstComma != -1 && secondComma != -1) {
-            String lat = data.substring(0, firstComma);
-            String lng = data.substring(firstComma + 1, secondComma);
-            sos_lbs_url = "http://maps.google.com/?q=" + lat + "," + lng;
-          }
-          sim_rx_buffer = "";
-          state_start_ms = now;
-          sos_state = SOS_CMGF_CMD;
-        } else if (now - state_start_ms > 5000) {
-          sim_rx_buffer = "";
-          state_start_ms = now;
-          sos_state = SOS_CMGF_CMD;
         }
       }
       break;
@@ -256,8 +177,6 @@ void SimModule_Loop() {
           String lat_s = String(sos_lat, 6);
           String lng_s = String(sos_lng, 6);
           msg += "Vi tri (GPS):\nhttp://maps.google.com/?q=" + lat_s + "," + lng_s;
-        } else if (sos_lbs_url.length() > 0) {
-          msg += "Vi tri (LBS):\n" + sos_lbs_url;
         } else {
           msg += "Khong lay duoc toa do vi tri.";
         }
