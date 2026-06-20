@@ -427,10 +427,43 @@ static void rtc_sync_if_needed() {
 }
 
 // ================= INA219 + Battery SOH/SOC bằng tích phân =================
+// *** INA219 CLONE GIÁ RẺ: có thể dùng shunt khác (thường 0.01Ω thay vì 0.1Ω)***
+// *** và ADC có thể không chính xác. Cần sanity check mạnh! ***
 
 // Dung lượng danh định của pack pin (mAh).
 // 2 cell nối tiếp (2S1P) => mAh giữ nguyên như 1 cell.
 const float BATTERY_CAPACITY_mAh = 2500.0f;
+
+// Ngưỡng điện áp pack pin Li-ion 2S.
+// INA219 đang mắc: pin sau switch -> VIN+ -> VIN- -> IN+ buck.
+// Vì vậy điện áp pack phía pin xấp xỉ: busVoltage + shuntVoltage.
+const float BATTERY_2S_FULL_V = 8.40f;
+const float BATTERY_2S_NEAR_FULL_V = 8.30f;
+const float BATTERY_2S_EMPTY_V = 6.40f;
+const float BATTERY_2S_CRITICAL_V = 6.00f;
+
+// Ngưỡng sanity check: pack 2S Li-ion KHÔNG THỂ dưới 5.0V (2 cell x 2.5V)
+// hoặc trên 9.0V. Nếu ngoài khoảng này => INA219 đọc sai.
+const float BATTERY_SANITY_MIN_V = 5.0f;
+const float BATTERY_SANITY_MAX_V = 9.5f;
+
+// Nếu % tính bằng coulomb counter/NVS lệch quá xa so với điện áp,
+// tự đồng bộ lại để tránh lỗi "pin thấp nhưng vẫn 100%".
+const float BATTERY_SOC_RESYNC_DIFF_PERCENT = 25.0f;
+
+// Hiệu chỉnh mềm mỗi lần update nếu coulomb counter bị trôi.
+// Với INA219 clone, tăng độ nhạy correction
+const float BATTERY_SOC_SOFT_CORRECTION_DIFF_PERCENT = 10.0f;  // giảm từ 15% xuống 10%
+const float BATTERY_SOC_SOFT_CORRECTION_ALPHA = 0.15f;          // tăng từ 0.08 lên 0.15
+
+// LPF (Low-Pass Filter) cho dòng điện - giảm nhiễu từ buck converter
+const float CURRENT_LPF_ALPHA = 0.20f;  // 0.0=very smooth, 1.0=no filter
+
+// LPF cho điện áp - ổn định voltage
+const float VOLTAGE_LPF_ALPHA = 0.30f;
+
+// Shunt resistor của INA219 clone (Adafruit gốc: 0.1 ohm, clone: thường 0.01 ohm)
+const float SHUNT_RESISTOR_OHM = 0.01f;
 
 // INA219
 Adafruit_INA219 ina219;
@@ -441,10 +474,20 @@ float batteryRemaining_mAh = BATTERY_CAPACITY_mAh;
 // Biến thời gian để tích phân dòng
 unsigned long lastMillis_batt = 0;
 
+// Biến LPF: lưu giá trị đã lọc
+static float filteredCurrent_mA = 0.0f;
+static float filteredVoltage_V = 0.0f;
+static bool   lpf_initialized = false;
+
 // Nếu wiring làm cho chiều dòng ngược, đổi true/false cho phù hợp
 // - Nếu XẢ → current_mA dương, SẠC → current_mA âm: để false
 // - Nếu ngược lại thì set true
-const bool INVERT_CURRENT = false;
+const bool INVERT_CURRENT = true;
+
+// Đếm số lần voltage đọc bất thường liên tiếp để phát hiện INA219 chết
+static int g_ina219_sanity_fail_count = 0;
+static const int INA219_SANITY_FAIL_MAX = 5;  // sau 5 lần fail liên tiếp => tạm bỏ qua INA219
+static bool g_ina219_sane = true;
 
 // NVS
 Preferences pref;
@@ -454,6 +497,89 @@ const char *NVS_KEY_QmAh  = "Q_mAh";
 // Thời gian giữa 2 lần save NVS (ms)
 const uint32_t NVS_SAVE_INTERVAL_MS = 10000; // 10 giây
 static uint32_t last_nvs_save_ms = 0;
+
+static float battery_percent_from_voltage_2s(float voltage_V) {
+  // Bảng xấp xỉ SOC theo điện áp nghỉ của pack Li-ion 2S.
+  // Khi đang tải nặng, điện áp có thể sụt nên kết quả chỉ dùng để khởi tạo/hiệu chỉnh.
+  static const float voltageTable[] = {
+    6.40f, 6.60f, 6.80f, 7.00f, 7.20f,
+    7.40f, 7.60f, 7.80f, 8.00f, 8.20f, 8.40f
+  };
+  static const float percentTable[] = {
+    0.0f, 5.0f, 10.0f, 15.0f, 25.0f,
+    40.0f, 55.0f, 70.0f, 82.0f, 92.0f, 100.0f
+  };
+
+  if (!isfinite(voltage_V)) return NAN;
+  if (voltage_V <= voltageTable[0]) return 0.0f;
+  const size_t lastIdx = (sizeof(voltageTable) / sizeof(voltageTable[0])) - 1;
+  if (voltage_V >= voltageTable[lastIdx]) return 100.0f;
+
+  for (size_t i = 1; i <= lastIdx; ++i) {
+    if (voltage_V <= voltageTable[i]) {
+      float v0 = voltageTable[i - 1];
+      float v1 = voltageTable[i];
+      float p0 = percentTable[i - 1];
+      float p1 = percentTable[i];
+      float t = (voltage_V - v0) / (v1 - v0);
+      return p0 + t * (p1 - p0);
+    }
+  }
+
+  return 0.0f;
+}
+
+static float battery_mAh_from_percent(float percent) {
+  if (!isfinite(percent)) return NAN;
+  if (percent < 0.0f) percent = 0.0f;
+  if (percent > 100.0f) percent = 100.0f;
+  return BATTERY_CAPACITY_mAh * percent / 100.0f;
+}
+
+static float battery_percent_from_mAh(float q_mAh) {
+  if (!isfinite(q_mAh) || BATTERY_CAPACITY_mAh <= 0.0f) return NAN;
+  float percent = 100.0f * q_mAh / BATTERY_CAPACITY_mAh;
+  if (percent < 0.0f) percent = 0.0f;
+  if (percent > 100.0f) percent = 100.0f;
+  return percent;
+}
+
+static float battery_pack_voltage_from_ina219(float busVoltage_V, float shuntVoltage_mV) {
+  if (!isfinite(busVoltage_V) || !isfinite(shuntVoltage_mV)) return NAN;
+  return busVoltage_V + shuntVoltage_mV / 1000.0f;
+}
+
+static bool is_pack_voltage_sane(float packVoltage_V) {
+  if (!isfinite(packVoltage_V)) return false;
+  return (packVoltage_V >= BATTERY_SANITY_MIN_V && packVoltage_V <= BATTERY_SANITY_MAX_V);
+}
+
+static void sync_battery_counter_from_voltage_if_needed(float packVoltage_V, bool forceIfCritical) {
+  if (!is_pack_voltage_sane(packVoltage_V)) return;  // không dùng điện áp sai để sync
+
+  float voltagePercent = battery_percent_from_voltage_2s(packVoltage_V);
+  if (!isfinite(voltagePercent)) return;
+
+  float counterPercent = battery_percent_from_mAh(batteryRemaining_mAh);
+  if (!isfinite(counterPercent)) {
+    batteryRemaining_mAh = battery_mAh_from_percent(voltagePercent);
+    return;
+  }
+
+  float diff = fabs(counterPercent - voltagePercent);
+
+  if ((forceIfCritical && packVoltage_V <= BATTERY_2S_EMPTY_V) ||
+      diff >= BATTERY_SOC_RESYNC_DIFF_PERCENT) {
+    batteryRemaining_mAh = battery_mAh_from_percent(voltagePercent);
+    Serial.print("[BAT] Resync Q from voltage: Vpack=");
+    Serial.print(packVoltage_V, 3);
+    Serial.print("V, SOC_voltage=");
+    Serial.print(voltagePercent, 1);
+    Serial.print("%, old_SOC=");
+    Serial.print(counterPercent, 1);
+    Serial.println("%");
+  }
+}
 
 // ================= POWER SAVE / BACKLIGHT =================
 static const uint32_t IDLE_OFF_MS = 45000; // 45s không chạm -> tắt backlight
@@ -654,13 +780,12 @@ static void format_datetime(char *out, size_t out_sz, const DateTime &now) {
 }
 
 static void update_battery_soc_from_ina219(char *out, size_t out_sz) {
-  // Nếu INA219 chưa khởi tạo được thì báo "--%"
+  // Kiểm tra INA219 đã init chưa
   static bool ina_ok_checked = false;
   static bool ina_ok = false;
   if (!ina_ok_checked) {
-    // Giả sử nếu begin() trong setup fail, ta in ra Serial nhưng vẫn chạy.
-    // Ở đây ta coi như nếu điện áp đọc được là NaN thì coi như fail.
     float vtest = ina219.getBusVoltage_V();
+    // Với INA219 clone, chỉ cần không NaN và có địa chỉ I2C là coi như OK
     ina_ok = !isnan(vtest);
     ina_ok_checked = true;
   }
@@ -672,30 +797,121 @@ static void update_battery_soc_from_ina219(char *out, size_t out_sz) {
   // ===== Đọc thời gian và tính dt =====
   unsigned long now = millis();
   float dt_s = (now - lastMillis_batt) / 1000.0f;
-  if (dt_s <= 0.0f || dt_s > 10.0f) {
-    // Nếu dt_s bất thường (âm hoặc lớn hơn 10s), bỏ qua để tránh nhảy ác
-    dt_s = 1.0f;
+  if (dt_s <= 0.0f) {
+    dt_s = 0.001f; // 1ms tối thiểu
+  }
+  if (dt_s > 10.0f) {
+    // Nếu dt_s > 10s, clamp về 10s thay vì gán 1s (giữ nguyên tỷ lệ dòng thực tế)
+    dt_s = 10.0f;
   }
   lastMillis_batt = now;
 
-  // ===== Đọc INA219 =====
+  // ===== Đọc INA219 (RAW) =====
   float busVoltage_V    = ina219.getBusVoltage_V();
   float shuntVoltage_mV = ina219.getShuntVoltage_mV();
-  float current_mA_raw  = ina219.getCurrent_mA();
 
   // Nếu bất kỳ cái nào là NaN thì bỏ, không update
-  if (isnan(busVoltage_V) || isnan(shuntVoltage_mV) || isnan(current_mA_raw)) {
-    snprintf(out, out_sz, "--%%");
+  if (isnan(busVoltage_V) || isnan(shuntVoltage_mV)) {
+    // Tăng fail count nhưng vẫn giữ % cũ
+    g_ina219_sanity_fail_count++;
+    if (g_ina219_sanity_fail_count >= INA219_SANITY_FAIL_MAX) {
+      g_ina219_sane = false;
+    }
+    // Format % hiện tại
+    float curPct = battery_percent_from_mAh(batteryRemaining_mAh);
+    if (!isfinite(curPct)) curPct = 0.0f;
+    snprintf(out, out_sz, "%d%%", (int)(curPct + 0.5f));
     return;
   }
 
-  float current_mA = INVERT_CURRENT ? -current_mA_raw : current_mA_raw;
+  // ===== Tính current từ shunt voltage (manual, vì shunt 0.01 ohm clone) =====
+  // I = V_shunt / R_shunt
+  // shuntVoltage_mV trong mV, SHUNT_RESISTOR_OHM trong ohm
+  // current_mA = (shuntVoltage_mV / 1000.0f) / SHUNT_RESISTOR_OHM * 1000.0f
+  //            = shuntVoltage_mV / SHUNT_RESISTOR_OHM
+  float current_mA_raw = shuntVoltage_mV / SHUNT_RESISTOR_OHM;
 
-  // ===== Tích phân dòng =====
+  // ===== Tính pack voltage (RAW) =====
+  float packVoltage_V = battery_pack_voltage_from_ina219(busVoltage_V, shuntVoltage_mV);
+
+  // ===== SANITY CHECK voltage =====
+  if (isnan(packVoltage_V) || !isfinite(packVoltage_V) || packVoltage_V < 0.5f) {
+    // Điện áp gần 0V => INA219 đọc sai (clone chết hoặc mất kết nối)
+    g_ina219_sanity_fail_count++;
+    if (g_ina219_sanity_fail_count >= INA219_SANITY_FAIL_MAX) {
+      g_ina219_sane = false;
+    }
+    // Không update Q, giữ nguyên % cũ
+    float curPct = battery_percent_from_mAh(batteryRemaining_mAh);
+    if (!isfinite(curPct)) curPct = 0.0f;
+    snprintf(out, out_sz, "%d%%", (int)(curPct + 0.5f));
+    Serial.print("[BAT] SANITY FAIL: Vpack=");
+    Serial.print(packVoltage_V, 3);
+    Serial.print("V (raw bus=");
+    Serial.print(busVoltage_V, 3);
+    Serial.print("V, shunt=");
+    Serial.print(shuntVoltage_mV, 3);
+    Serial.println("mV) - keeping old %");
+    return;
+  }
+
+  // Reset fail count khi đọc OK
+  g_ina219_sanity_fail_count = 0;
+  g_ina219_sane = true;
+
+  // ===== LPF (Low-Pass Filter) cho voltage =====
+  if (!lpf_initialized) {
+    filteredVoltage_V = packVoltage_V;
+    lpf_initialized = true;
+  } else {
+    filteredVoltage_V = filteredVoltage_V * (1.0f - VOLTAGE_LPF_ALPHA) + packVoltage_V * VOLTAGE_LPF_ALPHA;
+  }
+  float packVoltage_filtered = filteredVoltage_V;
+
+  // ===== Xử lý dòng điện =====
+  // Nếu packVoltage_filtered nằm trong khoảng sane (5V-9.5V) mới dùng INA219 current
+  float current_mA = 0.0f;
+  if (is_pack_voltage_sane(packVoltage_filtered)) {
+    current_mA = INVERT_CURRENT ? -current_mA_raw : current_mA_raw;
+
+    // LPF cho dòng
+    if (lpf_initialized) {
+      filteredCurrent_mA = filteredCurrent_mA * (1.0f - CURRENT_LPF_ALPHA) + current_mA * CURRENT_LPF_ALPHA;
+    } else {
+      filteredCurrent_mA = current_mA;
+      lpf_initialized = true;
+    }
+    current_mA = filteredCurrent_mA;
+  } else {
+    // Voltage không sane => không tin current, set = 0
+    current_mA = 0.0f;
+    filteredCurrent_mA = 0.0f;
+  }
+
+  // ===== Điện áp sau LPF (dùng cho SOC voltage estimate) =====
+  float voltagePercent = battery_percent_from_voltage_2s(packVoltage_filtered);
+
+  // ===== Tích phân dòng (coulomb counter) =====
   float delta_mAh = current_mA * dt_s / 3600.0f;
 
-  if (!isnan(delta_mAh) && isfinite(delta_mAh)) {
+  if (isfinite(delta_mAh)) {
     batteryRemaining_mAh -= delta_mAh;
+  }
+
+  // Bảo vệ khi điện áp pack 2S xuống quá thấp: không cho NVS/counter báo 100%.
+  if (isfinite(packVoltage_filtered) && packVoltage_filtered <= BATTERY_2S_EMPTY_V) {
+    batteryRemaining_mAh = battery_mAh_from_percent(voltagePercent);
+  }
+
+  // Nếu gần đầy và đang sạc/không tải nhiều, cho phép kéo lên 100%.
+  if (isfinite(packVoltage_filtered) &&
+      packVoltage_filtered >= BATTERY_2S_NEAR_FULL_V &&
+      current_mA <= 0.0f &&
+      isfinite(voltagePercent)) {
+    float qFromVoltage = battery_mAh_from_percent(voltagePercent);
+    if (qFromVoltage > batteryRemaining_mAh) {
+      batteryRemaining_mAh = qFromVoltage;
+    }
   }
 
   // Giới hạn Q trong [0, capacity]
@@ -706,37 +922,66 @@ static void update_battery_soc_from_ina219(char *out, size_t out_sz) {
     batteryRemaining_mAh = BATTERY_CAPACITY_mAh;
   }
 
-  // ===== Tính % pin =====
-  float batPercent_f = 0.0f;
-
-  if (BATTERY_CAPACITY_mAh > 0.0f) {
-    batPercent_f = 100.0f * batteryRemaining_mAh / BATTERY_CAPACITY_mAh;
+  // Hiệu chỉnh mềm nếu counter bị trôi xa so với điện áp (chỉ khi voltage sane).
+  if (is_pack_voltage_sane(packVoltage_filtered)) {
+    float counterPercent = battery_percent_from_mAh(batteryRemaining_mAh);
+    if (isfinite(voltagePercent) &&
+        isfinite(counterPercent) &&
+        fabs(counterPercent - voltagePercent) >= BATTERY_SOC_SOFT_CORRECTION_DIFF_PERCENT) {
+      float qFromVoltage = battery_mAh_from_percent(voltagePercent);
+      batteryRemaining_mAh =
+        batteryRemaining_mAh * (1.0f - BATTERY_SOC_SOFT_CORRECTION_ALPHA) +
+        qFromVoltage * BATTERY_SOC_SOFT_CORRECTION_ALPHA;
+      Serial.print("[BAT] Soft correction: coulomb=");
+      Serial.print(counterPercent, 1);
+      Serial.print("%, voltage=");
+      Serial.print(voltagePercent, 1);
+      Serial.println("%");
+    }
   }
 
-  // Nếu NaN hoặc vô cực thì coi như 0%
+  // ===== Tính % pin =====
+  float batPercent_f = battery_percent_from_mAh(batteryRemaining_mAh);
+
   if (!isfinite(batPercent_f)) {
     batPercent_f = 0.0f;
   }
-
   if (batPercent_f < 0.0f)   batPercent_f = 0.0f;
   if (batPercent_f > 100.0f) batPercent_f = 100.0f;
 
-  // Làm tròn
   int batPercent = (int)(batPercent_f + 0.5f);
   if (batPercent < 0)   batPercent = 0;
   if (batPercent > 100) batPercent = 100;
   if (!DISABLE_FIREBASE_PUSH) {
     FirebaseSync_SetBatteryPercent(batPercent);
-  } else {
-    // Firebase push disabled: skip updating remote percent
   }
 
-  // Debug
-  Serial.print("Q = ");
+  // Debug (RAW values for diagnostics)
+  Serial.print("[BAT] ");
+  if (!is_pack_voltage_sane(packVoltage_filtered)) {
+    Serial.print("VOLTAGE_UNSTABLE ");
+  }
+  Serial.print("Vraw=");
+  Serial.print(packVoltage_V, 3);
+  Serial.print("V, Vfilt=");
+  Serial.print(packVoltage_filtered, 3);
+  Serial.print("V, Iraw=");
+  Serial.print(current_mA_raw, 1);
+  Serial.print("mA, Ifilt=");
+  Serial.print(current_mA, 1);
+  Serial.print("mA, Q=");
   Serial.print(batteryRemaining_mAh, 1);
-  Serial.print(" mAh, SoC = ");
+  Serial.print("mAh, SOC=");
+  Serial.print(batPercent_f, 1);
+  Serial.print("%, SOC_volt=");
+  if (isfinite(voltagePercent)) {
+    Serial.print(voltagePercent, 1);
+  } else {
+    Serial.print("nan");
+  }
+  Serial.print("%, final=");
   Serial.print(batPercent);
-  Serial.println(" %");
+  Serial.println("%");
 
   // Format chuỗi: "75%"
   snprintf(out, out_sz, "%d%%", batPercent);
@@ -845,8 +1090,33 @@ void setup() {
   if (!ina219.begin()) {
     Serial.println("Khong tim thay INA219!");
   } else {
-    // Calibration: 32V, 1A (tùy tải)
-    ina219.setCalibration_32V_1A();
+    // Calibration: 32V, 2A (cho shunt 0.1 ohm).
+    // Với shunt 0.01 ohm (clone), max current thực tế = 20A.
+    // Ta sẽ tự tính current từ shunt voltage, không dùng getCurrent_mA().
+    ina219.setCalibration_32V_2A();
+
+    float busVoltage_V = ina219.getBusVoltage_V();
+    float shuntVoltage_mV = ina219.getShuntVoltage_mV();
+    float packVoltage_V = battery_pack_voltage_from_ina219(busVoltage_V, shuntVoltage_mV);
+
+    // Chỉ sync nếu voltage sane
+    if (is_pack_voltage_sane(packVoltage_V)) {
+      sync_battery_counter_from_voltage_if_needed(packVoltage_V, true);
+    } else {
+      Serial.print("[BAT] WARNING: INA219 boot voltage out of range: ");
+      Serial.println(packVoltage_V, 3);
+    }
+
+    Serial.print("[BAT] INA219 OK, Vbus=");
+    Serial.print(busVoltage_V, 3);
+    Serial.print("V, Vshunt=");
+    Serial.print(shuntVoltage_mV, 3);
+    Serial.print("mV, Vpack=");
+    Serial.print(packVoltage_V, 3);
+    Serial.print("V, Q=");
+    Serial.print(batteryRemaining_mAh, 1);
+    Serial.println("mAh");
+
     lastMillis_batt = millis();
   }
 
