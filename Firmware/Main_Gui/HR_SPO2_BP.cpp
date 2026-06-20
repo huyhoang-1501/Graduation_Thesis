@@ -67,8 +67,8 @@ int g_dia_min  = 55;
 int g_dia_max  = 110;
 
 // BP calibration offsets (applied after calculation, before constrain)
-int g_sys_offset = +10;
-int g_dia_offset = +10;
+int g_sys_offset = +20;
+int g_dia_offset = +20;
 
 const char *DEFAULT_SOS_PHONE = "0365089063";
 char g_phone[32] = "0365089063";
@@ -420,6 +420,12 @@ void measureBloodPressure() {
   closeValve();
 
   while (mmHg < 180) {
+    if (bpCancelRequested) {
+      Serial.println("Huy do huyet ap: trong luc bom");
+      stopAll();
+      bpOriginBeforeStart = BP_ORIGIN_NONE;
+      return;
+    }
     readPressure(kPa, mmHg, raw);
     vTaskDelay(pdMS_TO_TICKS(10));
   }
@@ -436,6 +442,12 @@ void measureBloodPressure() {
   float alpha = 0.95;
 
   while (mmHg > 45) {
+    if (bpCancelRequested) {
+      Serial.println("Huy do huyet ap: trong luc xa cham");
+      stopAll();
+      bpOriginBeforeStart = BP_ORIGIN_NONE;
+      return;
+    }
     if (readPressure(kPa, mmHg, raw)) {
       cuff[sampleCount] = mmHg;
 
@@ -593,9 +605,9 @@ void processOscillometric() {
     DIA = t;
   }
 
-  // // Apply calibration offsets
-  // SYS += g_sys_offset;
-  // DIA += g_dia_offset;
+  // Apply calibration offsets
+  SYS += g_sys_offset;
+  DIA += g_dia_offset;
 
   SYS = constrain(SYS, 90, 180);
   DIA = constrain(DIA, 50, 120);
@@ -737,5 +749,9 @@ bool isBPMeasuring() {
 void cancelMeasureBloodPressure() {
   if (bpTaskHandle != NULL) {
     bpCancelRequested = true;
+    // Immediately stop pump and open valve if cancellation is requested
+    stopAll();
+    Serial.println("Huy do huyet ap: tu ben ngoai");
+    bpOriginBeforeStart = BP_ORIGIN_NONE;
   }
 }
