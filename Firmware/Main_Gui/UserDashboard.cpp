@@ -887,7 +887,8 @@ static void build_ud_screen() {
     lv_obj_set_style_border_color(btn_setting_hdr, lv_color_make(200,200,200), 0);
     lv_obj_set_style_shadow_width(btn_setting_hdr, 0, 0);
     lv_obj_add_event_cb(btn_setting_hdr, [](lv_event_t *e){ if (lv_event_get_code(e)==LV_EVENT_CLICKED) {
-      open_keypad_for_user_id();
+      build_settings_screen();
+      if (settings_scr) lv_scr_load(settings_scr);
     } }, LV_EVENT_ALL, nullptr);
     lv_obj_t *hdr_lbl = lv_label_create(btn_setting_hdr);
     lv_label_set_text(hdr_lbl, "Setting");

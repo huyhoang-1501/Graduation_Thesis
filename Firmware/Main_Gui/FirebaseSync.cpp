@@ -20,7 +20,7 @@ static FirebaseSyncGetTextCb g_get_device_id_cb = nullptr;
 static FirebaseSyncGetTextCb g_get_user_id_cb = nullptr;
 
 static int g_battery_percent = -1;
-static uint32_t g_push_interval_ms = 5000;
+static uint32_t g_push_interval_ms = 2500;
 static uint32_t g_last_push_ms = 0;
 static char g_current_user_id[16] = ""; // null-terminated
 static bool g_current_user_id_loaded_from_nvs = false;
@@ -89,7 +89,7 @@ static void firebase_task(void *arg) {
     }
 
     // delay between iterations — keep moderate to avoid CPU/heap pressure
-    vTaskDelay(pdMS_TO_TICKS(250));
+    vTaskDelay(pdMS_TO_TICKS(150));
   }
 }
 
@@ -99,11 +99,11 @@ static uint32_t g_wifi_next_retry_ms = 0;
 
 static const uint32_t WIFI_CONNECT_TIMEOUT_MS = 3000;
 static const uint32_t WIFI_RETRY_DELAY_MS = 2500;
-// Increased HTTP timeouts — networks can be slow right after WiFi connects
+// HTTP timeouts kept moderate so Firebase validation fails faster on bad networks.
 static const uint16_t HTTP_CONNECT_TIMEOUT_MS = 5000;
-static const uint16_t HTTP_RW_TIMEOUT_MS = 5000;
+static const uint16_t HTTP_RW_TIMEOUT_MS = 3000;
 // Wait timeout used when validating a user id (allow WiFi to come up)
-static const uint32_t VALIDATE_WIFI_WAIT_MS = 5000;
+static const uint32_t VALIDATE_WIFI_WAIT_MS = 3000;
 
 static bool wifi_connect_if_needed() {
   wl_status_t st = WiFi.status();
@@ -249,6 +249,45 @@ static bool firebase_get(const String &path, String &outBody) {
   }
 
   Serial.print("[Firebase] GET fail ");
+  Serial.print(path);
+  Serial.print(" code=");
+  Serial.println(code);
+  http.end();
+  return false;
+#endif
+}
+
+static bool firebase_get_shallow(const String &path, String &outBody) {
+  outBody = "";
+  if (!wifi_connect_if_needed()) return false;
+  if (g_firebase_db_url.length() == 0) return false;
+
+#ifdef USE_FIREBASE_ESP_CLIENT
+  // Fallback to normal getJSON when shallow query is not available.
+  if (!g_fbdo) {
+    Serial.println("[Firebase] getShallow: fbdo not provided");
+    return false;
+  }
+  if (!Firebase.RTDB.getJSON(g_fbdo, path.c_str())) {
+    Serial.print("[Firebase] getShallow fallback getJSON fail "); Serial.print(path); Serial.print(" reason="); Serial.println(g_fbdo->errorReason());
+    return false;
+  }
+  outBody = g_fbdo->payload();
+  return true;
+#else
+  HTTPClient http;
+  String url = g_firebase_db_url + "/" + path + ".json?shallow=true";
+  http.begin(url);
+  http_prepare(http);
+  http.addHeader("Connection", "keep-alive");
+  int code = http.GET();
+  if (code >= 200 && code < 300) {
+    outBody = http.getString();
+    http.end();
+    return true;
+  }
+
+  Serial.print("[Firebase] GET shallow fail ");
   Serial.print(path);
   Serial.print(" code=");
   Serial.println(code);
@@ -462,70 +501,50 @@ static void firebase_push_impl() {
 bool FirebaseSync_ValidateUserId(const char *userId, char *errMsg, size_t errMsgSize) {
   if (errMsg && errMsgSize) errMsg[0] = '\0';
 
-  const char *deviceId = g_get_device_id_cb ? g_get_device_id_cb() : "";
-  if (!deviceId || !deviceId[0]) {
-    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "Device ID rong");
-    return false;
-  }
-
   if (!userId || !userId[0]) {
     if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "User ID rong");
     return false;
   }
 
-  // Yêu cầu: đẩy trạng thái + pin lên Firebase trước (queue)
-  FirebaseSync_PushStatusAndBattery();
-
   // Wait a short time for WiFi to connect (non-blocking connect may be in progress).
   uint32_t start = millis();
   bool connected = false;
   while (millis() - start < VALIDATE_WIFI_WAIT_MS) {
-    if (wifi_connect_if_needed() && WiFi.status() == WL_CONNECTED) { connected = true; break; }
-    // give other tasks time to progress
-    vTaskDelay(pdMS_TO_TICKS(200));
+    if (wifi_connect_if_needed() && WiFi.status() == WL_CONNECTED) {
+      connected = true;
+      break;
+    }
+    vTaskDelay(pdMS_TO_TICKS(150));
   }
   if (!connected) {
     if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "Loi ket noi Firebase");
     return false;
   }
 
-  // Check that the patient/user exists in Firebase under /patients/<userId>.
-  // First, try a fast path: check whether patients/<id>/measurements/latest exists
-  const int maxTries = 3;
-  String measOut;
-  bool gotMeas = false;
-  for (int t = 0; t < maxTries; ++t) {
-    gotMeas = firebase_get(String("patients/") + String(userId) + String("/measurements/latest"), measOut);
-    if (gotMeas) break;
-    vTaskDelay(pdMS_TO_TICKS(300));
-  }
-  // If measurement exists (non-null), accept the ID immediately (fast path)
-  if (gotMeas && measOut != "null" && measOut.length() > 0) {
-    if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "OK");
-    return true;
-  }
-
-  // Otherwise fallback to checking patients/<userId>
+  // Fast validation: only check whether /patients/<id> exists.
+  // This avoids loading measurements/history/settings and reduces delay.
+  const int maxTries = 2;
   String out;
   bool got = false;
   for (int t = 0; t < maxTries; ++t) {
-    got = firebase_get(String("patients/") + String(userId), out);
+    got = firebase_get_shallow(String("patients/") + String(userId), out);
     if (got) break;
-    // small delay before retry
-    vTaskDelay(pdMS_TO_TICKS(300));
+    vTaskDelay(pdMS_TO_TICKS(200));
   }
+
   if (!got) {
     if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "Loi ket noi Firebase");
     return false;
   }
 
-  // firebase returns null when key not found
   if (out == "null" || out.length() == 0) {
     if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "ID chua duoc dang ky tren web/app");
     return false;
   }
 
-  // Optionally, we could verify /devices/<deviceId>.patientId == userId here.
+  // Queue push only after ID is confirmed valid.
+  FirebaseSync_PushStatusAndBattery();
+
   if (errMsg && errMsgSize) snprintf(errMsg, errMsgSize, "OK");
   return true;
 }
