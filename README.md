@@ -301,8 +301,8 @@ Graduation_Thesis/
 │   └── ModuleSim/          # A7682S SIM module AT-command test
 ├── WEB/                    # Web portal (PWA — HTML/CSS/JS + Firebase)
 ├── APP/                    # Android app (APK + AAB release)
-├── PCB/                    # KiCad PCB layout files
-├── Schematic/              # KiCad schematic files
+├── PCB/                    # Altium Designer PCB layout files
+├── Schematic/              # Altium Designer schematic files
 ├── Documents/              # Component datasheets (ESP32, NEO-6M, DS3231, etc.)
 ├── Test/                   # Sensor integration test scripts
 ├── assets/                 # Images for README / documentation
