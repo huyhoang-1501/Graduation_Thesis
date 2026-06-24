@@ -186,19 +186,11 @@ The device is built on a **custom-designed PCB** integrating all modules into a 
   </tr>
 </table>
 
-**Device & Block Diagram**
+**Device**
 
 <table>
   <tr>
     <td align="center"><img src="assets/device.png" width="300"/><br/><b>Device</b></td>
-    <td align="center"><img src="assets/block_diagram.png" width="300"/><br/><b>Block Diagram</b></td>
-  </tr>
-</table>
-
-**Inside View**
-
-<table>
-  <tr>
     <td align="center"><img src="assets/inside.jpg" width="300"/><br/><b>Inside View</b></td>
   </tr>
 </table>
