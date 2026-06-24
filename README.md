@@ -345,9 +345,5 @@ This project is licensed under the **MIT License** — see [LICENSE](LICENSE) fo
 ---
 
 <div align="center">
-
-**Built as a Graduation Thesis — HCMUTE 2026**
-
-*From sensor to cloud to screen — the full IoT stack, end-to-end.*
-
+**Built as a Graduation Thesis — HCM-UTE 2026**
 </div>
