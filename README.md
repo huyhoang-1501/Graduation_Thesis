@@ -13,7 +13,7 @@
 **A full-stack IoT system that monitors Heart Rate, SpO2, Blood Pressure & GPS location in real-time,
 streams data to the cloud, and surfaces it through a responsive Web Portal and Android App.**
 
-<img src="assets/idea.png" alt="System Idea" width="700"/>
+<img src="assets/idea.webp" alt="System Idea" width="700"/>
 
 </div>
 
@@ -254,7 +254,7 @@ WEB/
 
 <table>
   <tr>
-    <td align="center"><img src="assets/login.png" width="400"/><br/><b>Login Screen</b></td>
+    <td align="center"><img src="assets/login.jpg" width="400"/><br/><b>Login Screen</b></td>
     <td align="center"><img src="assets/history.jpg" width="400"/><br/><b>History & Charts</b></td>
   </tr>
   <tr>
