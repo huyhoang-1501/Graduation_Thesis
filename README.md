@@ -167,8 +167,8 @@ The system spans three tightly integrated layers:
 ### Tools & Design
 | Tool | Usage |
 |------|-------|
-| **KiCad** | PCB layout & schematic capture |
-| **Android Studio** | Android app (APK/AAB) |
+| **Altium Designer** | PCB layout & schematic capture |
+| **PWA Builder** | Android app (APK/AAB) |
 | **Git + GitHub** | Version control |
 
 ---
@@ -177,15 +177,29 @@ The system spans three tightly integrated layers:
 
 The device is built on a **custom-designed PCB** integrating all modules into a compact form factor.
 
+**PCB Layout & Schematic**
+
 <table>
   <tr>
     <td align="center"><img src="assets/PCB.png" width="300"/><br/><b>PCB Layout</b></td>
     <td align="center"><img src="assets/Schematic.png" width="300"/><br/><b>Schematic</b></td>
-    <td align="center"><img src="assets/inside.jpg" width="300"/><br/><b>Inside View</b></td>
   </tr>
+</table>
+
+**Device & Block Diagram**
+
+<table>
   <tr>
     <td align="center"><img src="assets/device.png" width="300"/><br/><b>Device</b></td>
     <td align="center"><img src="assets/block_diagram.png" width="300"/><br/><b>Block Diagram</b></td>
+  </tr>
+</table>
+
+**Inside View**
+
+<table>
+  <tr>
+    <td align="center"><img src="assets/inside.jpg" width="300"/><br/><b>Inside View</b></td>
   </tr>
 </table>
 
@@ -255,16 +269,18 @@ WEB/
 <table>
   <tr>
     <td align="center"><img src="assets/login.jpg" width="400"/><br/><b>Login Screen</b></td>
-    <td align="center"><img src="assets/history.jpg" width="400"/><br/><b>History & Charts</b></td>
+    <td align="center"><img src="assets/register.jpg" width="400"/><br/><b>Register</b></td>
   </tr>
   <tr>
+	<td align="center"><img src="assets/history.jpg" width="400"/><br/><b>History & Charts</b></td>
     <td align="center"><img src="assets/location.jpg" width="400"/><br/><b>GPS Location Map</b></td>
-    <td align="center"><img src="assets/device_patients.jpg" width="400"/><br/><b>Patient Management</b></td>
   </tr>
   <tr>
-    <td align="center"><img src="assets/setting.jpg" width="400"/><br/><b>Alert Settings</b></td>
+	<td align="center"><img src="assets/device_patients.jpg" width="400"/><br/><b>Patient Management</b></td>
+    <td align="center"><img src="assets/setting.jpg" width="400"/><br/><b>Settings</b></td>
   </tr>
 </table>
+
 
 | App Screenshot | Web Portal |
 |:-:|:-:|
