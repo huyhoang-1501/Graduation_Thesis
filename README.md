@@ -185,7 +185,6 @@ The device is built on a **custom-designed PCB** integrating all modules into a 
   </tr>
   <tr>
     <td align="center"><img src="assets/device.png" width="300"/><br/><b>Device</b></td>
-    <td align="center"><img src="assets/overview.jpg" width="300"/><br/><b>Overview</b></td>
     <td align="center"><img src="assets/block_diagram.png" width="300"/><br/><b>Block Diagram</b></td>
   </tr>
 </table>
@@ -256,25 +255,30 @@ WEB/
 <table>
   <tr>
     <td align="center"><img src="assets/login.png" width="400"/><br/><b>Login Screen</b></td>
-    <td align="center"><img src="assets/main_screen.png" width="400"/><br/><b>Main Dashboard</b></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="assets/parameters_screen.png" width="400"/><br/><b>Parameters Screen</b></td>
-    <td align="center"><img src="assets/setting_screen.png" width="400"/><br/><b>Settings Screen</b></td>
-  </tr>
-  <tr>
     <td align="center"><img src="assets/history.jpg" width="400"/><br/><b>History & Charts</b></td>
-    <td align="center"><img src="assets/location.jpg" width="400"/><br/><b>GPS Location Map</b></td>
   </tr>
   <tr>
+    <td align="center"><img src="assets/location.jpg" width="400"/><br/><b>GPS Location Map</b></td>
     <td align="center"><img src="assets/device_patients.jpg" width="400"/><br/><b>Patient Management</b></td>
+  </tr>
+  <tr>
     <td align="center"><img src="assets/setting.jpg" width="400"/><br/><b>Alert Settings</b></td>
   </tr>
 </table>
 
 | App Screenshot | Web Portal |
 |:-:|:-:|
-| <img src="assets/HealthGuardian(App).png" width="250"/> | <img src="assets/HealthGuardian(Web).png" width="600"/> |
+| <img src="assets/HealthGuardian(App).png" width="400"/> | <img src="assets/HealthGuardian(Web).png" width="400"/> |
+
+**Device Screen (Embedded TFT)**
+
+<table>
+  <tr>
+    <td align="center"><img src="assets/main_screen.png" width="300"/><br/><b>Main Dashboard</b></td>
+    <td align="center"><img src="assets/parameters_screen.png" width="300"/><br/><b>Parameters Screen</b></td>
+    <td align="center"><img src="assets/setting_screen.png" width="300"/><br/><b>Settings Screen</b></td>
+  </tr>
+</table>
 
 ---
 
