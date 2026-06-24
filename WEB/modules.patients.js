@@ -116,7 +116,7 @@ function initPatientsModule() {
           console.warn('Không lưu được settings mặc định cho bệnh nhân:', err);
         }
 
-        statusEl.textContent = "Đã thêm bệnh nhân với Mode Online ID: " + patientId + (deviceId ? " (DEVICE ID: " + deviceId + ")" : "") + ".";
+        statusEl.textContent = "Đã thêm bệnh nhân với Link ID: " + patientId + (deviceId ? " (DEVICE ID: " + deviceId + ")" : "") + ".";
         statusEl.style.color = "#16a34a";
         nameEl.value = "";
         ageEl.value = "";

@@ -844,7 +844,7 @@ function initDeviceBindingModule() {
   });
   pairCodeInput.setAttribute("inputmode", "numeric");
   pairCodeInput.setAttribute("maxlength", "5");
-  pairCodeInput.placeholder = "Mã 5 số cho Mode Online";
+  pairCodeInput.placeholder = "Mã 5 số cho Link ID";
 
   // If deviceIdInput and createBtn exist (legacy layout), keep full behavior
   if (deviceIdInput && createBtn) {
@@ -927,7 +927,7 @@ function initDeviceBindingModule() {
           statusEl.textContent = "Đã lưu DEVICE ID " + deviceId + " và tạo mã Mode Online: " + patientId + ". Hãy nhập mã 5 số này trên thiết bị.";
           statusEl.style.color = "#16a34a";
         } else {
-          alert("Đã tạo mã Mode Online: " + patientId + ".");
+          alert("Đã tạo mã Link ID: " + patientId + ".");
         }
       } catch (err) {
         console.error(err);
