@@ -350,4 +350,6 @@ firebase deploy
 This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
 
 ---
-<div align="center">**Built as a Graduation Thesis — HCM-UTE 2026**</div>
+<div align="center">
+    <strong>Built as a Graduation Thesis — HCM-UTE 2026</strong>
+</div>
