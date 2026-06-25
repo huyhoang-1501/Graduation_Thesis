@@ -1,8 +1,8 @@
 <div align="center">
 
-# Health Guardian
+# Health Monitoring and Alert System
 
-### End-to-End IoT Health Monitoring System for Elderly Care
+### End-to-End IoT Health Monitoring and Alert System for Elderly Care
 
 [![Platform](https://img.shields.io/badge/Platform-ESP32-blue?logo=espressif)](https://www.espressif.com/)
 [![Firebase](https://img.shields.io/badge/Cloud-Firebase-orange?logo=firebase)](https://firebase.google.com/)
@@ -13,7 +13,12 @@
 **A full-stack IoT system that monitors Heart Rate, SpO2, Blood Pressure & GPS location in real-time,
 streams data to the cloud, and surfaces it through a responsive Web Portal and Android App.**
 
-<img src="assets/idea.webp" alt="System Idea" width="700"/>
+<table>
+  <tr>
+    <td align="center"><img src="assets/HR_Measure.webp" alt="HR Measure" width="340"/><br/><b>Heart Rate Measurement</b></td>
+    <td align="center"><img src="assets/BP_Measure.jpg" alt="BP Measure" width="340"/><br/><b>Blood Pressure Measurement</b></td>
+  </tr>
+</table>
 
 </div>
 
@@ -52,18 +57,18 @@ The system spans three tightly integrated layers:
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                        EMBEDDED DEVICE                           │
-│  ┌──────────┐  ┌────────────┐  ┌──────────┐  ┌──────────────┐  │
-│  │ MAX30100 │  │  SIM A7682S│  │  NEO-6M  │  │  INA219      │  │
-│  │ HR/SpO2  │  │  4G LTE    │  │  GPS     │  │  Battery     │  │
-│  └────┬─────┘  └─────┬──────┘  └────┬─────┘  └──────┬───────┘  │
+│  ┌──────────┐  ┌────────────┐  ┌──────────┐  ┌──────────────┐    │
+│  │ MAX30100 │  │  SIM A7682S│  │ ATGM366H │  │  INA219      │    │
+│  │ HR/SpO2  │  │  4G LTE    │  │  GPS     │  │  Battery     │    │
+│  └────┬─────┘  └─────┬──────┘  └────┬─────┘  └──────┬───────┘    │
 │       │              │              │                │           │
-│  ┌────▼──────────────▼──────────────▼────────────────▼───────┐  │
-│  │                   ESP32 (Main MCU)                        │  │
-│  │   LVGL + TFT_eSPI │ TinyGPSPlus │ Firebase_ESP_Client    │  │
-│  │   Guest / User / Dashboard UI modes                       │  │
-│  └───────────────────────────┬───────────────────────────────┘  │
-│                              │ Wi-Fi / SIM                      │
-└──────────────────────────────│──────────────────────────────────┘
+│  ┌────▼──────────────▼──────────────▼────────────────▼───────┐   │
+│  │                   ESP32 (Main MCU)                        │   │
+│  │   LVGL + TFT_eSPI │ TinyGPSPlus │ Firebase_ESP_Client     │   │
+│  │   Guest / User / Dashboard UI modes                       │   │
+│  └───────────────────────────┬───────────────────────────────┘   │
+│                              │ Wi-Fi / SIM                       │
+└──────────────────────────────│───────────────────────────────────┘
                                │
                     ┌──────────▼───────────┐
                     │  Firebase Platform   │
@@ -90,11 +95,11 @@ The system spans three tightly integrated layers:
 - Color-coded severity badges: **Normal / Warning / Danger**
 
 ### GPS Location Tracking
-- NEO-6M GPS module streams coordinates every 5 seconds
+- BDS ATGM336H GPS module streams coordinates every 5 seconds
 - Interactive map using **Leaflet + OpenStreetMap** (100% free, no API key needed)
 - Last-known location retained for emergency scenarios
 
-### Smart Alert System
+### Alert 
 - Auto-generates alerts when vitals exceed configurable thresholds (HR, SpO2, BP)
 - Severity classification: **warning / danger**
 - Filter by type, severity, and acknowledgment status
@@ -130,7 +135,7 @@ The system spans three tightly integrated layers:
 | **ESP32** | Main MCU — dual-core 240 MHz, Wi-Fi + BT |
 | **MAX30100/102** | Heart Rate & SpO2 (I2C) |
 | **A7682S** | 4G LTE SIM module — cellular fallback connectivity |
-| **NEO-6M** | GPS positioning (UART) |
+| **BDS ATGM336H** | GPS positioning (UART) |
 | **DS3231** | Real-Time Clock (I2C) |
 | **INA219** | Battery voltage & current monitor (I2C) |
 | **ST7796S TFT 4"** | 480x320 SPI display |
@@ -303,7 +308,7 @@ Graduation_Thesis/
 ├── APP/                    # Android app (APK + AAB release)
 ├── PCB/                    # Altium Designer PCB layout files
 ├── Schematic/              # Altium Designer schematic files
-├── Documents/              # Component datasheets (ESP32, NEO-6M, DS3231, etc.)
+├── Documents/              # Component datasheets (ESP32, BDS ATGM336H, DS3231, etc.)
 ├── Test/                   # Sensor integration test scripts
 ├── assets/                 # Images for README / documentation
 ├── firebase.json           # Firebase Hosting configuration
