@@ -60,7 +60,7 @@ The system spans three tightly integrated layers:
 ┌──────────────────────────────────────────────────────────────────┐
 │                        EMBEDDED DEVICE                           │
 │  ┌──────────┐  ┌────────────┐  ┌──────────┐  ┌──────────────┐    │
-│  │ MAX30100 │  │  SIM A7682S│  │ ATGM366H │  │  INA219      │    │
+│  │ MAX30102 │  │  SIM A7682S│  │ ATGM366H │  │  INA219      │    │
 │  │ HR/SpO2  │  │  4G LTE    │  │  GPS     │  │  Battery     │    │
 │  └────┬─────┘  └─────┬──────┘  └────┬─────┘  └──────┬───────┘    │
 │       │              │              │                │           │
@@ -135,7 +135,7 @@ The system spans three tightly integrated layers:
 | Component | Role |
 |-----------|------|
 | **ESP32** | Main MCU — dual-core 240 MHz, Wi-Fi + BT |
-| **MAX30100/102** | Heart Rate & SpO2 (I2C) |
+| **MAX30102** | Heart Rate & SpO2 (I2C) |
 | **A7682S** | 4G LTE SIM module — cellular fallback connectivity |
 | **BDS ATGM336H** | GPS positioning (UART) |
 | **DS3231** | Real-Time Clock (I2C) |
