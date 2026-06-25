@@ -10,8 +10,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Completed-brightgreen)]()
 
-**A full-stack IoT system that monitors Heart Rate, SpO2, Blood Pressure & GPS location in real-time,
-streams data to the cloud, and surfaces it through a responsive Web Portal and Android App.**
+**A full-stack IoT system that monitors Heart Rate, SpO2, Blood Pressure & GPS location in real-time,streams data to the cloud, and surfaces it through a responsive Web Portal and Android App.**
 
 <table>
   <tr>
