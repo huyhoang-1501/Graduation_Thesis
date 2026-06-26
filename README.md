@@ -69,7 +69,7 @@ The system spans three tightly integrated layers:
 │  │   LVGL + TFT_eSPI │ TinyGPSPlus │ Firebase_ESP_Client     │   │
 │  │   Guest / User / Dashboard UI modes                       │   │
 │  └───────────────────────────┬───────────────────────────────┘   │
-│                              │ Wi-Fi                      │
+│                              │ Wi-Fi                             │
 └──────────────────────────────│───────────────────────────────────┘
                                │
                     ┌──────────▼───────────┐
