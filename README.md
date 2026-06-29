@@ -350,6 +350,7 @@ firebase deploy
     <img src="assets/Video.png" alt="Video" width="500">
   </a>
 </p>
+
 ---
 <div align="center">
     <strong>Built as a Graduation Thesis — HCM-UTE 2026</strong>
