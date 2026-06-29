@@ -344,7 +344,13 @@ firebase deploy
 5. Select board **ESP32 Dev Module**, compile and upload
 
 ---
+[**Video**](https://www.youtube.com/watch?v=f4DVOcCZDBw)
 
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=f4DVOcCZDBw">
+    <img src="assets/Video.png" alt="Video" width="500">
+  </a>
+</p>
 ## License
 
 This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
