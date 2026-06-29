@@ -7,7 +7,6 @@
 [![Platform](https://img.shields.io/badge/Platform-ESP32-blue?logo=espressif)](https://www.espressif.com/)
 [![Firebase](https://img.shields.io/badge/Cloud-Firebase-orange?logo=firebase)](https://firebase.google.com/)
 [![PWA](https://img.shields.io/badge/Web-PWA-5A0FC8?logo=pwa)](https://web.dev/progressive-web-apps/)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Completed-brightgreen)]()
 
 </div>
@@ -351,10 +350,6 @@ firebase deploy
     <img src="assets/Video.png" alt="Video" width="500">
   </a>
 </p>
-## License
-
-This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
-
 ---
 <div align="center">
     <strong>Built as a Graduation Thesis — HCM-UTE 2026</strong>
