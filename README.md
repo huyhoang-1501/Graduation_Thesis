@@ -36,6 +36,7 @@
 - [Screenshots](#screenshots)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
+- [Video](#video)
 
 ---
 
@@ -343,6 +344,8 @@ firebase deploy
 5. Select board **ESP32 Dev Module**, compile and upload
 
 ---
+## Video
+
 [**Video**](https://www.youtube.com/watch?v=f4DVOcCZDBw)
 
 <p align="center">
