@@ -24,6 +24,8 @@ extern bool hr_new_data;
 extern uint32_t sys_update_ms;
 extern bool sys_new_data;
 
+extern uint32_t warning_detect_ms;
+
 // Allow UI to trigger a blood pressure measurement (blocking)
 void measureBloodPressure();
 // Start BP measurement in a background FreeRTOS task (non-blocking)

@@ -108,6 +108,8 @@ bool hr_new_data   = false;
 uint32_t sys_update_ms = 0;
 bool sys_new_data = false;
 
+uint32_t warning_detect_ms = 0;
+
 
 // ================== PROTOTYPES (internal) ==================
 void startPump(int speed = 200);
@@ -669,11 +671,15 @@ bool hrspo2bp_warning_check() {
     }
 
     Serial.println("=== HEALTH WARNING: Initiating alert ===");
-    
+    warning_detect_ms = millis();
+    Serial.printf("[WARNING] Detection time: %lu ms\n",  warning_detect_ms);
     // Play warning sound via DFPlayer
     if (dfPlayerReady) {
+      uint32_t dfplayer_cmd_time = millis();
       dfPlayer.play(1); // Play file 001.mp3 in root
       g_alert_sound_playing = true;
+      uint32_t audio_response = dfplayer_cmd_time - warning_detect_ms;
+      Serial.printf("[AUDIO] Response time: %lu ms\n",audio_response);
       Serial.println("[DFPlayer] Playing alert sound (file 001.mp3)");
     }
     

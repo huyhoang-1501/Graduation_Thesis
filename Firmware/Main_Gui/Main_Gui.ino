@@ -79,7 +79,7 @@ static void dfplayer_setup() {
 
   if (dfPlayer.begin(DFPlayerSerial)) {
     dfPlayerReady = true;
-    dfPlayer.volume(25);  // 0..30
+    dfPlayer.volume(10);  // 0..30
     Serial.printf("[DFPlayer] OK RX=%d TX=%d\n", DFPLAYER_RX_PIN, DFPLAYER_TX_PIN);
   } else {
     dfPlayerReady = false;

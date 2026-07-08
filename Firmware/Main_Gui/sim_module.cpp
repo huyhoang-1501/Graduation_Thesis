@@ -1,4 +1,5 @@
 #include "sim_module.h"
+#include "HR_SPO2_BP.h"
 
 #define SIM_RX_PIN 16
 #define SIM_TX_PIN 17
@@ -184,6 +185,8 @@ void SimModule_Loop() {
         GPSSerial.print(msg);
         GPSSerial.write((char)26); // Ctrl+Z gửi SMS
         Serial.println("[SIM] SMS body sent");
+        uint32_t sendSMS_time =  millis() - warning_detect_ms;
+        Serial.printf("[CALL] Setup time: %lu ms\n",sendSMS_time);
         state_start_ms = now;
         sos_state = SOS_WAIT_SMS_OK;
       }
@@ -235,6 +238,8 @@ void SimModule_Loop() {
         GPSSerial.print("ATD");
         GPSSerial.print(sos_phone);
         GPSSerial.println(";");
+        uint32_t call_time =  millis() - warning_detect_ms;
+        Serial.printf("[CALL] Setup time: %lu ms\n",call_time);
         Serial.printf("[SIM] Calling %s\n", sos_phone.c_str());
         state_start_ms = now;
         sos_state = SOS_IN_CALL;
