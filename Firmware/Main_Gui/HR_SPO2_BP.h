@@ -18,6 +18,12 @@ extern float s;
 extern float lastSYS;
 extern float lastDIA;
 
+extern uint32_t hr_update_ms;
+extern bool hr_new_data;
+
+extern uint32_t sys_update_ms;
+extern bool sys_new_data;
+
 // Allow UI to trigger a blood pressure measurement (blocking)
 void measureBloodPressure();
 // Start BP measurement in a background FreeRTOS task (non-blocking)

@@ -947,6 +947,11 @@ static void refresh_values() {
     if (hr > 20 && hr < 300) snprintf(buf, sizeof(buf), "%.1f", hr);
     else snprintf(buf, sizeof(buf), "--");
     lv_label_set_text(label_hr, buf);
+    if (hr_new_data) {
+            hr_new_data = false;
+
+            Serial.printf("[Latency] HR = %.1f  --> %lu ms\n", hr,millis() - hr_update_ms);
+    }
   }
   // SYS/DIA
   if (label_sys) {
@@ -959,7 +964,7 @@ static void refresh_values() {
     else snprintf(buf, sizeof(buf), "--");
     lv_label_set_text(label_dia, buf);
   }
-
+  
   
 }
 
@@ -1017,6 +1022,11 @@ void GuestMode_Loop() {
       if (isfinite(lastSYS) && lastSYS > 0.0f) snprintf(buf, sizeof(buf), "%.1f", lastSYS);
       else snprintf(buf, sizeof(buf), "--");
       lv_label_set_text(label_sys, buf);
+      if (sys_new_data) {
+            sys_new_data = false;
+
+            Serial.printf("[Latency] sys = %.1f  --> %lu ms\n", lastSYS, millis() - sys_update_ms);
+      }
     }
     if (label_dia) {
       char buf[32];

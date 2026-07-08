@@ -102,6 +102,13 @@ float ampBuf[MAX_SAMPLES];
 
 int sampleCount = 0;
 
+uint32_t hr_update_ms   = 0;
+bool hr_new_data   = false;
+
+uint32_t sys_update_ms = 0;
+bool sys_new_data = false;
+
+
 // ================== PROTOTYPES (internal) ==================
 void startPump(int speed = 200);
 void stopPump();
@@ -386,6 +393,8 @@ void Max30102_hr_spo2() {
   if (validHeartRate) {
     hr = applyEMA(heartRate, emaHR, EMA_ALPHA_HR, emaHRInit);
     Serial.printf("HR=%.1f ", hr);
+    hr_update_ms   = millis();
+    hr_new_data   = true;
   } else
     Serial.print("HR=- ");
 
@@ -615,6 +624,8 @@ void processOscillometric() {
   // Result
   Serial.println("\n===== RESULT =====");
   Serial.printf("SYS = %.1f mmHg\n", SYS);
+  sys_update_ms   = millis();
+  sys_new_data   = true;
   Serial.printf("DIA = %.1f mmHg\n", DIA);
   Serial.printf("MAP = %.1f mmHg\n", MAP);
 
